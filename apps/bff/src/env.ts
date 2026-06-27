@@ -1,5 +1,4 @@
-import { createEnv } from '@t3-oss/env-core';
-import { z } from 'zod';
+import { Schema } from 'effect';
 
 export const NodeEnv = {
   DEVELOPMENT: 'development',
@@ -7,10 +6,12 @@ export const NodeEnv = {
   TEST: 'test',
 } as const;
 
-export const env = createEnv({
-  server: {
-    NODE_ENV: z.enum(NodeEnv).default(NodeEnv.DEVELOPMENT),
-    BFF_PORT: z.coerce.number().default(3000),
-  },
-  runtimeEnv: process.env,
+const EnvSchema = Schema.Struct({
+  NODE_ENV: Schema.optionalWith(
+    Schema.Literal(NodeEnv.DEVELOPMENT, NodeEnv.PRODUCTION, NodeEnv.TEST),
+    { default: () => NodeEnv.DEVELOPMENT },
+  ),
+  BFF_PORT: Schema.optionalWith(Schema.NumberFromString, { default: () => 3000 }),
 });
+
+export const env = Schema.decodeUnknownSync(EnvSchema)(process.env);
