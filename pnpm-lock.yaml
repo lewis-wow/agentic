@@ -47,9 +47,12 @@ importers:
       '@hono/node-server':
         specifier: ^1.0.0
         version: 1.19.14(hono@4.12.27)
-      '@t3-oss/env-core':
-        specifier: ^0.13.11
-        version: 0.13.11(typescript@5.9.3)(zod@4.4.3)
+      '@hono/standard-validator':
+        specifier: ^0.2.2
+        version: 0.2.2(@standard-schema/spec@1.1.0)(hono@4.12.27)
+      effect:
+        specifier: ^3.21.4
+        version: 3.21.4
       hono:
         specifier: ^4.0.0
         version: 4.12.27
@@ -380,6 +383,12 @@ packages:
     peerDependencies:
       hono: ^4
 
+  '@hono/standard-validator@0.2.2':
+    resolution: {integrity: sha512-mJ7W84Bt/rSvoIl63Ynew+UZOHAzzRAoAXb3JaWuxAkM/Lzg+ZHTCUiz77KOtn2e623WNN8LkD57Dk0szqUrIw==}
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      hono: '>=3.9.0'
+
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -553,22 +562,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@t3-oss/env-core@0.13.11':
-    resolution: {integrity: sha512-sM7GYY+KL7H/Hl0BE0inWfk3nRHZOLhmVn7sHGxaZt9FAR6KqREXAE+6TqKfiavfXmpRxO/OZ2QgKRd+oiBYRQ==}
-    peerDependencies:
-      arktype: ^2.1.0
-      typescript: '>=5.0.0'
-      valibot: ^1.0.0-beta.7 || ^1.0.0
-      zod: ^3.24.0 || ^4.0.0
-    peerDependenciesMeta:
-      arktype:
-        optional: true
-      typescript:
-        optional: true
-      valibot:
-        optional: true
-      zod:
-        optional: true
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@trivago/prettier-plugin-sort-imports@5.2.2':
     resolution: {integrity: sha512-fYDQA9e6yTNmA13TLVSA+WMQRc5Bn/c0EUBditUHNfMMxN7M82c38b1kEggVE3pLpZ0FwkwJkUEKMiOi52JXFA==}
@@ -918,6 +913,9 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
+  effect@3.21.4:
+    resolution: {integrity: sha512-B89v/xSgPbl1J2Ai2u18jxq3odpFauU1rC6/eSs4FeNHi72kwKdJp12VGigvRV2lK+kRnx+OOz41XV8guZd4gQ==}
+
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
 
@@ -1026,6 +1024,10 @@ packages:
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
+
+  fast-check@3.23.2:
+    resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
+    engines: {node: '>=8.0.0'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -1454,6 +1456,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@6.1.0:
+    resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
@@ -1961,6 +1966,11 @@ snapshots:
     dependencies:
       hono: 4.12.27
 
+  '@hono/standard-validator@0.2.2(@standard-schema/spec@1.1.0)(hono@4.12.27)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.12.27
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -2082,10 +2092,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
 
-  '@t3-oss/env-core@0.13.11(typescript@5.9.3)(zod@4.4.3)':
-    optionalDependencies:
-      typescript: 5.9.3
-      zod: 4.4.3
+  '@standard-schema/spec@1.1.0': {}
 
   '@trivago/prettier-plugin-sort-imports@5.2.2(prettier@3.8.5)':
     dependencies:
@@ -2466,6 +2473,11 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
+  effect@3.21.4:
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      fast-check: 3.23.2
+
   emoji-regex@8.0.0: {}
 
   emoji-regex@9.2.2: {}
@@ -2615,6 +2627,10 @@ snapshots:
       strip-final-newline: 2.0.0
 
   expect-type@1.4.0: {}
+
+  fast-check@3.23.2:
+    dependencies:
+      pure-rand: 6.1.0
 
   fast-deep-equal@3.1.3: {}
 
@@ -2972,6 +2988,8 @@ snapshots:
   prettier@3.8.5: {}
 
   punycode@2.3.1: {}
+
+  pure-rand@6.1.0: {}
 
   require-directory@2.1.1: {}
 

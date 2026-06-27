@@ -117,3 +117,5 @@ const ROLES = {
   Avoid over-engineering types with deep nesting or unnecessary generics when a simple type definition suffices.
 
 - **Always use ES modules**
+
+- **Never use "as" during importing if it is not required**
