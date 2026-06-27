@@ -1,0 +1,12 @@
+{
+  "recursive": true,
+  "delete": true,
+  "mode": "wild",
+  "include": [".*\\.ts$", ".*\\.tsx$"],
+  "exclude": [
+    "index\\.ts$",
+    "\\.spec\\.ts$",
+    "\\.test\\.ts$"
+  ],
+  "noHeader": true
+}

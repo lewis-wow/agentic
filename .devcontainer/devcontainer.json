@@ -1,0 +1,34 @@
+{
+  "name": "Secure AI Agent Sandbox",
+
+  // Odkaz na tvůj docker-compose.yml, který řeší i socket proxy
+  "dockerComposeFile": "docker-compose.yml",
+
+  // Název služby z docker-compose, která se má spustit jako vývojové prostředí
+  "service": "devcontainer",
+
+  // Výchozí složka, do které se editor po spuštění přepne
+  "workspaceFolder": "/workspace",
+
+  // Zajištění, že editor bude pracovat pod ne-root uživatelem z Dockerfile
+  "remoteUser": "node",
+
+  // Nastavení specifická pro editor a AI nástroje
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Použití pnpm jako výchozího balíčkovacího manažeru v IDE
+        "npm.packageManager": "pnpm",
+        // Základní formátování a kontrola kódu pro TypeScript
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+      },
+      // Základní rozšíření, která se automaticky nainstalují do kontejneru
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "anthropic.claude-code"]
+    }
+  },
+
+  // Příkazy, které se spustí po úspěšném sestavení kontejneru
+  // pnpm store prune ušetří místo a pnpm install připraví závislosti
+  "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh"
+}

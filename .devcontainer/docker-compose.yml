@@ -1,0 +1,28 @@
+services:
+  devcontainer:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    networks:
+      - agent-net
+    command: sleep infinity
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - NETWORKS=1
+      - VOLUMES=0
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge

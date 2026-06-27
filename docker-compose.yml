@@ -1,0 +1,7 @@
+services:
+  bff:
+    build:
+      context: .
+      dockerfile: apps/bff/Dockerfile
+    ports:
+      - "3000:3000"
