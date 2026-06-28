@@ -1,36 +1,51 @@
 You are continuing work on a long-running autonomous development task. This is a FRESH context window - you have no memory of previous sessions.
 
-@.plans/prd.json @.plans/progress.txt
+@.plans/PRD.md @.plans/progress.txt @AGENTS.md
 
-1. Find the highest-priority feature to work on and work only on that feature. This should be the one YOU decide has the highest priority - not necessarily the first in the list
+1. Find the highest-priority feature to work on and work only on that feature. This should be the one YOU decide has the highest priority - not necessarily the first in the list.
 
-2. Before changes, search codebase (don't assume not implemented).
+2. Before making changes, search the codebase (don't assume something isn't already implemented).
 
-3. Implement the requirements for the selected feature using TDD.
+3. Load the relevant documentation files from `.docs/` as instructed in `AGENTS.md` for every technology you touch before writing any code.
 
-3. Run typecheck and tests: `bun run typecheck && bun run test`
+4. Implement the requirements for the selected feature using TDD.
 
-4. Update prd.json marking completed work (CAREFULLY!)
+5. After every code change, run the full post-modification checklist from `AGENTS.md` and fix any failures before continuing:
+
+```bash
+pnpm format        # auto-fix formatting
+pnpm format:check  # must pass with zero errors
+pnpm lint          # must pass with zero errors
+pnpm check-types   # must pass with zero errors
+pnpm test          # all unit + integration tests must pass
+```
+
+6. Update prd.json marking completed work (CAREFULLY!).
 
 **YOU CAN ONLY MODIFY ONE FIELD: "passes"**
 
 After thorough verification, change:
+
 ```json
 "passes": false
 ```
+
 to:
+
 ```json
 "passes": true
 ```
 
-5. Append learnings to .plans/progress.txt for future iterations.
+7. Append learnings to `.plans/progress.txt` for future iterations.
 
-6. Commit changes: `jj commit -m "description"`
+8. Commit changes:
+
+```bash
+git commit -m "description"
+```
 
 ONLY WORK ON A SINGLE FEATURE PER ITERATION.
 
-If all features complete, output <promise>COMPLETE</promise>
+If all features are complete, output <promise>COMPLETE</promise>
 
-When you learn something new about how to run commands or patterns in the code make sure you update @CLAUDE.md using a subagent but keep it brief.
-
-Remember: You have unlimited time across many sessions. Focus on quality over speed. Production-ready is the goal.
+When you learn something new about patterns or conventions in this codebase, update `AGENTS.md` — keep additions brief and precise.
