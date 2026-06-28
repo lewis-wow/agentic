@@ -2,3 +2,7 @@ node_modules
 dist
 .turbo
 pnpm-lock.yaml
+.agents
+.claude
+.ralph
+packages/ui/src/components/ui

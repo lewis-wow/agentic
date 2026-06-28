@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  environments Environment[]
+  flags        Flag[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Environment {
+  id         String      @id @default(cuid())
+  name       String
+  apiKey     String      @unique @default(cuid())
+  projectId  String
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  flagStates FlagState[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Flag {
+  id        String       @id @default(cuid())
+  key       String
+  name      String
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  states    FlagState[]
+  auditLog  AuditEvent[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([projectId, key])
+}
+
+model FlagState {
+  id            String      @id @default(cuid())
+  flagId        String
+  environmentId String
+  flag          Flag        @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  status        FlagStatus  @default(inactive)
+  type          FlagType    @default(boolean)
+  rollout       Int         @default(0)
+  rules         Json        @default("[]")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([flagId, environmentId])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  flagId    String
+  flag      Flag     @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  userId    String
+  action    String
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FlagStatus {
+  active
+  inactive
+  archived
+}
+
+enum FlagType {
+  boolean
+  percentage_rollout
+  targeted
+}

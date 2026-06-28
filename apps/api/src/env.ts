@@ -11,9 +11,10 @@ const EnvSchema = Schema.Struct({
     Schema.Literal(NodeEnv.DEVELOPMENT, NodeEnv.PRODUCTION, NodeEnv.TEST),
     { default: () => NodeEnv.DEVELOPMENT },
   ),
-  BFF_PORT: Schema.optionalWith(Schema.NumberFromString, {
-    default: () => 3000,
+  API_PORT: Schema.optionalWith(Schema.NumberFromString, {
+    default: () => 3001,
   }),
+  DATABASE_URL: Schema.String,
 });
 
 export const env = Schema.decodeUnknownSync(EnvSchema)(process.env);

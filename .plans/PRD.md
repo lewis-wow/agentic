@@ -351,6 +351,7 @@ DATABASE_URL=postgresql://...
 Vertical tracer-bullet slices in dependency order. Each slice is independently demoable end-to-end.
 
 ### Slice 1 — Monorepo scaffold & Prisma baseline
+
 **Blocked by:** None
 
 - Create `packages/prisma` with Prisma schema (all models from Section 9), client export, and initial migration
@@ -360,6 +361,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - All CI checks pass (`format:check`, `lint`, `check-types`, `test`)
 
 ### Slice 2 — Auth: setup wizard + email/password login
+
 **Blocked by:** Slice 1
 
 - Wire **better-auth** (email + password) into `apps/dashboard`
@@ -368,6 +370,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Role middleware (`owner` / `admin` / `viewer`) guards all dashboard routes
 
 ### Slice 3 — Project & Environment CRUD
+
 **Blocked by:** Slices 1, 2
 
 - Projects list + create / delete (dashboard)
@@ -375,6 +378,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Server actions → `packages/prisma` → PostgreSQL
 
 ### Slice 4 — Boolean flag CRUD + audit events
+
 **Blocked by:** Slice 3
 
 - Flags list per project + environment (status badge, quick active↔inactive toggle)
@@ -383,6 +387,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Every mutation appends an `AuditEvent` row
 
 ### Slice 5 — SDK API: flag config snapshot
+
 **Blocked by:** Slice 4
 
 - `GET /v1/flags` in `apps/api` authenticated via `X-API-Key` header (environment SDK key)
@@ -390,12 +395,14 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - 401 on missing / invalid key
 
 ### Slice 6 — Node.js SDK: boolean flag evaluation
+
 **Blocked by:** Slice 5
 
 - `packages/sdk-node`: `createClient()`, `connect()` (fetches snapshot), `isEnabled(key)` for boolean flags
 - Unit tests covering evaluation logic
 
 ### Slice 7 — SSE stream + real-time SDK updates
+
 **Blocked by:** Slice 6
 
 - `GET /v1/flags/stream` in `apps/api` (SSE); sends full `snapshot` event on connect
@@ -403,6 +410,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - SDK applies delta to local cache; reconnects with exponential backoff on drop
 
 ### Slice 8 — Percentage rollout flag type
+
 **Blocked by:** Slice 6
 
 - Dashboard: rollout % editor on flag detail
@@ -410,6 +418,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Unit tests for sticky bucketing (same user always lands in the same bucket)
 
 ### Slice 9 — Targeted flag type + rule builder
+
 **Blocked by:** Slice 6
 
 - Dashboard: rule builder UI (attribute / operator / value rows, drag-to-reorder, delete)
@@ -417,12 +426,14 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Unit tests per operator
 
 ### Slice 10 — Audit log timeline (dashboard)
+
 **Blocked by:** Slice 4
 
 - Flag detail view renders a chronological `AuditEvent` timeline (actor, action, timestamp, meta diff)
 - Can run in parallel with Slices 7–9
 
 ### Slice 11 — Browser SDK
+
 **Blocked by:** Slice 7
 
 - `packages/sdk-browser`: same `createClient` / `connect` / `isEnabled` API as `sdk-node`
@@ -430,6 +441,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Works in all modern browsers; tree-shakeable ESM bundle
 
 ### Slice 12 — Docker Compose production stack
+
 **Blocked by:** Slice 7
 
 - Production `docker-compose.yml`: `dashboard`, `api`, `bff`, `postgres` services

@@ -6,6 +6,7 @@
 - Node.js version: stored in @.nvmrc using NVM
 - Modules: ESM
 - Always scope non-global .env into particular app as .env.production for production or .env.development for development
+- node_modules are stored in root node_modules/ folder
 
 ## Required Context Loading
 

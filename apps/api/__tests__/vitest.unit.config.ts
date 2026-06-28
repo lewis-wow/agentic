@@ -2,5 +2,5 @@ import { unitConfig } from '@repo/vitest-config/unit';
 import { mergeConfig } from 'vitest/config';
 
 export default mergeConfig(unitConfig, {
-  test: { name: 'bff:unit' },
+  test: { name: 'api:unit' },
 });

@@ -2,5 +2,5 @@ import { integrationConfig } from '@repo/vitest-config/integration';
 import { mergeConfig } from 'vitest/config';
 
 export default mergeConfig(integrationConfig, {
-  test: { name: 'bff:integration' },
+  test: { name: 'api:integration' },
 });
