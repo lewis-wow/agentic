@@ -16,18 +16,15 @@
   // Settings specific to the editor and AI tools
   "customizations": {
     "vscode": {
-      "settings": {
-        // Use pnpm as the default package manager in the IDE
-        "npm.packageManager": "pnpm",
-        // Basic formatting and linting for TypeScript
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.formatOnSave": true
-      },
       // Core extensions that are automatically installed in the container
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "anthropic.claude-code"
+        "anthropic.claude-code",
+        "prisma.prisma",
+        "dsznajder.es7-react-js-snippets",
+        "usernamehw.errorlens",
+        "bradlc.vscode-tailwindcss"
       ]
     }
   },
