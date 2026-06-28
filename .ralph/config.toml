@@ -1,0 +1,5 @@
+# Ralph configuration
+adapter = "claude"
+plansDir = ".plans"
+debug = false
+tui = true

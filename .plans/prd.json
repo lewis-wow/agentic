@@ -1,0 +1,12 @@
+[
+  {
+    "category": "example",
+    "title": "Example Feature",
+    "description": "Replace this with your first feature",
+    "passes": false,
+    "acceptance": [
+      "Acceptance criteria 1",
+      "Acceptance criteria 2"
+    ]
+  }
+]
