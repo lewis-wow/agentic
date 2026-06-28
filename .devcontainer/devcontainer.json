@@ -1,34 +1,42 @@
 {
   "name": "Secure AI Agent Sandbox",
 
-  // Odkaz na tvůj docker-compose.yml, který řeší i socket proxy
+  // Reference to docker-compose.yml, which also handles the socket proxy
   "dockerComposeFile": "docker-compose.yml",
 
-  // Název služby z docker-compose, která se má spustit jako vývojové prostředí
+  // Name of the service from docker-compose to use as the dev environment
   "service": "devcontainer",
 
-  // Výchozí složka, do které se editor po spuštění přepne
+  // Default folder the editor opens to after startup
   "workspaceFolder": "/workspace",
 
-  // Zajištění, že editor bude pracovat pod ne-root uživatelem z Dockerfile
+  // Ensures the editor runs as a non-root user defined in the Dockerfile
   "remoteUser": "node",
 
-  // Nastavení specifická pro editor a AI nástroje
+  // Settings specific to the editor and AI tools
   "customizations": {
     "vscode": {
       "settings": {
-        // Použití pnpm jako výchozího balíčkovacího manažeru v IDE
+        // Use pnpm as the default package manager in the IDE
         "npm.packageManager": "pnpm",
-        // Základní formátování a kontrola kódu pro TypeScript
+        // Basic formatting and linting for TypeScript
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "editor.formatOnSave": true
       },
-      // Základní rozšíření, která se automaticky nainstalují do kontejneru
-      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "anthropic.claude-code"]
+      // Core extensions that are automatically installed in the container
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "anthropic.claude-code"
+      ]
     }
   },
 
-  // Příkazy, které se spustí po úspěšném sestavení kontejneru
-  // pnpm store prune ušetří místo a pnpm install připraví závislosti
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+
+  // Commands that run after the container is successfully built
+  // pnpm store prune saves disk space and pnpm install prepares dependencies
   "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh"
 }

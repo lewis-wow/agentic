@@ -4,3 +4,6 @@ dist
 .env*.local
 coverage
 *.tsbuildinfo
+
+.devcontainer/.claude/
+.devcontainer/.pnpm-store/
