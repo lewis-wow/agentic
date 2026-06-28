@@ -18,8 +18,23 @@ You have access to specific local documentation files for this project. Before w
 - For Hono use: @.docs/hono.md
 - For Effect use: @.docs/effect.md
 - For Shadcn UI use: @.docs/shadcnui.md
+- For Prisma use: @.docs/prisma.md
 
 Strictly follow the guidelines found inside these files for every task.
+
+## Post-Modification Checklist
+
+After **every** code change — no exceptions — run all of the following and fix any failures before considering the task done:
+
+```bash
+pnpm format        # auto-fix formatting
+pnpm format:check  # must pass with zero errors
+pnpm lint          # must pass with zero errors
+pnpm check-types   # must pass with zero errors
+pnpm test          # all unit + integration tests must pass
+```
+
+Do not report a task as complete if any of these commands exit with a non-zero status. Fix the root cause; do not suppress errors with ignore comments or skip flags.
 
 ## Commands
 

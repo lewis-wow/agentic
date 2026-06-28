@@ -104,13 +104,15 @@ const Roles = {
 ```
 
 - **Use const assertions for enums**
-  Avoid standard TypeScript enums. Instead, use `as const` objects where both the keys and values are identical and fully capitalized.
+  Avoid standard TypeScript enums. Instead, use `as const` objects where both the keys and values are identical and fully capitalized. Always derive the value union type using the `ValueOfEnum` utility type.
 
 ```typescript
 const ROLES = {
   ADMIN: 'ADMIN',
   USER: 'USER',
 } as const;
+
+type Role = ValueOfEnum<typeof ROLES>;
 ```
 
 - **Keep types clean and concise**
@@ -119,3 +121,35 @@ const ROLES = {
 - **Always use ES modules**
 
 - **Never use "as" during importing if it is not required**
+
+- **Use ValueOfEnum for extracting enum value types**
+  Always use a `ValueOfEnum` utility type to extract the union of values from a `const` enum object. Never use `typeof` or manual unions directly.
+
+```typescript
+type ValueOfEnum<T> = T[keyof T];
+
+const ROLES = {
+  ADMIN: 'ADMIN',
+  USER: 'USER',
+} as const;
+
+type Role = ValueOfEnum<typeof ROLES>; // 'ADMIN' | 'USER'
+```
+
+- **Use Effect Schema for all validation and DTOs**
+  Always use `effect/schema` (`Schema` from the `effect` package) for runtime validation and for defining Data Transfer Objects (DTOs). Never use `zod`, manual type guards, or plain TypeScript types alone for data coming from external sources (HTTP requests, database results, environment variables, etc.).
+
+```typescript
+import { Schema } from 'effect';
+
+const UserDTO = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  role: Schema.Literal('ADMIN', 'USER'),
+});
+
+type UserDTO = Schema.Schema.Type<typeof UserDTO>;
+
+// Parsing / validation
+const user = Schema.decodeUnknownSync(UserDTO)(rawInput);
+```
