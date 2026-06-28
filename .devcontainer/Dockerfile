@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     htop \
+    jq \
+    tmux \
     zsh \
     ca-certificates \
     && install -m 0755 -d /etc/apt/keyrings \
@@ -38,9 +40,27 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | b
 
 ENV PATH=/home/node/.nvm/current/bin:$PATH
 
-# Corepack activation
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# pnpm global bin dir — must be set before any `pnpm add -g` in the build
+ENV PNPM_HOME=/home/node/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+
+# Install pnpm at the version declared in package.json#packageManager.
+# Latest pnpm (v11+) requires Node >=22.13 which breaks on Node 20;
+# corepack has its own vm-compilation issue on Node 20, so use npm directly.
+RUN npm install -g pnpm@10.10.0
+
+# Install claude-code globally so `claude` is available as a plain command
+RUN pnpm add -g @anthropic-ai/claude-code
+# Explicitly run the postinstall so the native ELF binary (bin/claude.exe) is in place.
+# pnpm may skip lifecycle scripts in some configurations; running it explicitly is a safe guarantee.
+RUN node "$(pnpm root -g)/@anthropic-ai/claude-code/install.cjs"
 
 # Install Oh My Zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     sed -i 's/ZSH_THEME=".*"/ZSH_THEME="robbyrussell"/g' ~/.zshrc
+
+# Install ralph claude code
+RUN git clone https://github.com/frankbria/ralph-claude-code.git /tmp/ralph \
+    && cd /tmp/ralph \
+    && ./install.sh \
+    && rm -rf /tmp/ralph

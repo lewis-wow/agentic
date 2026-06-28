@@ -17,25 +17,28 @@ echo "Configuring pnpm paths for bash and zsh"
 if [ -f /home/node/.bashrc ]
 then
     echo "export PNPM_HOME=\"/home/node/.local/share/pnpm\"" >> /home/node/.bashrc
-    echo "export PATH=\"\$PNPM_HOME:\$PATH\"" >> /home/node/.bashrc
+    echo "export PATH=\"\$PNPM_HOME:/home/node/.local/bin:\$PATH\"" >> /home/node/.bashrc
 fi
 
 # Explicitly append the global binary path to zsh config if it exists
 if [ -f /home/node/.zshrc ]
 then
     echo "export PNPM_HOME=\"/home/node/.local/share/pnpm\"" >> /home/node/.zshrc
-    echo "export PATH=\"\$PNPM_HOME:\$PATH\"" >> /home/node/.zshrc
+    echo "export PATH=\"\$PNPM_HOME:/home/node/.local/bin:\$PATH\"" >> /home/node/.zshrc
 fi
-
-echo "Installing Ralph Wiggum"
 
 # Set the path locally just for the remainder of this setup script execution
 export PNPM_HOME="/home/node/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+export PATH="$PNPM_HOME:/home/node/.local/bin:$PATH"
 
 # Route the global pnpm store directly into the workspace folder
 pnpm config set store-dir /workspace/.devcontainer/.pnpm-store
 
-pnpm add -g @wiggumdev/ralph
+# Ensure the claude-code native binary is installed (install.cjs may be skipped in some pnpm configs)
+CLAUDE_PKG_DIR="$(pnpm root -g)/@anthropic-ai/claude-code"
+if [ -f "$CLAUDE_PKG_DIR/install.cjs" ]; then
+    echo "Running claude-code postinstall to ensure native binary..."
+    node "$CLAUDE_PKG_DIR/install.cjs" || echo "Warning: claude-code postinstall failed (non-fatal)"
+fi
 
 echo "Setup done!"
