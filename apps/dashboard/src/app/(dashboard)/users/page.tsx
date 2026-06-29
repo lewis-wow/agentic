@@ -2,6 +2,8 @@ import { prisma } from '@repo/prisma';
 
 import { requireOwner } from '../../../lib/guards.js';
 
+export const dynamic = 'force-dynamic';
+
 export default async function UsersPage(): Promise<React.ReactNode> {
   // Owner-only route. Non-owners receive a 403 via forbidden().
   await requireOwner();

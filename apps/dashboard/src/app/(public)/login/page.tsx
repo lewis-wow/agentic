@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { getSession } from '../../../lib/session.js';
 import { LoginForm } from './LoginForm.js';
 
+export const dynamic = 'force-dynamic';
+
 type Props = {
   searchParams: Promise<{ setup?: string }>;
 };

@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { getSession } from '../../../lib/session.js';
 import { RegisterForm } from './RegisterForm.js';
 
+export const dynamic = 'force-dynamic';
+
 export default async function RegisterPage(): Promise<React.ReactNode> {
   const userCount = await prisma.user.count();
   if (userCount === 0) {

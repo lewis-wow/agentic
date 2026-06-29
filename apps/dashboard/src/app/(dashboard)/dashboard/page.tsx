@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { requireSession } from '../../../lib/guards.js';
 import { CreateProjectForm } from './CreateProjectForm.js';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage(): Promise<React.ReactNode> {
   const user = await requireSession();
   const isOwner = user.role === SYSTEM_ROLE.OWNER;

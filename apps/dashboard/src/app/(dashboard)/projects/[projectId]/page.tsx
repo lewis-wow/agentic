@@ -8,6 +8,8 @@ import { DeleteProjectForm } from './DeleteProjectForm.js';
 import { EnvironmentsPanel } from './EnvironmentsPanel.js';
 import { MembersPanel } from './MembersPanel.js';
 
+export const dynamic = 'force-dynamic';
+
 type Props = {
   params: Promise<{ projectId: string }>;
 };

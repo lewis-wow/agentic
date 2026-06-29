@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 
 import { SetupForm } from './SetupForm.js';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SetupPage(): Promise<React.ReactNode> {
   const userCount = await prisma.user.count();
   if (userCount > 0) {
