@@ -1,6 +1,10 @@
 import { integrationConfig } from '@repo/vitest-config/integration';
+import path from 'node:path';
 import { mergeConfig } from 'vitest/config';
 
 export default mergeConfig(integrationConfig, {
-  test: { name: 'bff:integration' },
+  test: {
+    name: 'bff:integration',
+    root: path.resolve(import.meta.dirname, '..'),
+  },
 });

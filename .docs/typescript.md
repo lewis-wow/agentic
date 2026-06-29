@@ -153,3 +153,17 @@ type UserDTO = Schema.Schema.Type<typeof UserDTO>;
 // Parsing / validation
 const user = Schema.decodeUnknownSync(UserDTO)(rawInput);
 ```
+
+- **Define env schema using createEnv from @repo/utils package**
+
+```typescript
+import { createEnv } from '@repo/utils';
+
+export const env = createEnv({
+  schema: {
+    NODE_ENV: Schema.Enums(...),
+  },
+  runtimeEnv: process.env,
+  emptyStringAsUndefined: true,
+});
+```

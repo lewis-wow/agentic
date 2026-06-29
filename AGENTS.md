@@ -94,6 +94,15 @@ __tests__/
 
 Root-level `vitest.config.ts` discovers all `__tests__/vitest.*.config.ts` files across the repo. Integration tests run with `fileParallelism: false`.
 
+**Critical**: each `vitest.*.config.ts` in an app's `__tests__/` must set `test.root` to the app directory or vitest resolves include patterns relative to the workspace root:
+
+```ts
+import path from 'node:path';
+export default mergeConfig(unitConfig, {
+  test: { name: 'myapp:unit', root: path.resolve(import.meta.dirname, '..') },
+});
+```
+
 ### Environment Variables
 
 Dotenvx is used for environment management. Variables are layered:

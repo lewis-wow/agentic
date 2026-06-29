@@ -1,2 +1,23 @@
 # Progress Log
 
+## Slice 1 — Monorepo scaffold & Prisma baseline (2026-06-29)
+
+### What was already in place
+- `packages/prisma` with correct schema (all models from PRD §9), client.ts, and index.ts exports
+- `apps/api` with basic Hono server
+- `apps/dashboard` (already renamed from web)
+- `turbo.json` with correct tasks including db:generate / db:migrate
+- `docker-compose.yml` with dashboard, api, bff, and postgres services
+
+### What was fixed / added
+1. **`apps/api/src/env.ts`** — Rewrote to follow the bff pattern: `Schema.Struct` + `Schema.decodeUnknownSync(EnvSchema)(process.env)`. Removed broken `createEnv` from `@t3-oss/env-core`. Now exposes `NODE_ENV`, `API_PORT` (default 3001), and `DATABASE_URL`.
+2. **`apps/api/package.json`** — Removed `@t3-oss/env-core` dependency.
+3. **`pnpm-workspace.yaml`** — Removed stale `!apps/web` exclusion.
+4. **Prisma migration** — Created manual initial migration SQL at `packages/prisma/prisma/migrations/20260628000000_init/migration.sql` plus `migration_lock.toml`.
+5. **Tests** — Added `apps/api/__tests__/unit/env.test.ts` testing the EnvSchema parsing logic.
+6. **Vitest project root fix** — Added `root: path.resolve(import.meta.dirname, '..')` to all `__tests__/vitest.*.config.ts` files in both `apps/api` and `apps/bff`. Without this, vitest was resolving include patterns (`__tests__/unit/**/*.{test,spec}.{ts,mts}`) relative to the workspace root instead of the app root, causing "No test files found" errors.
+
+### Key learnings
+- **Vitest project root**: When using vitest `projects` in workspace mode, sub-project configs MUST set `test.root` explicitly to the app directory. Otherwise path patterns resolve relative to the workspace root. Use `path.resolve(import.meta.dirname, '..')` in `__tests__/vitest.*.config.ts`.
+- **env pattern**: All apps follow the bff pattern: `Schema.Struct` + `Schema.decodeUnknownSync(EnvSchema)(process.env)`. Never use `@t3-oss/env-core`.
+- **Prisma migrations**: Can be created manually when no DB is accessible during CI. The migration SQL must exactly match the schema.
