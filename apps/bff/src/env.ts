@@ -1,11 +1,6 @@
+import { NodeEnv } from '@repo/enums';
 import { createEnv } from '@repo/utils';
 import { Schema } from 'effect';
-
-export const NodeEnv = {
-  DEVELOPMENT: 'development',
-  PRODUCTION: 'production',
-  TEST: 'test',
-} as const;
 
 export const env = createEnv({
   schema: {

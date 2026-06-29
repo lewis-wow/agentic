@@ -108,6 +108,9 @@ importers:
       '@repo/bff':
         specifier: workspace:*
         version: link:../../packages/bff
+      '@repo/enums':
+        specifier: workspace:*
+        version: link:../../packages/enums
       '@repo/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma

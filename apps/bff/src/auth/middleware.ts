@@ -8,10 +8,9 @@ import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
-export { SESSION_COOKIE, type SessionWithUser } from '@repo/bff';
+import { JWT_TTL_SECONDS } from '../consts.js';
 
-/** The minted JWT covers a single proxied request, so its lifetime is short. */
-export const JWT_TTL_SECONDS = 60;
+export { SESSION_COOKIE, type SessionWithUser } from '@repo/bff';
 
 type SessionLookup = Parameters<typeof resolveSessionUser>[1];
 type MembershipLookup = (

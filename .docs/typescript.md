@@ -103,16 +103,32 @@ const Roles = {
 } as const;
 ```
 
-- **Use const assertions for enums**
-  Avoid standard TypeScript enums. Instead, use `as const` objects where both the keys and values are identical and fully capitalized. Always derive the value union type using the `ValueOfEnum` utility type.
+- **Use const assertions for enums — never use the `enum` keyword**
+  Never use the TypeScript `enum` keyword. Instead, use `as const` objects where both the keys and values are UPPER_SNAKE_CASE. When values are externally dictated (e.g. `NODE_ENV`, HTTP status codes), they may differ from the key format. Always derive the value union type using the `ValueOfEnum` utility type.
 
 ```typescript
-const ROLES = {
-  ADMIN: 'ADMIN',
-  USER: 'USER',
+export const SYSTEM_ROLE = {
+  OWNER: 'OWNER',
+  MEMBER: 'MEMBER',
 } as const;
 
-type Role = ValueOfEnum<typeof ROLES>;
+export type SystemRole = ValueOfEnum<typeof SYSTEM_ROLE>;
+
+export const HTTP_STATUS = {
+  OK_200: 200,
+  NOT_FOUND_404: 404,
+} as const;
+
+export type HttpStatus = ValueOfEnum<typeof HTTP_STATUS>;
+
+// Externally dictated values may differ from key format:
+export const NODE_ENV = {
+  DEVELOPMENT: 'development',
+  PRODUCTION: 'production',
+  TEST: 'test',
+} as const;
+
+export type NodeEnv = ValueOfEnum<typeof NODE_ENV>;
 ```
 
 - **Keep types clean and concise**

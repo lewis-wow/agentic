@@ -1,7 +1,6 @@
 import type { Session, User } from '@repo/prisma';
 
-/** Cookie name better-auth uses for the session token. */
-export const SESSION_COOKIE = 'better-auth.session_token';
+export { SESSION_COOKIE } from './consts.js';
 
 export type SessionWithUser = Session & { user: User };
 

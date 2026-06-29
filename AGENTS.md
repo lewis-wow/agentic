@@ -129,7 +129,7 @@ There are two credential paths, both implemented using the shared `@repo/bff` pa
 | ---------------------------- | ---------------------------------------------------------------------------------------------- |
 | `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding   |
 | `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims |
-| `packages/enums`             | Shared const enums: `HttpStatusCode` and derived `HttpStatusCode` type                         |
+| `packages/enums`             | Shared `as const` enums: `HttpStatusCode`, `NodeEnv`, and their derived union types            |
 | `packages/exception`         | `Exception<TData>` base class, `AnyException` type, `ExceptionShapeSchema` for error parsing   |
 | `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                 |
 | `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                           |
@@ -213,6 +213,31 @@ Each application that exposes a contract (HTTP responses, request bodies, events
 Generic shared packages (`packages/types`, `packages/auth`, `packages/prisma`, …) are reserved for cross-cutting infrastructure concerns that are genuinely independent of any single application's domain. Do not add domain schemas there.
 
 When a second application (e.g. an SDK client package) needs to consume `apps/api` response shapes, it imports from `packages/api` — the already-correct location — rather than requiring a migration out of a generic package.
+
+### Enums and Constants
+
+**Enums** — any fixed set of related named values — must be declared as `as const` objects following the pattern in `.docs/typescript.md`. Never use the TypeScript `enum` keyword.
+
+```ts
+export const SYSTEM_ROLE = {
+  OWNER: 'OWNER',
+  MEMBER: 'MEMBER',
+} as const;
+
+export type SystemRole = ValueOfEnum<typeof SYSTEM_ROLE>;
+```
+
+**True constants** (single values that are not part of an enum set) must be placed in a `consts.ts` file scoped to the app or package that owns them. Export them as `UPPER_SNAKE_CASE` named exports.
+
+```ts
+// apps/bff/src/consts.ts
+export const JWT_TTL_SECONDS = 60;
+
+// packages/bff/src/consts.ts
+export const SESSION_COOKIE = 'better-auth.session_token';
+```
+
+Do not export constants from middleware, route, or utility files. If a constant is only used within one module, it can remain as a non-exported local `const`; only move it to `consts.ts` when it is shared or logically belongs at the package/app boundary.
 
 ### HTTP Status Codes
 
