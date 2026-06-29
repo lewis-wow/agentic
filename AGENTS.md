@@ -34,6 +34,7 @@ pnpm format:check  # must pass with zero errors
 pnpm lint          # must pass with zero errors
 pnpm check-types   # must pass with zero errors
 pnpm test          # all unit + integration tests must pass
+pnpm build         # build all applications
 ```
 
 Do not report a task as complete if any of these commands exit with a non-zero status. Fix the root cause; do not suppress errors with ignore comments or skip flags.
