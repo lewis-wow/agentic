@@ -20,6 +20,7 @@ You have access to specific local documentation files for this project. Before w
 - For Effect use: @.docs/effect.md (Effect schemas, data parsing, and runtime validation)
 - For Shadcn UI use: @.docs/shadcnui.md (Shadcn UI design system and primitive configurations)
 - For Prisma use: @.docs/prisma.md (Prisma schema declarations and database client)
+- For TanStack Query use: @.docs/tanstack-query.md (Data fetching and mutation patterns in the dashboard)
 
 Strictly follow the guidelines found inside these files for every task.
 
@@ -68,17 +69,69 @@ This is a **Turborepo monorepo** with two workspace groups:
 - `apps/*` — runnable services
 - `packages/*` — shared internal tooling (not published)
 
+### Data Flow — API is the Single Source of Truth
+
+**`apps/api` is the only service that reads or writes data.** The dashboard never accesses Prisma directly and never uses Next.js server actions for data operations. All reads and writes go through `apps/api` via a credential-exchange layer.
+
+There are two credential paths, both implemented using the shared `@repo/bff` package:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Dashboard browser (React + TanStack Query)                  │
+│  fetch('/api/...')  — same-origin Next.js API routes         │
+└─────────────────────────┬───────────────────────────────────┘
+                          │  session cookie
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Next.js API Route Handlers  (apps/dashboard/src/app/api/)   │
+│  uses @repo/bff: session cookie → RS256 JWT                  │
+│  forwards request to apps/api with Authorization header      │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+          ┌───────────────┴──────────────┐
+          │                              │
+          ▼                              ▼
+┌──────────────────────┐    ┌────────────────────────────────┐
+│  apps/api (Hono)     │    │  apps/bff (Hono)               │
+│  verify RS256 JWT    │◄───│  uses @repo/bff:               │
+│  all Prisma + logic  │    │  API key → RS256 JWT           │
+└──────────────────────┘    │  forwards to apps/api          │
+                            └────────────────────────────────┘
+                                         ▲
+                                         │  env_<id>.<secret>
+                            ┌────────────┴───────────────────┐
+                            │  External SDK clients           │
+                            └────────────────────────────────┘
+```
+
+**Role of each layer:**
+
+- **`apps/api`** — the single source of truth. Owns every Prisma query, all business logic, and all validation. Routes are protected by JWT verification; the service has no knowledge of sessions or API keys.
+- **`apps/dashboard` Next.js API routes** — internal BFF for the browser UI. A route handler reads the Better Auth session cookie, uses `@repo/bff` to validate it and mint a short-lived RS256 JWT, then forwards the request to `apps/api`. No business logic lives here.
+- **`apps/bff`** — external BFF for SDK clients. Parses `env_<apiKeyId>.<secret>` Bearer tokens, uses `@repo/bff` to verify and mint an RS256 JWT, then forwards to `apps/api`. No business logic lives here.
+- **`packages/bff`** — shared credential-exchange primitives used by both BFF layers: session token extraction and validation, JWT minting, and `forwardWithJwt` request forwarding. Framework-agnostic (works in Hono middleware and Next.js Route Handlers alike).
+
+**Dashboard data rules:**
+
+- Client components use TanStack Query (`useQuery` / `useMutation`) to call the Next.js API routes at `/api/...`.
+- Next.js API routes do nothing except authenticate and proxy — they contain no business logic.
+- **No Next.js server actions for data.** Server actions were used in Slices 1–3 and must be migrated. New code must never introduce server actions for data fetching or mutation.
+- **No direct Prisma calls from the dashboard.** All reads and writes go through `apps/api`.
+
 ### Apps
 
-**`apps/bff`** — Backend-for-Frontend HTTP server built with [Hono](https://hono.dev) on `@hono/node-server`. Runs via `tsx` in dev. Environment variables are declared and validated at startup using Effect `Schema` (see `src/env.ts`). Build output goes to `dist/`.
+**`apps/bff`** — External BFF for SDK clients. Built with [Hono](https://hono.dev) on `@hono/node-server`. Runs via `tsx` in dev. Validates `env_<apiKeyId>.<secret>` Bearer tokens, mints RS256 JWTs via `@repo/bff`, and reverse-proxies to `apps/api`. Environment variables validated at startup via Effect `Schema` (see `src/env.ts`). Build output goes to `dist/`.
 
 ### Shared Packages
 
-| Package                      | Purpose                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                      |
-| `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                  |
-| `packages/vitest-config`     | Shared Vitest config factories (`unit.ts`, `integration.ts`, `consts.ts`) |
+| Package                      | Purpose                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding     |
+| `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims   |
+| `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                   |
+| `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                             |
+| `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                                         |
+| `packages/vitest-config`     | Shared Vitest config factories (`unit.ts`, `integration.ts`, `consts.ts`)                        |
 
 ### Testing Convention
 
