@@ -5,6 +5,7 @@ import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
+import { Forbidden } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -12,7 +13,7 @@ export const sdkRouter = new Hono<AppEnv>();
 
 sdkRouter.get('/flags', async (c) => {
   const auth = c.get('auth');
-  if (!isSdkClaims(auth)) return c.json({ error: 'Forbidden' }, 403);
+  if (!isSdkClaims(auth)) return new Forbidden().toResponse();
 
   const flagsWithStates = await prisma.flag.findMany({
     where: { projectId: auth.projectId },

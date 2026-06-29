@@ -230,7 +230,7 @@ The enum keys follow the pattern `NAME_NNN` (e.g. `BAD_REQUEST_400`, `NOT_FOUND_
 
 Every error returned from an HTTP handler must be an instance of `Exception` from `@repo/exception`. Never return plain `Error` objects or raw `{ error: string }` JSON — always use the structured exception pattern.
 
-Define a concrete subclass for each distinct error case. The subclass lives in the package or app that owns the error domain:
+Define a concrete subclass for each distinct error case. The subclass lives in an `exceptions/` folder inside the package or app that owns the error domain (e.g. `apps/api/src/exceptions/`, `packages/bff/src/exceptions/`). Export all exception classes from an `index.ts` barrel in that folder.
 
 ```ts
 import { HttpStatusCode } from '@repo/enums';

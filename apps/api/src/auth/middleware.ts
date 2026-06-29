@@ -2,6 +2,8 @@ import type { AuthJwtClaims } from '@repo/auth';
 import { JwtError, verifyRs256 } from '@repo/auth/jwt';
 import { createMiddleware } from 'hono/factory';
 
+import { Unauthorized } from '../exceptions/index.js';
+
 type Options = {
   publicKeyPem: string;
 };
@@ -10,11 +12,6 @@ export type ApiAuthVariables = {
   auth: AuthJwtClaims;
 };
 
-/**
- * Verifies the RS256 JWT minted by the BFF and injects the trusted claims into
- * the Hono context. `apps/api` has no auth DB dependency — it trusts the claims.
- * Missing / invalid / expired token → 401.
- */
 export const createJwtVerifyMiddleware = (options: Options) =>
   createMiddleware<{ Variables: ApiAuthVariables }>(async (c, next) => {
     const header = c.req.header('Authorization');
@@ -23,7 +20,7 @@ export const createJwtVerifyMiddleware = (options: Options) =>
       : undefined;
 
     if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
+      return new Unauthorized().toResponse();
     }
 
     let claims: AuthJwtClaims;
@@ -34,7 +31,7 @@ export const createJwtVerifyMiddleware = (options: Options) =>
       });
     } catch (error) {
       if (error instanceof JwtError) {
-        return c.json({ error: 'Unauthorized' }, 401);
+        return new Unauthorized().toResponse();
       }
       throw error;
     }

@@ -5,6 +5,17 @@ import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
+import {
+  EnvironmentIdRequired,
+  FlagIsArchived,
+  FlagKeyConflict,
+  FlagKeyRequired,
+  FlagNameRequired,
+  FlagNotFound,
+  Forbidden,
+  InvalidFlagKey,
+  InvalidFlagStatus,
+} from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -35,7 +46,7 @@ export const flagsRouter = new Hono<AppEnv>();
 flagsRouter.get('/environments', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
 
   const environments = await prisma.environment.findMany({
     where: { projectId: claims.projectId },
@@ -49,15 +60,15 @@ flagsRouter.get('/environments', async (c) => {
 flagsRouter.post('/:flagId/archive', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
   const flag = await prisma.flag.findUnique({
     where: { id: flagId, projectId: claims.projectId },
   });
-  if (!flag) return c.json({ error: 'Not found' }, 404);
+  if (!flag) return new FlagNotFound().toResponse();
 
   await prisma.$transaction([
     prisma.flagState.updateMany({
@@ -89,15 +100,15 @@ flagsRouter.post('/:flagId/archive', async (c) => {
 flagsRouter.post('/:flagId/unarchive', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
   const flag = await prisma.flag.findUnique({
     where: { id: flagId, projectId: claims.projectId },
   });
-  if (!flag) return c.json({ error: 'Not found' }, 404);
+  if (!flag) return new FlagNotFound().toResponse();
 
   await prisma.$transaction([
     prisma.flagState.updateMany({
@@ -129,15 +140,15 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
 flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const { flagId, environmentId } = c.req.param();
   const body = await parseBody(c.req.raw);
   const { status } = body;
 
   if (status !== 'active' && status !== 'inactive') {
-    return c.json({ error: 'status must be "active" or "inactive"' }, 400);
+    return new InvalidFlagStatus().toResponse();
   }
 
   const flagState = await prisma.flagState.findUnique({
@@ -146,11 +157,11 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   });
 
   if (!flagState || flagState.flag.projectId !== claims.projectId) {
-    return c.json({ error: 'Not found' }, 404);
+    return new FlagNotFound().toResponse();
   }
 
   if (flagState.status === 'archived') {
-    return c.json({ error: 'Cannot toggle an archived flag' }, 409);
+    return new FlagIsArchived().toResponse();
   }
 
   const [updated] = await prisma.$transaction([
@@ -174,7 +185,7 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
 flagsRouter.get('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
@@ -195,7 +206,7 @@ flagsRouter.get('/:flagId', async (c) => {
     },
   });
 
-  if (!flag) return c.json({ error: 'Not found' }, 404);
+  if (!flag) return new FlagNotFound().toResponse();
 
   return c.json({
     flag: {
@@ -225,21 +236,21 @@ flagsRouter.get('/:flagId', async (c) => {
 flagsRouter.patch('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
   const body = await parseBody(c.req.raw);
   const { name } = body;
 
   if (!name || typeof name !== 'string') {
-    return c.json({ error: 'name is required' }, 400);
+    return new FlagNameRequired().toResponse();
   }
 
   const existing = await prisma.flag.findUnique({
     where: { id: flagId, projectId: claims.projectId },
   });
-  if (!existing) return c.json({ error: 'Not found' }, 404);
+  if (!existing) return new FlagNotFound().toResponse();
 
   const [updated] = await prisma.$transaction([
     prisma.flag.update({ where: { id: flagId }, data: { name } }),
@@ -259,15 +270,15 @@ flagsRouter.patch('/:flagId', async (c) => {
 flagsRouter.delete('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
   const flag = await prisma.flag.findUnique({
     where: { id: flagId, projectId: claims.projectId },
   });
-  if (!flag) return c.json({ error: 'Not found' }, 404);
+  if (!flag) return new FlagNotFound().toResponse();
 
   await prisma.flag.delete({ where: { id: flagId } });
 
@@ -277,11 +288,11 @@ flagsRouter.delete('/:flagId', async (c) => {
 flagsRouter.get('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
 
   const environmentId = c.req.query('environmentId');
   if (!environmentId) {
-    return c.json({ error: 'environmentId is required' }, 400);
+    return new EnvironmentIdRequired().toResponse();
   }
 
   const flagsWithStates = await prisma.flag.findMany({
@@ -312,27 +323,27 @@ flagsRouter.get('/', async (c) => {
 flagsRouter.post('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
-  if (!claims) return c.json({ error: 'Forbidden' }, 403);
-  if (!canManage(claims)) return c.json({ error: 'Forbidden' }, 403);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
 
   const body = await parseBody(c.req.raw);
   const { key, name } = body;
 
   if (!key || typeof key !== 'string') {
-    return c.json({ error: 'key is required' }, 400);
+    return new FlagKeyRequired().toResponse();
   }
   if (!name || typeof name !== 'string') {
-    return c.json({ error: 'name is required' }, 400);
+    return new FlagNameRequired().toResponse();
   }
   if (!FLAG_KEY_RE.test(key)) {
-    return c.json({ error: 'key must match ^[a-z0-9-]+$' }, 400);
+    return new InvalidFlagKey().toResponse();
   }
 
   const existing = await prisma.flag.findUnique({
     where: { projectId_key: { projectId: claims.projectId, key } },
   });
   if (existing) {
-    return c.json({ error: 'A flag with this key already exists' }, 409);
+    return new FlagKeyConflict().toResponse();
   }
 
   const environments = await prisma.environment.findMany({

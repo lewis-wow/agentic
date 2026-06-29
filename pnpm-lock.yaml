@@ -53,6 +53,12 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@repo/enums':
+        specifier: workspace:*
+        version: link:../../packages/enums
+      '@repo/exception':
+        specifier: workspace:*
+        version: link:../../packages/exception
       '@repo/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
