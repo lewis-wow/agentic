@@ -1,11 +1,18 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@repo/ui', '@repo/utils', '@repo/prisma'],
+  transpilePackages: ['@repo/ui', '@repo/utils', '@repo/prisma', 'effect'],
   devIndicators: false,
   experimental: {
     // Enables forbidden() / unauthorized() interrupts used by the route guards.
     authInterrupts: true,
+  },
+  webpack: (config) => {
+    config.resolve.extensionAlias = {
+      '.js': ['.js', '.ts', '.tsx'],
+      '.jsx': ['.jsx', '.tsx'],
+    };
+    return config;
   },
 };
 

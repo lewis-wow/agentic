@@ -1,4 +1,4 @@
-import Schema from 'effect/Schema';
+import * as Schema from 'effect/Schema';
 
 export const emptyStringAsUndefined = <K extends string>(
   obj: Record<K, string | undefined>,
