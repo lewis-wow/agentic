@@ -12,6 +12,9 @@
   "dependencies": {
     "@hono/node-server": "^1.0.0",
     "@hono/standard-validator": "^0.2.2",
+    "@repo/auth": "workspace:*",
+    "@repo/prisma": "workspace:*",
+    "@repo/utils": "workspace:*",
     "effect": "^3.21.4",
     "hono": "^4.0.0",
     "zod": "^4.4.3"

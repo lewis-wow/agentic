@@ -1,4 +1,5 @@
 import { prisma } from '@repo/prisma';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getSession } from '../../../lib/session.js';
@@ -36,6 +37,12 @@ export default async function LoginPage({
           )}
         </div>
         <LoginForm />
+        <p className="text-center text-sm text-gray-500">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="font-medium underline">
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   );

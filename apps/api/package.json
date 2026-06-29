@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
+    "@repo/auth": "workspace:*",
     "@repo/prisma": "workspace:*",
+    "@repo/utils": "workspace:*",
     "effect": "^3.21.4",
     "hono": "^4.0.0"
   },

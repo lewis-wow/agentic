@@ -13,12 +13,13 @@ model User {
   email         String       @unique
   emailVerified Boolean      @default(false)
   image         String?
-  role          String       @default("viewer")
+  role          String          @default("MEMBER")
   sessions      Session[]
   accounts      Account[]
   auditEvents   AuditEvent[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  projectMembers ProjectMember[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 }
 
 model Session {
@@ -62,12 +63,26 @@ model Verification {
 }
 
 model Project {
-  id           String        @id @default(cuid())
+  id           String          @id @default(cuid())
   name         String
   environments Environment[]
   flags        Flag[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  members      ProjectMember[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, projectId])
 }
 
 model Environment {

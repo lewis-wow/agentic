@@ -7,4 +7,9 @@ export type {
   Session,
   Account,
   Verification,
+  Project,
+  Environment,
+  Flag,
+  FlagState,
+  ProjectMember,
 } from '@prisma/client';
