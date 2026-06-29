@@ -21,3 +21,30 @@
 - **Vitest project root**: When using vitest `projects` in workspace mode, sub-project configs MUST set `test.root` explicitly to the app directory. Otherwise path patterns resolve relative to the workspace root. Use `path.resolve(import.meta.dirname, '..')` in `__tests__/vitest.*.config.ts`.
 - **env pattern**: All apps follow the bff pattern: `Schema.Struct` + `Schema.decodeUnknownSync(EnvSchema)(process.env)`. Never use `@t3-oss/env-core`.
 - **Prisma migrations**: Can be created manually when no DB is accessible during CI. The migration SQL must exactly match the schema.
+
+## Slice 2 — Auth: setup wizard + email/password login (2026-06-29)
+
+### What was implemented
+1. **Prisma schema** — Added `User`, `Session`, `Account`, `Verification` models for better-auth. Added `role: String @default("viewer")` field to User. Added `user` relation to `AuditEvent`. Created migration `20260629000000_add_auth_tables`.
+2. **`@repo/prisma` exports** — Updated `src/index.ts` to export User, Session, Account, Verification types.
+3. **`apps/dashboard` dependencies** — Added `better-auth@^1.6.22`, `@repo/prisma`, `@repo/utils`, `effect`.
+4. **`apps/dashboard/src/env.ts`** — Env validation using `createEnv` from `@repo/utils` (DATABASE_URL, BETTER_AUTH_SECRET).
+5. **`src/lib/auth.ts`** — better-auth server config with prismaAdapter, emailAndPassword enabled, `role` as an additionalField (input: true, defaultValue: "viewer"), nextCookies plugin.
+6. **`src/lib/auth-client.ts`** — better-auth React client via `createAuthClient` from `better-auth/react`.
+7. **`src/app/api/auth/[...all]/route.ts`** — better-auth Next.js handler.
+8. **`src/middleware.ts`** — Lightweight middleware: checks for `better-auth.session_token` cookie; redirects to `/login` if absent; allows `/login`, `/setup`, `/api/auth` through without auth.
+9. **`src/lib/session.ts`** — Server-side `getSession()` wrapper using `auth.api.getSession`.
+10. **`src/lib/require-role.ts`** — `requireRole(minimum)` for page-level role guards using rank comparison.
+11. **Route structure**: `(public)/setup`, `(public)/login`, `(dashboard)/layout`, `(dashboard)/dashboard`.
+12. **Setup wizard** — Server Component checks `prisma.user.count()`, redirects to `/login` if users exist. `SetupForm` (Client Component) creates owner account + first project via server action.
+13. **Login page** — `LoginForm` (Client Component) uses `authClient.signIn.email()` + router.push on success.
+14. **Dashboard layout** — `getSession()` called server-side; redirects to `/login` if no session; renders nav with email, role badge, LogoutButton.
+15. **LogoutButton** — Client Component, calls `authClient.signOut()` + redirect.
+
+### Key learnings
+- **better-auth version**: 1.6.22. Import paths: `better-auth`, `better-auth/adapters/prisma`, `better-auth/next-js`, `better-auth/react`.
+- **Middleware approach**: Use lightweight cookie check (`better-auth.session_token`) in Next.js middleware — avoids Edge runtime issues with Prisma. Full session validation in server component layouts via `auth.api.getSession`.
+- **additionalFields for role**: Set `input: true` + `defaultValue: "viewer"` so role can be passed during sign-up. Sign-up endpoint accepts extra fields via `z.record(z.string(), z.any())`.
+- **nextCookies plugin**: Required for server actions in Next.js App Router so better-auth sets cookies properly.
+- **Route groups**: Use `(public)` for login/setup (no auth required) and `(dashboard)` for protected pages with auth layout.
+- **createEnv usage**: `createEnv` from `@repo/utils` requires `process.env` cast to `Record<string, string | undefined>` for TypeScript compatibility.

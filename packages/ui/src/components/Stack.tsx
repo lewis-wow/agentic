@@ -1,6 +1,6 @@
 import { Slot } from '@radix-ui/react-slot';
-import { cn } from '@repo/ui/lib/utils';
 import type { ValueOfEnum } from '@repo/types';
+import { cn } from '@repo/ui/lib/utils';
 import type { ReactNode } from 'react';
 
 export const STACK_PREDEFINED_GAP = {

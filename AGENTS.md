@@ -98,6 +98,7 @@ Root-level `vitest.config.ts` discovers all `__tests__/vitest.*.config.ts` files
 
 ```ts
 import path from 'node:path';
+
 export default mergeConfig(unitConfig, {
   test: { name: 'myapp:unit', root: path.resolve(import.meta.dirname, '..') },
 });
