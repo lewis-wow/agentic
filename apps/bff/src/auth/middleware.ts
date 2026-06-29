@@ -2,20 +2,18 @@ import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
 import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
 import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
-import type { Environment, ProjectMember, Session, User } from '@repo/prisma';
+import { resolveSessionUser, SESSION_COOKIE } from '@repo/bff';
+import type { Environment, ProjectMember } from '@repo/prisma';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
+export { SESSION_COOKIE, type SessionWithUser } from '@repo/bff';
+
 /** The minted JWT covers a single proxied request, so its lifetime is short. */
 export const JWT_TTL_SECONDS = 60;
 
-/** Cookie name better-auth uses for the session token. */
-export const SESSION_COOKIE = 'better-auth.session_token';
-
-export type SessionWithUser = Session & { user: User };
-
-type SessionLookup = (token: string) => Promise<SessionWithUser | null>;
+type SessionLookup = Parameters<typeof resolveSessionUser>[1];
 type MembershipLookup = (
   userId: string,
   projectId: string,
@@ -46,41 +44,6 @@ export type AuthVariables = {
 };
 
 /**
- * better-auth stores the cookie as `<token>.<signature>`. The DB row keys on the
- * raw token, so strip the signature before lookup.
- */
-const extractToken = (rawCookie: string): string => {
-  const decoded = decodeURIComponent(rawCookie);
-  const dot = decoded.indexOf('.');
-  return dot === -1 ? decoded : decoded.slice(0, dot);
-};
-
-const resolveSessionUser = async (
-  findSession: SessionLookup,
-  rawCookie: string | undefined,
-): Promise<User | null> => {
-  if (!rawCookie) {
-    return null;
-  }
-
-  const token = extractToken(rawCookie);
-  if (!token) {
-    return null;
-  }
-
-  const session = await findSession(token);
-  if (!session) {
-    return null;
-  }
-
-  if (session.expiresAt.getTime() <= Date.now()) {
-    return null;
-  }
-
-  return session.user;
-};
-
-/**
  * Project-scoped auth: validates the session cookie, resolves the caller's role
  * for `:projectId`, and mints an RS256 project JWT.
  *
@@ -93,8 +56,8 @@ export const createProjectAuthMiddleware = (
 ) =>
   createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
     const user = await resolveSessionUser(
-      options.findSession,
       getCookie(c, options.cookieName ?? SESSION_COOKIE),
+      options.findSession,
     );
 
     if (!user) {
@@ -149,8 +112,8 @@ export const createProjectAuthMiddleware = (
 export const createMeAuthMiddleware = (options: SessionMiddlewareOptions) =>
   createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
     const user = await resolveSessionUser(
-      options.findSession,
       getCookie(c, options.cookieName ?? SESSION_COOKIE),
+      options.findSession,
     );
 
     if (!user) {

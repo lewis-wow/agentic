@@ -124,14 +124,14 @@ There are two credential paths, both implemented using the shared `@repo/bff` pa
 
 ### Shared Packages
 
-| Package                      | Purpose                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding     |
-| `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims   |
-| `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                   |
-| `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                             |
-| `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                                         |
-| `packages/vitest-config`     | Shared Vitest config factories (`unit.ts`, `integration.ts`, `consts.ts`)                        |
+| Package                      | Purpose                                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding   |
+| `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims |
+| `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                 |
+| `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                           |
+| `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                                       |
+| `packages/vitest-config`     | Shared Vitest config factories (`unit.ts`, `integration.ts`, `consts.ts`)                      |
 
 ### Testing Convention
 

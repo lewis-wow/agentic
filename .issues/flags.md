@@ -15,14 +15,14 @@
 - **All flag mutations require `canManage`** (project role `owner` or `admin`). `viewer` can read only.
 - **AuditEvent `action` values** are dot-namespaced strings. Valid values and `meta` shapes:
 
-  | action | meta |
-  |---|---|
-  | `flag.created` | `{ key, name }` |
-  | `flag.renamed` | `{ oldName, newName }` |
-  | `flag.archived` | `{}` |
-  | `flag.unarchived` | `{}` |
-  | `flag.deleted` | `{ key, name }` |
-  | `flag.toggled` | `{ environmentId, status: "active" \| "inactive" }` |
+  | action            | meta                                                |
+  | ----------------- | --------------------------------------------------- |
+  | `flag.created`    | `{ key, name }`                                     |
+  | `flag.renamed`    | `{ oldName, newName }`                              |
+  | `flag.archived`   | `{}`                                                |
+  | `flag.unarchived` | `{}`                                                |
+  | `flag.deleted`    | `{ key, name }`                                     |
+  | `flag.toggled`    | `{ environmentId, status: "active" \| "inactive" }` |
 
 ---
 
@@ -43,6 +43,7 @@ Create `packages/bff` as a new shared internal package. Extract the session-vali
 **Next.js API route scaffold in `apps/dashboard`:**
 
 Add a catch-all route handler at `apps/dashboard/src/app/api/[...path]/route.ts`. For any incoming request it must:
+
 1. Read the Better Auth session cookie
 2. Use `@repo/bff` `resolveSessionUser` to validate it (same `findSession` call via `@repo/prisma`)
 3. Mint a short-lived RS256 JWT with the user's claims via `@repo/auth/jwt` `signRs256`
@@ -77,6 +78,7 @@ Add flag creation and listing, end-to-end from `apps/api` through to the dashboa
 **`apps/api` endpoints:**
 
 `POST /projects/:projectId/flags`
+
 - Body: `{ key: string, name: string }`
 - Validates that `key` matches `^[a-z0-9-]+$` and is unique within the project (`@@unique([projectId, key])`)
 - Creates the `Flag` row
@@ -85,6 +87,7 @@ Add flag creation and listing, end-to-end from `apps/api` through to the dashboa
 - Returns the created flag
 
 `GET /projects/:projectId/flags?environmentId=<id>`
+
 - Returns all flags for the project with their `FlagState` for the given environment (including `status`)
 - Excludes `archived` flags by default (archived flags are hidden from the list)
 - Requires `environmentId` query param; returns 400 if missing
@@ -126,6 +129,7 @@ Add the ability to toggle a flag between `active` and `inactive` for a specific 
 **`apps/api` endpoint:**
 
 `PATCH /projects/:projectId/flags/:flagId/environments/:environmentId`
+
 - Body: `{ status: "active" | "inactive" }`
 - Finds the `FlagState` for `(flagId, environmentId)`; returns 404 if absent
 - Rejects the toggle if the flag's current status is `archived` (returns 409)
@@ -164,11 +168,13 @@ Add the flag detail page and rename capability, end-to-end.
 **`apps/api` endpoints:**
 
 `GET /projects/:projectId/flags/:flagId`
+
 - Returns the flag (`id`, `key`, `name`, `createdAt`, `updatedAt`)
 - Includes all `FlagState` rows (one per environment) with `environmentId`, `environmentName`, `status`
 - Includes the 50 most recent `AuditEvent` rows ordered by `createdAt desc`, each with `action`, `meta`, `createdAt`, and the actor's `userId` + `name`
 
 `PATCH /projects/:projectId/flags/:flagId`
+
 - Body: `{ name: string }`
 - Updates `Flag.name` only — `key` is never touched
 - Appends `AuditEvent` with `action: "flag.renamed"`, `meta: { oldName, newName }`
@@ -210,16 +216,19 @@ Add archive/unarchive and delete to the flag detail page, end-to-end.
 **`apps/api` endpoints:**
 
 `POST /projects/:projectId/flags/:flagId/archive`
+
 - Sets all `FlagState.status` to `archived` for this flag (across every environment)
 - Appends `AuditEvent` with `action: "flag.archived"`, `meta: {}`
 - Returns the updated flag
 
 `POST /projects/:projectId/flags/:flagId/unarchive`
+
 - Sets all `FlagState.status` to `inactive` for this flag
 - Appends `AuditEvent` with `action: "flag.unarchived"`, `meta: {}`
 - Returns the updated flag
 
 `DELETE /projects/:projectId/flags/:flagId`
+
 - Reads `flag.key` and `flag.name` before deletion (for the audit meta)
 - Deletes the `Flag` row; cascade removes all `FlagState` and `AuditEvent` rows
 - Does **not** write a post-delete audit event (the row is gone); instead the caller receives a 204 and the UI redirects away

@@ -54,6 +54,21 @@ export default async function ProjectPage({
         </p>
       </div>
 
+      <div className="flex items-center justify-between rounded-md border px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">Feature Flags</p>
+          <p className="text-xs text-gray-500">
+            Manage boolean flags for this project
+          </p>
+        </div>
+        <Link
+          href={`/projects/${projectId}/flags`}
+          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
+        >
+          Open Flags
+        </Link>
+      </div>
+
       <EnvironmentsPanel
         projectId={project.id}
         canManage={canManage}

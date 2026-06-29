@@ -1,8 +1,8 @@
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
+import { forwardWithJwt } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
-import type { Context } from 'hono';
 
 import {
   type AuthVariables,
@@ -46,31 +46,10 @@ app.use('/projects/:projectId/*', projectAuth);
 app.use('/me', meAuth);
 app.use('/sdk/*', sdkAuth);
 
-/** Forward the (now authenticated) request to apps/api with the minted JWT. */
-const forwardToApi = async (c: Context<AppEnv>): Promise<Response> => {
-  const incoming = c.req.raw;
-  const target = new URL(c.req.path, env.API_URL);
-  target.search = new URL(incoming.url).search;
-
-  const headers = new Headers(incoming.headers);
-  headers.set('Authorization', `Bearer ${c.get('jwt')}`);
-
-  const method = c.req.method;
-  const body =
-    method === 'GET' || method === 'HEAD'
-      ? undefined
-      : await c.req.arrayBuffer();
-
-  const response = await fetch(target, { method, headers, body });
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: response.headers,
-  });
-};
-
-app.all('/projects/:projectId/*', forwardToApi);
-app.all('/me', forwardToApi);
-app.all('/sdk/*', forwardToApi);
+app.all('/projects/:projectId/*', (c) =>
+  forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL),
+);
+app.all('/me', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
+app.all('/sdk/*', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
 
 serve({ fetch: app.fetch, port: env.BFF_PORT });

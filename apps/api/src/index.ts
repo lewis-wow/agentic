@@ -7,6 +7,7 @@ import {
   createJwtVerifyMiddleware,
 } from './auth/middleware.js';
 import { env } from './env.js';
+import { flagsRouter } from './routes/flags.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -22,7 +23,8 @@ app.use('/projects/:projectId/*', jwtAuth);
 app.use('/me', jwtAuth);
 app.use('/sdk/*', jwtAuth);
 
-// Echoes the verified claims; downstream handlers read them via c.get('auth').
 app.get('/me', (c) => c.json({ auth: c.get('auth') }));
+
+app.route('/projects/:projectId/flags', flagsRouter);
 
 serve({ fetch: app.fetch, port: env.API_PORT });

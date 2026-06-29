@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
+    "@repo/bff": "workspace:*",
     "@repo/prisma": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/utils": "workspace:*",
+    "@tanstack/react-query": "^5.101.2",
     "better-auth": "^1.6.22",
     "effect": "^3.21.4",
     "next": "15.5.4",

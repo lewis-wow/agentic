@@ -15,17 +15,34 @@ Wrap the app in a `QueryClientProvider`. In `apps/dashboard`, create the client 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
-const QueryProvider = ({ children }: { children: React.ReactNode }): React.ReactNode => {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: { staleTime: 30_000 },
-    },
-  }));
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
+
+const QueryProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactNode => {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { staleTime: 30_000 },
+        },
+      }),
+  );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 };
 ```
@@ -37,10 +54,13 @@ Query keys are arrays. Structure them hierarchically: `[resource, ...scope, ...f
 ```ts
 // queries/flags.ts
 export const flagKeys = {
-  all:        (projectId: string)                        => ['projects', projectId, 'flags'] as const,
-  byEnv:      (projectId: string, envId: string)         => ['projects', projectId, 'flags', { envId }] as const,
-  detail:     (projectId: string, flagId: string)        => ['projects', projectId, 'flags', flagId] as const,
-  auditLog:   (projectId: string, flagId: string)        => ['projects', projectId, 'flags', flagId, 'audit'] as const,
+  all: (projectId: string) => ['projects', projectId, 'flags'] as const,
+  byEnv: (projectId: string, envId: string) =>
+    ['projects', projectId, 'flags', { envId }] as const,
+  detail: (projectId: string, flagId: string) =>
+    ['projects', projectId, 'flags', flagId] as const,
+  auditLog: (projectId: string, flagId: string) =>
+    ['projects', projectId, 'flags', flagId, 'audit'] as const,
 } as const;
 ```
 
@@ -55,11 +75,16 @@ type FlagsQueryPayload = {
   flags: Flag[];
 };
 
-const useFlags = (projectId: string, environmentId: string): FlagsQueryPayload | undefined => {
+const useFlags = (
+  projectId: string,
+  environmentId: string,
+): FlagsQueryPayload | undefined => {
   const { data } = useQuery({
     queryKey: flagKeys.byEnv(projectId, environmentId),
     queryFn: async (): Promise<FlagsQueryPayload> => {
-      const res = await fetch(`/api/projects/${projectId}/flags?environmentId=${environmentId}`);
+      const res = await fetch(
+        `/api/projects/${projectId}/flags?environmentId=${environmentId}`,
+      );
       if (!res.ok) throw new Error(await res.text());
       return res.json() as Promise<FlagsQueryPayload>;
     },
@@ -120,7 +145,9 @@ Invalidate by prefix to catch all variants:
 void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
 
 // Invalidate only a specific flag's detail
-void queryClient.invalidateQueries({ queryKey: flagKeys.detail(projectId, flagId) });
+void queryClient.invalidateQueries({
+  queryKey: flagKeys.detail(projectId, flagId),
+});
 ```
 
 ## Error Handling
