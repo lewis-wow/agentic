@@ -88,12 +88,15 @@ model ProjectMember {
 model Environment {
   id         String      @id @default(cuid())
   name       String
-  apiKey     String      @unique @default(cuid())
+  apiKeyId   String      @unique
+  apiKeyHash String
   projectId  String
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   flagStates FlagState[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+
+  @@unique([projectId, name])
 }
 
 model Flag {

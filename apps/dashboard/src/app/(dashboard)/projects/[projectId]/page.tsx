@@ -1,9 +1,11 @@
-import { PROJECT_ROLE } from '@repo/auth/roles';
+import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireProjectAccess } from '../../../../lib/guards.js';
+import { DeleteProjectForm } from './DeleteProjectForm.js';
+import { EnvironmentsPanel } from './EnvironmentsPanel.js';
 import { MembersPanel } from './MembersPanel.js';
 
 type Props = {
@@ -14,7 +16,7 @@ export default async function ProjectPage({
   params,
 }: Props): Promise<React.ReactNode> {
   const { projectId } = await params;
-  const { projectRole } = await requireProjectAccess(projectId);
+  const { user, projectRole } = await requireProjectAccess(projectId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -36,6 +38,7 @@ export default async function ProjectPage({
     select: { id: true, name: true, email: true },
   });
 
+  const isOwner = user.role === SYSTEM_ROLE.OWNER;
   const canManage =
     projectRole === PROJECT_ROLE.OWNER || projectRole === PROJECT_ROLE.ADMIN;
 
@@ -51,21 +54,15 @@ export default async function ProjectPage({
         </p>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Environments
-        </h2>
-        <ul className="space-y-2">
-          {project.environments.map((environment) => (
-            <li
-              key={environment.id}
-              className="rounded-md border px-4 py-3 text-sm"
-            >
-              {environment.name}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <EnvironmentsPanel
+        projectId={project.id}
+        canManage={canManage}
+        environments={project.environments.map((e) => ({
+          id: e.id,
+          name: e.name,
+          apiKeyId: e.apiKeyId,
+        }))}
+      />
 
       <MembersPanel
         projectId={project.id}
@@ -77,6 +74,10 @@ export default async function ProjectPage({
           user: member.user,
         }))}
       />
+
+      {isOwner && (
+        <DeleteProjectForm projectId={project.id} projectName={project.name} />
+      )}
     </div>
   );
 }

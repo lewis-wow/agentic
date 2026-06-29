@@ -1,9 +1,11 @@
 import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
+import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
 import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
 import type { Environment, ProjectMember, Session, User } from '@repo/prisma';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
+import { LRUCache } from 'lru-cache';
 
 /** The minted JWT covers a single proxied request, so its lifetime is short. */
 export const JWT_TTL_SECONDS = 60;
@@ -18,7 +20,7 @@ type MembershipLookup = (
   userId: string,
   projectId: string,
 ) => Promise<ProjectMember | null>;
-type EnvironmentLookup = (apiKey: string) => Promise<Environment | null>;
+type EnvironmentLookup = (apiKeyId: string) => Promise<Environment | null>;
 
 type SessionMiddlewareOptions = {
   findSession: SessionLookup;
@@ -33,6 +35,8 @@ type ProjectMiddlewareOptions = SessionMiddlewareOptions & {
 type SdkMiddlewareOptions = {
   findEnvironment: EnvironmentLookup;
   privateKeyPem: string;
+  /** Injected in tests to replace the module-level cache. */
+  cache?: LRUCache<string, string>;
 };
 
 /** Variables every auth middleware sets so a downstream proxy can forward. */
@@ -174,29 +178,88 @@ export const createMeAuthMiddleware = (options: SessionMiddlewareOptions) =>
     await next();
   });
 
+/** Module-level LRU cache: apiKeyId → environmentId (60 s TTL, max 500 entries). */
+const defaultSdkCache = new LRUCache<string, string>({
+  max: 500,
+  ttl: 60_000,
+});
+
 /**
- * SDK auth: exchanges an `Environment.apiKey` (Authorization: Bearer <apiKey>)
- * for an SDK-scoped JWT. Unknown key → 401.
+ * Parses `apiKeyId` from a full SDK key of the form `env_<apiKeyId>.<secret>`.
+ * Returns `undefined` for any other format.
  */
-export const createSdkAuthMiddleware = (options: SdkMiddlewareOptions) =>
-  createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
+const parseApiKeyId = (fullKey: string): string | undefined => {
+  if (!fullKey.startsWith('env_')) {
+    return undefined;
+  }
+  const withoutPrefix = fullKey.slice('env_'.length);
+  const dotIndex = withoutPrefix.indexOf('.');
+  if (dotIndex === -1) {
+    return undefined;
+  }
+  return withoutPrefix.slice(0, dotIndex);
+};
+
+/**
+ * SDK auth: exchanges an `env_<apiKeyId>.<secret>` Bearer token for an
+ * SDK-scoped JWT. Verifies the secret against the stored bcrypt hash.
+ * Caches verified `apiKeyId → environmentId` for 60 s to skip bcrypt on
+ * subsequent requests.
+ */
+export const createSdkAuthMiddleware = (options: SdkMiddlewareOptions) => {
+  const cache = options.cache ?? defaultSdkCache;
+
+  return createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
     const header = c.req.header('Authorization');
-    const apiKey = header?.startsWith('Bearer ')
+    const fullKey = header?.startsWith('Bearer ')
       ? header.slice('Bearer '.length).trim()
       : undefined;
 
-    if (!apiKey) {
+    if (!fullKey) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const environment = await options.findEnvironment(apiKey);
-    if (!environment) {
+    const apiKeyId = parseApiKeyId(fullKey);
+    if (!apiKeyId) {
       return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const cachedEnvironmentId = cache.get(apiKeyId);
+
+    let environmentId: string;
+    let projectId: string;
+
+    if (cachedEnvironmentId) {
+      // Cache hit — skip DB lookup and bcrypt.
+      const environment = await options.findEnvironment(apiKeyId);
+      if (!environment) {
+        cache.delete(apiKeyId);
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      environmentId = cachedEnvironmentId;
+      projectId = environment.projectId;
+    } else {
+      const environment = await options.findEnvironment(apiKeyId);
+      if (!environment) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+
+      const valid = await verifyApiKey({
+        fullKey,
+        apiKeyHash: environment.apiKeyHash,
+      });
+      if (!valid) {
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+
+      cache.set(apiKeyId, environment.id);
+      environmentId = environment.id;
+      projectId = environment.projectId;
     }
 
     const claims: SdkJwtClaims = {
-      projectId: environment.projectId,
-      environmentId: environment.id,
+      projectId,
+      environmentId,
       projectRole: PROJECT_ROLE.SDK_CLIENT,
     };
 
@@ -212,3 +275,4 @@ export const createSdkAuthMiddleware = (options: SdkMiddlewareOptions) =>
 
     await next();
   });
+};

@@ -6,15 +6,20 @@
   "exports": {
     ".": "./src/index.ts",
     "./roles": "./src/roles.ts",
-    "./jwt": "./src/jwt.ts"
+    "./jwt": "./src/jwt.ts",
+    "./api-key": "./src/apiKey.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
+  "dependencies": {
+    "bcryptjs": "^2.4.3"
+  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.0.0",
     "typescript": "^5.9.2"
   }

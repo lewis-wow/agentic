@@ -61,7 +61,8 @@ export const makeEnvironment = (
 ): Environment => ({
   id: 'env-1',
   name: 'development',
-  apiKey: 'api-key-123',
+  apiKeyId: 'deadbeef00000000deadbeef00000000',
+  apiKeyHash: '$2a$10$placeholder',
   projectId: 'project-1',
   createdAt: new Date(),
   updatedAt: new Date(),

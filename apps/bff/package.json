@@ -17,6 +17,7 @@
     "@repo/utils": "workspace:*",
     "effect": "^3.21.4",
     "hono": "^4.0.0",
+    "lru-cache": "^11.5.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
