@@ -199,11 +199,11 @@ The type export is cheap and makes the contract immediately usable by consumers 
 
 Each application that exposes a contract (HTTP responses, request bodies, events) owns a sibling `packages/<app-name>` package for the schemas and other artefacts that belong to that domain. Examples:
 
-| App | Sibling package | What goes there |
-| --- | --------------- | --------------- |
-| `apps/api` | `packages/api` | Request/response schemas for every `apps/api` endpoint, shared types derived from those schemas |
-| `apps/bff` | `packages/bff` *(already exists)* | Credential-exchange primitives used by both BFF layers |
-| `apps/dashboard` | `packages/dashboard` *(if needed)* | Dashboard-specific shared types, query-key factories, etc. |
+| App              | Sibling package                    | What goes there                                                                                 |
+| ---------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `apps/api`       | `packages/api`                     | Request/response schemas for every `apps/api` endpoint, shared types derived from those schemas |
+| `apps/bff`       | `packages/bff` _(already exists)_  | Credential-exchange primitives used by both BFF layers                                          |
+| `apps/dashboard` | `packages/dashboard` _(if needed)_ | Dashboard-specific shared types, query-key factories, etc.                                      |
 
 **Rule:** if a schema or type is only consumed by one application's domain, it lives in that application's sibling package — not in a generic shared package such as `packages/types` or a hypothetical `packages/schemas`.
 

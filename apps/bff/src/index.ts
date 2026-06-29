@@ -44,12 +44,12 @@ const sdkAuth = createSdkAuthMiddleware({
 
 app.use('/projects/:projectId/*', projectAuth);
 app.use('/me', meAuth);
-app.use('/sdk/*', sdkAuth);
+app.use('/v1/*', sdkAuth);
 
 app.all('/projects/:projectId/*', (c) =>
   forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL),
 );
 app.all('/me', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
-app.all('/sdk/*', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
+app.all('/v1/*', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
 
 serve({ fetch: app.fetch, port: env.BFF_PORT });

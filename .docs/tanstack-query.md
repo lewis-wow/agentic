@@ -15,18 +15,6 @@ Wrap the app in a `QueryClientProvider`. In `apps/dashboard`, create the client 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
-// apps/dashboard/src/app/(dashboard)/layout.tsx or a dedicated providers.tsx
-
 const QueryProvider = ({
   children,
 }: {

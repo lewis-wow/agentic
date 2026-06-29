@@ -18,14 +18,14 @@ const buildApp = (
 ): Hono<{ Variables: AuthVariables }> => {
   const app = new Hono<{ Variables: AuthVariables }>();
   app.use(
-    '/sdk/*',
+    '/v1/*',
     createSdkAuthMiddleware({
       findEnvironment,
       privateKeyPem: privateKey,
       cache,
     }),
   );
-  app.get('/sdk/flags', (c) =>
+  app.get('/v1/flags', (c) =>
     c.json({ jwt: c.get('jwt'), claims: c.get('claims') }),
   );
   return app;
@@ -43,7 +43,7 @@ describe('sdk auth middleware', () => {
     const findEnvironment = vi.fn().mockResolvedValue(environment);
     const app = buildApp(findEnvironment);
 
-    const res = await app.request('/sdk/flags', {
+    const res = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
     });
 
@@ -68,7 +68,7 @@ describe('sdk auth middleware', () => {
     const app = buildApp(findEnvironment);
 
     const tampered = fullKey.slice(0, -4) + 'aaaa';
-    const res = await app.request('/sdk/flags', {
+    const res = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${tampered}` },
     });
 
@@ -80,7 +80,7 @@ describe('sdk auth middleware', () => {
     const findEnvironment = vi.fn().mockResolvedValue(null);
     const app = buildApp(findEnvironment);
 
-    const res = await app.request('/sdk/flags', {
+    const res = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
     });
 
@@ -91,7 +91,7 @@ describe('sdk auth middleware', () => {
     const findEnvironment = vi.fn();
     const app = buildApp(findEnvironment);
 
-    const res = await app.request('/sdk/flags');
+    const res = await app.request('/v1/flags');
 
     expect(res.status).toBe(401);
     expect(findEnvironment).not.toHaveBeenCalled();
@@ -101,7 +101,7 @@ describe('sdk auth middleware', () => {
     const findEnvironment = vi.fn();
     const app = buildApp(findEnvironment);
 
-    const res = await app.request('/sdk/flags', {
+    const res = await app.request('/v1/flags', {
       headers: { Authorization: 'Bearer plainoldkey' },
     });
 
@@ -122,14 +122,14 @@ describe('sdk auth middleware', () => {
     const app = buildApp(findEnvironment, cache);
 
     // First request: cache miss → bcrypt.compare runs, result cached.
-    const res1 = await app.request('/sdk/flags', {
+    const res1 = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
     });
     expect(res1.status).toBe(200);
 
     // Second request: cache hit → findEnvironment called again for projectId but
     // no bcrypt; cache now holds environmentId.
-    const res2 = await app.request('/sdk/flags', {
+    const res2 = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
     });
     expect(res2.status).toBe(200);
