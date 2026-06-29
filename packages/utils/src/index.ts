@@ -1,5 +1,13 @@
 import * as Schema from 'effect/Schema';
 
+export const omitUndefined = <T extends Record<string, unknown>>(
+  obj: T,
+): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as Partial<T>;
+};
+
 export const emptyStringAsUndefined = <K extends string>(
   obj: Record<K, string | undefined>,
 ): Record<K, string | undefined> => {

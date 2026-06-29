@@ -1,0 +1,22 @@
+{
+  "name": "@repo/exception",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/utils": "workspace:*",
+    "effect": "^3.21.4"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.5.4"
+  }
+}

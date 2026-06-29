@@ -282,6 +282,21 @@ importers:
         specifier: ^3.2.4
         version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
+  packages/enums:
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../types
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
   packages/eslint-config:
     devDependencies:
       '@eslint/js':
@@ -308,6 +323,25 @@ importers:
       typescript-eslint:
         specifier: ^8.40.0
         version: 8.62.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/exception:
+    dependencies:
+      '@repo/utils':
+        specifier: workspace:*
+        version: link:../utils
+      effect:
+        specifier: ^3.21.4
+        version: 3.21.4
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
 
   packages/prisma:
     dependencies:

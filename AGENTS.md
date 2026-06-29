@@ -129,6 +129,8 @@ There are two credential paths, both implemented using the shared `@repo/bff` pa
 | ---------------------------- | ---------------------------------------------------------------------------------------------- |
 | `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding   |
 | `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims |
+| `packages/enums`             | Shared const enums: `HttpStatusCode` and derived `HttpStatusCode` type                         |
+| `packages/exception`         | `Exception<TData>` base class, `AnyException` type, `ExceptionShapeSchema` for error parsing   |
 | `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                 |
 | `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                           |
 | `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                                       |
@@ -211,3 +213,50 @@ Each application that exposes a contract (HTTP responses, request bodies, events
 Generic shared packages (`packages/types`, `packages/auth`, `packages/prisma`, …) are reserved for cross-cutting infrastructure concerns that are genuinely independent of any single application's domain. Do not add domain schemas there.
 
 When a second application (e.g. an SDK client package) needs to consume `apps/api` response shapes, it imports from `packages/api` — the already-correct location — rather than requiring a migration out of a generic package.
+
+### HTTP Status Codes
+
+Always use the `HttpStatusCode` const enum from `@repo/enums` for every HTTP status code. Never use raw number literals for status codes.
+
+```ts
+import { HttpStatusCode } from '@repo/enums';
+
+return c.json({ error: 'Not found' }, HttpStatusCode.NOT_FOUND_404);
+```
+
+The enum keys follow the pattern `NAME_NNN` (e.g. `BAD_REQUEST_400`, `NOT_FOUND_404`). Use the `HttpStatusCode` type (also exported from `@repo/enums`) wherever a status code type is needed.
+
+### Error Handling with Exception Classes
+
+Every error returned from an HTTP handler must be an instance of `Exception` from `@repo/exception`. Never return plain `Error` objects or raw `{ error: string }` JSON — always use the structured exception pattern.
+
+Define a concrete subclass for each distinct error case. The subclass lives in the package or app that owns the error domain:
+
+```ts
+import { HttpStatusCode } from '@repo/enums';
+import { Exception } from '@repo/exception';
+
+export class RequestValidationFailed extends Exception {
+  static readonly status = HttpStatusCode.BAD_REQUEST_400;
+  static readonly code = 'RequestValidationFailed';
+  static readonly message = 'Request validation failed.';
+}
+
+export class Unauthorized extends Exception {
+  static readonly status = HttpStatusCode.UNAUTHORIZED_401;
+  static readonly code = 'Unauthorized';
+  static readonly message = 'Authentication required.';
+}
+```
+
+Use `exception.toResponse()` to produce the HTTP response:
+
+```ts
+throw new RequestValidationFailed();
+// or in a handler:
+return new Unauthorized().toResponse();
+```
+
+Use `Exception.fromResponse({ json, status })` on the client side to reconstruct a typed exception from an API error response. Returns `null` when the response body does not match the exception shape.
+
+The `Exception` base class is generic (`Exception<TData>`): use `TData` to attach structured data to the error (e.g. validation field errors). `AnyException` is the unparameterised alias for use in catch blocks and union types.
