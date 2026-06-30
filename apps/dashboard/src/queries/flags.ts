@@ -11,11 +11,15 @@ export type FlagListItem = {
   updatedAt: string;
 };
 
+export type FlagType = 'boolean' | 'percentage_rollout';
+
 export type FlagState = {
   id: string;
   environmentId: string;
   environmentName: string;
   status: FlagStatus;
+  type: FlagType;
+  rollout: number;
 };
 
 export type AuditLogEntry = {
@@ -130,6 +134,43 @@ export const useToggleFlag = (projectId: string) => {
       void queryClient.invalidateQueries({
         queryKey: flagKeys.detail(projectId, variables.flagId),
       });
+    },
+  });
+};
+
+type UpdateFlagEnvironmentArgs = {
+  flagId: string;
+  environmentId: string;
+  type?: FlagType;
+  rollout?: number;
+  status?: 'active' | 'inactive';
+};
+
+export const useUpdateFlagEnvironment = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: UpdateFlagEnvironmentArgs): Promise<FlagState> => {
+      const body: Record<string, unknown> = {};
+      if (args.type !== undefined) body['type'] = args.type;
+      if (args.rollout !== undefined) body['rollout'] = args.rollout;
+      if (args.status !== undefined) body['status'] = args.status;
+      const res = await fetch(
+        `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as { flagState: FlagState };
+      return data.flagState;
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: flagKeys.detail(projectId, variables.flagId),
+      });
+      void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
     },
   });
 };

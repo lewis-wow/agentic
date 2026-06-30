@@ -7,8 +7,13 @@ describe('FlagSnapshotResponseSchema', () => {
   it('decodes a valid snapshot response', () => {
     const raw = {
       flags: [
-        { key: 'dark-mode', enabled: true },
-        { key: 'new-onboarding', enabled: false },
+        { key: 'dark-mode', enabled: true, type: 'boolean', rollout: 0 },
+        {
+          key: 'new-onboarding',
+          enabled: false,
+          type: 'percentage_rollout',
+          rollout: 42,
+        },
       ],
     };
 
@@ -18,7 +23,9 @@ describe('FlagSnapshotResponseSchema', () => {
   });
 
   it('rejects a response with a missing enabled field', () => {
-    const raw = { flags: [{ key: 'dark-mode' }] };
+    const raw = {
+      flags: [{ key: 'dark-mode', type: 'boolean', rollout: 0 }],
+    };
 
     expect(() =>
       Schema.decodeUnknownSync(FlagSnapshotResponseSchema)(raw),
@@ -26,7 +33,29 @@ describe('FlagSnapshotResponseSchema', () => {
   });
 
   it('rejects a response with a non-boolean enabled', () => {
-    const raw = { flags: [{ key: 'dark-mode', enabled: 'yes' }] };
+    const raw = {
+      flags: [
+        { key: 'dark-mode', enabled: 'yes', type: 'boolean', rollout: 0 },
+      ],
+    };
+
+    expect(() =>
+      Schema.decodeUnknownSync(FlagSnapshotResponseSchema)(raw),
+    ).toThrow();
+  });
+
+  it('rejects a response with a missing type field', () => {
+    const raw = { flags: [{ key: 'dark-mode', enabled: true, rollout: 0 }] };
+
+    expect(() =>
+      Schema.decodeUnknownSync(FlagSnapshotResponseSchema)(raw),
+    ).toThrow();
+  });
+
+  it('rejects a response with a missing rollout field', () => {
+    const raw = {
+      flags: [{ key: 'dark-mode', enabled: true, type: 'boolean' }],
+    };
 
     expect(() =>
       Schema.decodeUnknownSync(FlagSnapshotResponseSchema)(raw),

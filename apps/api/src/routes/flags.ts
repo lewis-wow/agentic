@@ -16,6 +16,8 @@ import {
   Forbidden,
   InvalidFlagKey,
   InvalidFlagStatus,
+  InvalidFlagType,
+  InvalidRollout,
 } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
@@ -133,13 +135,6 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
     }),
   ]);
 
-  emitFlagEvent({
-    projectId: claims.projectId,
-    environmentId: null,
-    type: 'flag_unarchived',
-    payload: { key: flag.key, enabled: false },
-  });
-
   const updated = await prisma.flag.findUniqueOrThrow({
     where: { id: flagId },
     include: {
@@ -148,6 +143,20 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
       },
     },
   });
+
+  for (const state of updated.states) {
+    emitFlagEvent({
+      projectId: claims.projectId,
+      environmentId: state.environment.id,
+      type: 'flag_unarchived',
+      payload: {
+        key: flag.key,
+        enabled: false,
+        type: state.type,
+        rollout: state.rollout,
+      },
+    });
+  }
 
   return c.json({ flag: updated });
 });
@@ -160,10 +169,32 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
 
   const { flagId, environmentId } = c.req.param();
   const body = await parseBody(c.req.raw);
-  const { status } = body;
+  const { status, type, rollout } = body;
 
-  if (status !== 'active' && status !== 'inactive') {
+  if (status === undefined && type === undefined && rollout === undefined) {
     return new InvalidFlagStatus().toResponse();
+  }
+
+  if (status !== undefined && status !== 'active' && status !== 'inactive') {
+    return new InvalidFlagStatus().toResponse();
+  }
+
+  if (
+    type !== undefined &&
+    type !== 'boolean' &&
+    type !== 'percentage_rollout'
+  ) {
+    return new InvalidFlagType().toResponse();
+  }
+
+  if (
+    rollout !== undefined &&
+    (typeof rollout !== 'number' ||
+      !Number.isInteger(rollout) ||
+      rollout < 0 ||
+      rollout > 100)
+  ) {
+    return new InvalidRollout().toResponse();
   }
 
   const flagState = await prisma.flagState.findUnique({
@@ -179,17 +210,28 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
     return new FlagIsArchived().toResponse();
   }
 
+  const updateData: Record<string, unknown> = {};
+  if (status !== undefined) updateData['status'] = status;
+  if (type !== undefined) updateData['type'] = type;
+  if (rollout !== undefined) updateData['rollout'] = rollout;
+
+  const isRolloutChange = type !== undefined || rollout !== undefined;
+  const finalType = (type as string | undefined) ?? flagState.type;
+  const finalRollout = (rollout as number | undefined) ?? flagState.rollout;
+
   const [updated] = await prisma.$transaction([
     prisma.flagState.update({
       where: { flagId_environmentId: { flagId, environmentId } },
-      data: { status },
+      data: updateData,
     }),
     prisma.auditEvent.create({
       data: {
         flagId,
         userId: claims.userId,
-        action: 'flag.toggled',
-        meta: { environmentId, status },
+        action: isRolloutChange ? 'flag.rollout_updated' : 'flag.toggled',
+        meta: isRolloutChange
+          ? { environmentId, type: finalType, rollout: finalRollout }
+          : { environmentId, status },
       },
     }),
   ]);
@@ -198,7 +240,12 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
     projectId: claims.projectId,
     environmentId,
     type: 'flag_updated',
-    payload: { key: flagState.flag.key, enabled: status === 'active' },
+    payload: {
+      key: flagState.flag.key,
+      enabled: updated.status === 'active',
+      type: updated.type,
+      rollout: updated.rollout,
+    },
   });
 
   return c.json({ flagState: updated });
@@ -242,6 +289,8 @@ flagsRouter.get('/:flagId', async (c) => {
         environmentId: s.environment.id,
         environmentName: s.environment.name,
         status: s.status,
+        type: s.type,
+        rollout: s.rollout,
       })),
       auditLog: flag.auditLog.map((e) => ({
         id: e.id,
@@ -406,7 +455,7 @@ flagsRouter.post('/', async (c) => {
     projectId: claims.projectId,
     environmentId: null,
     type: 'flag_created',
-    payload: { key, enabled: false },
+    payload: { key, enabled: false, type: 'boolean', rollout: 0 },
   });
 
   return c.json({ flag }, 201);

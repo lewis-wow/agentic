@@ -65,7 +65,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active' }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
       },
       {
         id: 'flag-2',
@@ -74,7 +74,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'inactive' }],
+        states: [{ status: 'inactive', type: 'boolean', rollout: 0 }],
       },
     ] as never);
 
@@ -85,8 +85,8 @@ describe('GET /v1/flags', () => {
 
     const body = await res.json();
     expect(body.flags).toEqual([
-      { key: 'active-flag', enabled: true },
-      { key: 'inactive-flag', enabled: false },
+      { key: 'active-flag', enabled: true, type: 'boolean', rollout: 0 },
+      { key: 'inactive-flag', enabled: false, type: 'boolean', rollout: 0 },
     ]);
   });
 
@@ -99,7 +99,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active' }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
       },
       {
         id: 'flag-2',
@@ -108,7 +108,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'archived' }],
+        states: [{ status: 'archived', type: 'boolean', rollout: 0 }],
       },
     ] as never);
 
@@ -118,7 +118,9 @@ describe('GET /v1/flags', () => {
     });
 
     const body = await res.json();
-    expect(body.flags).toEqual([{ key: 'live-flag', enabled: true }]);
+    expect(body.flags).toEqual([
+      { key: 'live-flag', enabled: true, type: 'boolean', rollout: 0 },
+    ]);
   });
 
   it('returns empty flags array when no flags exist', async () => {
@@ -150,7 +152,7 @@ describe('GET /v1/flags', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns a flag snapshot for a valid SDK JWT', async () => {
+  it('includes type and rollout for a percentage_rollout flag', async () => {
     vi.mocked(prisma.flag.findMany).mockResolvedValue([
       {
         id: 'flag-1',
@@ -159,7 +161,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active' }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
       },
       {
         id: 'flag-2',
@@ -168,7 +170,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'inactive' }],
+        states: [{ status: 'active', type: 'percentage_rollout', rollout: 42 }],
       },
     ] as never);
 
@@ -181,8 +183,13 @@ describe('GET /v1/flags', () => {
     const body = await res.json();
     expect(body).toEqual({
       flags: [
-        { key: 'dark-mode', enabled: true },
-        { key: 'new-onboarding', enabled: false },
+        { key: 'dark-mode', enabled: true, type: 'boolean', rollout: 0 },
+        {
+          key: 'new-onboarding',
+          enabled: true,
+          type: 'percentage_rollout',
+          rollout: 42,
+        },
       ],
     });
   });

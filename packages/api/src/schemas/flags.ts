@@ -1,8 +1,17 @@
 import { Schema } from 'effect';
 
+export const FLAG_TYPE = {
+  BOOLEAN: 'boolean',
+  PERCENTAGE_ROLLOUT: 'percentage_rollout',
+} as const;
+
+export type FlagType = (typeof FLAG_TYPE)[keyof typeof FLAG_TYPE];
+
 export const FlagConfigSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
+  type: Schema.Literal(FLAG_TYPE.BOOLEAN, FLAG_TYPE.PERCENTAGE_ROLLOUT),
+  rollout: Schema.Number,
 });
 
 export type FlagConfig = Schema.Schema.Type<typeof FlagConfigSchema>;
@@ -19,6 +28,8 @@ export type FlagSnapshotResponse = Schema.Schema.Type<
 export const FlagCreatedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
+  type: Schema.Literal(FLAG_TYPE.BOOLEAN, FLAG_TYPE.PERCENTAGE_ROLLOUT),
+  rollout: Schema.Number,
 });
 export type FlagCreatedEvent = Schema.Schema.Type<
   typeof FlagCreatedEventSchema
@@ -27,6 +38,8 @@ export type FlagCreatedEvent = Schema.Schema.Type<
 export const FlagUpdatedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
+  type: Schema.Literal(FLAG_TYPE.BOOLEAN, FLAG_TYPE.PERCENTAGE_ROLLOUT),
+  rollout: Schema.Number,
 });
 export type FlagUpdatedEvent = Schema.Schema.Type<
   typeof FlagUpdatedEventSchema
@@ -35,6 +48,8 @@ export type FlagUpdatedEvent = Schema.Schema.Type<
 export const FlagUnarchivedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
+  type: Schema.Literal(FLAG_TYPE.BOOLEAN, FLAG_TYPE.PERCENTAGE_ROLLOUT),
+  rollout: Schema.Number,
 });
 export type FlagUnarchivedEvent = Schema.Schema.Type<
   typeof FlagUnarchivedEventSchema

@@ -7,4 +7,6 @@ export { FlagNotFound } from './FlagNotFound.js';
 export { Forbidden } from './Forbidden.js';
 export { InvalidFlagKey } from './InvalidFlagKey.js';
 export { InvalidFlagStatus } from './InvalidFlagStatus.js';
+export { InvalidFlagType } from './InvalidFlagType.js';
+export { InvalidRollout } from './InvalidRollout.js';
 export { Unauthorized } from './Unauthorized.js';

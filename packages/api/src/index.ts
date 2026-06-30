@@ -1,4 +1,5 @@
 export {
+  FLAG_TYPE,
   FlagConfigSchema,
   FlagSnapshotResponseSchema,
   FlagCreatedEventSchema,
@@ -9,6 +10,7 @@ export {
 } from './schemas/flags.js';
 
 export type {
+  FlagType,
   FlagConfig,
   FlagSnapshotResponse,
   FlagCreatedEvent,

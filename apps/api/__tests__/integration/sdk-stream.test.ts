@@ -134,7 +134,7 @@ describe('GET /v1/flags/stream', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active' }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
       },
       {
         id: 'flag-2',
@@ -143,7 +143,9 @@ describe('GET /v1/flags/stream', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'inactive' }],
+        states: [
+          { status: 'inactive', type: 'percentage_rollout', rollout: 25 },
+        ],
       },
       {
         id: 'flag-3',
@@ -152,7 +154,7 @@ describe('GET /v1/flags/stream', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'archived' }],
+        states: [{ status: 'archived', type: 'boolean', rollout: 0 }],
       },
     ] as never);
 
@@ -170,11 +172,16 @@ describe('GET /v1/flags/stream', () => {
       .split('\n')
       .find((l) => l.startsWith('data:') && l.includes('flags'));
     const payload = JSON.parse(dataLine!.slice('data:'.length).trim()) as {
-      flags: { key: string; enabled: boolean }[];
+      flags: { key: string; enabled: boolean; type: string; rollout: number }[];
     };
     expect(payload.flags).toEqual([
-      { key: 'dark-mode', enabled: true },
-      { key: 'beta-ui', enabled: false },
+      { key: 'dark-mode', enabled: true, type: 'boolean', rollout: 0 },
+      {
+        key: 'beta-ui',
+        enabled: false,
+        type: 'percentage_rollout',
+        rollout: 25,
+      },
     ]);
   });
 

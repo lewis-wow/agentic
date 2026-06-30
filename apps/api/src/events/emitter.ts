@@ -10,16 +10,28 @@ export type FlagStreamEvent = {
     | 'flag_archived'
     | 'flag_unarchived'
     | 'flag_deleted';
-  payload: { key: string; enabled?: boolean };
+  payload: {
+    key: string;
+    enabled?: boolean;
+    type?: string;
+    rollout?: number;
+  };
 };
 
 type TypedFlagEmitter = {
-  on(event: 'flag-event', listener: (e: FlagStreamEvent) => void): TypedFlagEmitter;
-  off(event: 'flag-event', listener: (e: FlagStreamEvent) => void): TypedFlagEmitter;
+  on(
+    event: 'flag-event',
+    listener: (e: FlagStreamEvent) => void,
+  ): TypedFlagEmitter;
+  off(
+    event: 'flag-event',
+    listener: (e: FlagStreamEvent) => void,
+  ): TypedFlagEmitter;
   emit(event: 'flag-event', e: FlagStreamEvent): boolean;
 };
 
-export const flagEmitter = new EventEmitter() as EventEmitter & TypedFlagEmitter;
+export const flagEmitter = new EventEmitter() as EventEmitter &
+  TypedFlagEmitter;
 
 let nextEventId = 0;
 

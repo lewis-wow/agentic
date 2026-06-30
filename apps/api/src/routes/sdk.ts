@@ -1,4 +1,4 @@
-import { FlagSnapshotResponseSchema } from '@repo/api';
+import { type FlagType, FlagSnapshotResponseSchema } from '@repo/api';
 import { isSdkClaims } from '@repo/auth';
 import { prisma } from '@repo/prisma';
 import { Schema } from 'effect';
@@ -14,6 +14,9 @@ import {
 import { Forbidden } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
+
+const toSdkFlagType = (prismaType: string): FlagType =>
+  prismaType === 'percentage_rollout' ? 'percentage_rollout' : 'boolean';
 
 export const sdkRouter = new Hono<AppEnv>();
 
@@ -110,7 +113,7 @@ sdkRouter.get('/flags/stream', async (c) => {
         include: {
           states: {
             where: { environmentId: auth.environmentId },
-            select: { status: true },
+            select: { status: true, type: true, rollout: true },
           },
         },
         orderBy: { createdAt: 'asc' },
@@ -121,6 +124,8 @@ sdkRouter.get('/flags/stream', async (c) => {
         .map((flag) => ({
           key: flag.key,
           enabled: flag.states[0]?.status === 'active',
+          type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
+          rollout: flag.states[0]?.rollout ?? 0,
         }));
 
       const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });
@@ -151,7 +156,7 @@ sdkRouter.get('/flags', async (c) => {
     include: {
       states: {
         where: { environmentId: auth.environmentId },
-        select: { status: true },
+        select: { status: true, type: true, rollout: true },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -162,6 +167,8 @@ sdkRouter.get('/flags', async (c) => {
     .map((flag) => ({
       key: flag.key,
       enabled: flag.states[0]?.status === 'active',
+      type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
+      rollout: flag.states[0]?.rollout ?? 0,
     }));
 
   const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });

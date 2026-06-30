@@ -10,9 +10,11 @@ import {
   useRenameFlag,
   useToggleFlag,
   useUnarchiveFlag,
+  useUpdateFlagEnvironment,
   type AuditLogEntry,
   type FlagDetail,
   type FlagState,
+  type FlagType,
 } from '../../../../../../queries/flags.js';
 
 type Props = {
@@ -148,6 +150,7 @@ const StatesSection = ({
   isArchived,
 }: StatesSectionProps): React.ReactNode => {
   const toggleMutation = useToggleFlag(projectId);
+  const updateMutation = useUpdateFlagEnvironment(projectId);
 
   const handleToggle = (state: FlagState): void => {
     const next = state.status === 'active' ? 'inactive' : 'active';
@@ -157,6 +160,29 @@ const StatesSection = ({
       status: next,
     });
   };
+
+  const handleTypeChange = (state: FlagState, newType: FlagType): void => {
+    updateMutation.mutate({
+      flagId,
+      environmentId: state.environmentId,
+      type: newType,
+    });
+  };
+
+  const handleRolloutBlur = (state: FlagState, value: number): void => {
+    if (value === state.rollout) return;
+    updateMutation.mutate({
+      flagId,
+      environmentId: state.environmentId,
+      rollout: value,
+    });
+  };
+
+  const isUpdating = (environmentId: string): boolean =>
+    (updateMutation.isPending &&
+      updateMutation.variables?.environmentId === environmentId) ||
+    (toggleMutation.isPending &&
+      toggleMutation.variables?.environmentId === environmentId);
 
   return (
     <section className="space-y-3">
@@ -168,49 +194,25 @@ const StatesSection = ({
           <tr className="border-b text-left text-xs text-gray-500">
             <th className="pb-2 pr-4">Environment</th>
             <th className="pb-2 pr-4">Status</th>
-            <th className="pb-2">Toggle</th>
+            <th className="pb-2 pr-4">Toggle</th>
+            <th className="pb-2 pr-4">Type</th>
+            <th className="pb-2">Rollout %</th>
           </tr>
         </thead>
         <tbody className="divide-y">
           {states.map((state) => {
-            const isToggling =
-              toggleMutation.isPending &&
-              toggleMutation.variables?.environmentId === state.environmentId;
+            const busy = isUpdating(state.environmentId);
             return (
-              <tr key={state.id}>
-                <td className="py-2 pr-4 font-medium">
-                  {state.environmentName}
-                </td>
-                <td className="py-2 pr-4">
-                  <StatusBadge status={state.status} />
-                </td>
-                <td className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(state)}
-                    disabled={!canManage || isArchived || isToggling}
-                    aria-label={
-                      state.status === 'active'
-                        ? 'Deactivate in this environment'
-                        : 'Activate in this environment'
-                    }
-                    className={[
-                      'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors',
-                      'disabled:cursor-not-allowed disabled:opacity-40',
-                      state.status === 'active' ? 'bg-black' : 'bg-gray-200',
-                    ].join(' ')}
-                  >
-                    <span
-                      className={[
-                        'pointer-events-none inline-block size-4 rounded-full bg-white shadow transition-transform',
-                        state.status === 'active'
-                          ? 'translate-x-4'
-                          : 'translate-x-0',
-                      ].join(' ')}
-                    />
-                  </button>
-                </td>
-              </tr>
+              <EnvironmentRow
+                key={state.id}
+                state={state}
+                canManage={canManage}
+                isArchived={isArchived}
+                isBusy={busy}
+                onToggle={handleToggle}
+                onTypeChange={handleTypeChange}
+                onRolloutBlur={handleRolloutBlur}
+              />
             );
           })}
         </tbody>
@@ -218,7 +220,92 @@ const StatesSection = ({
       {toggleMutation.isError && (
         <p className="text-sm text-red-700">{toggleMutation.error.message}</p>
       )}
+      {updateMutation.isError && (
+        <p className="text-sm text-red-700">{updateMutation.error.message}</p>
+      )}
     </section>
+  );
+};
+
+type EnvironmentRowProps = {
+  state: FlagState;
+  canManage: boolean;
+  isArchived: boolean;
+  isBusy: boolean;
+  onToggle: (state: FlagState) => void;
+  onTypeChange: (state: FlagState, type: FlagType) => void;
+  onRolloutBlur: (state: FlagState, value: number) => void;
+};
+
+const EnvironmentRow = ({
+  state,
+  canManage,
+  isArchived,
+  isBusy,
+  onToggle,
+  onTypeChange,
+  onRolloutBlur,
+}: EnvironmentRowProps): React.ReactNode => {
+  const [rolloutInput, setRolloutInput] = useState(state.rollout);
+
+  const disabled = !canManage || isArchived || isBusy;
+
+  return (
+    <tr>
+      <td className="py-2 pr-4 font-medium">{state.environmentName}</td>
+      <td className="py-2 pr-4">
+        <StatusBadge status={state.status} />
+      </td>
+      <td className="py-2 pr-4">
+        <button
+          type="button"
+          onClick={() => onToggle(state)}
+          disabled={disabled}
+          aria-label={
+            state.status === 'active'
+              ? 'Deactivate in this environment'
+              : 'Activate in this environment'
+          }
+          className={[
+            'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors',
+            'disabled:cursor-not-allowed disabled:opacity-40',
+            state.status === 'active' ? 'bg-black' : 'bg-gray-200',
+          ].join(' ')}
+        >
+          <span
+            className={[
+              'pointer-events-none inline-block size-4 rounded-full bg-white shadow transition-transform',
+              state.status === 'active' ? 'translate-x-4' : 'translate-x-0',
+            ].join(' ')}
+          />
+        </button>
+      </td>
+      <td className="py-2 pr-4">
+        <select
+          value={state.type}
+          onChange={(e) => onTypeChange(state, e.target.value as FlagType)}
+          disabled={disabled}
+          className="rounded-md border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <option value="boolean">Boolean</option>
+          <option value="percentage_rollout">Rollout %</option>
+        </select>
+      </td>
+      <td className="py-2">
+        {state.type === 'percentage_rollout' && (
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={rolloutInput}
+            onChange={(e) => setRolloutInput(Number(e.target.value))}
+            onBlur={() => onRolloutBlur(state, rolloutInput)}
+            disabled={disabled}
+            className="w-20 rounded-md border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:cursor-not-allowed disabled:opacity-40"
+          />
+        )}
+      </td>
+    </tr>
   );
 };
 
@@ -229,6 +316,7 @@ const ACTION_LABELS: Record<string, string> = {
   'flag.unarchived': 'Unarchived',
   'flag.deleted': 'Deleted',
   'flag.toggled': 'Toggled',
+  'flag.rollout_updated': 'Rollout updated',
 };
 
 const formatMeta = (action: string, meta: Record<string, unknown>): string => {

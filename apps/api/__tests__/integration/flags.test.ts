@@ -294,6 +294,36 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
     expect(body.flag.auditLog[0].action).toBe('flag.created');
   });
 
+  it('includes type and rollout in each state', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'My Flag',
+      projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      states: [
+        {
+          id: 'state-1',
+          type: 'percentage_rollout',
+          rollout: 42,
+          environment: { id: 'env-1', name: 'production' },
+          status: 'active',
+        },
+      ],
+      auditLog: [],
+    } as never);
+
+    const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
+      headers: bearer(viewerToken(PROJECT_ID)),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flag.states[0].type).toBe('percentage_rollout');
+    expect(body.flag.states[0].rollout).toBe(42);
+  });
+
   it('returns 404 when the flag does not exist', async () => {
     mockPrisma.flag.findUnique.mockResolvedValue(null);
 
@@ -439,6 +469,163 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
     );
 
     expect(res.status).toBe(400);
+  });
+
+  it('updates type and rollout and returns the updated FlagState', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+        type: 'percentage_rollout',
+        rollout: 42,
+      },
+    ] as never);
+
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'percentage_rollout', rollout: 42 }),
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flagState.type).toBe('percentage_rollout');
+    expect(body.flagState.rollout).toBe(42);
+  });
+
+  it('returns 400 InvalidFlagType for an unknown type value', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'targeted' }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('InvalidFlagType');
+  });
+
+  it('returns 400 InvalidRollout when rollout is outside 0–100', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rollout: 101 }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('InvalidRollout');
+  });
+
+  it('returns 400 InvalidRollout when rollout is not an integer', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rollout: 42.5 }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('InvalidRollout');
+  });
+
+  it('returns 400 when body is empty (no fields provided)', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it('emits flag_updated with type and rollout from the updated state', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+        type: 'percentage_rollout',
+        rollout: 25,
+      },
+    ] as never);
+
+    const mockEmit = vi.mocked(emitFlagEvent);
+
+    await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'percentage_rollout', rollout: 25 }),
+      },
+    );
+
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: 'env-1',
+      type: 'flag_updated',
+      payload: {
+        key: 'my-flag',
+        enabled: true,
+        type: 'percentage_rollout',
+        rollout: 25,
+      },
+    });
   });
 });
 
@@ -632,7 +819,7 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
       environmentId: null,
       type: 'flag_created',
-      payload: { key: 'my-flag', enabled: false },
+      payload: { key: 'my-flag', enabled: false, type: 'boolean', rollout: 0 },
     });
   });
 
@@ -642,6 +829,8 @@ describe('flag event emission', () => {
       flagId: 'flag-1',
       environmentId: 'env-1',
       status: 'inactive',
+      type: 'boolean',
+      rollout: 0,
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
@@ -650,6 +839,8 @@ describe('flag event emission', () => {
         flagId: 'flag-1',
         environmentId: 'env-1',
         status: 'active',
+        type: 'boolean',
+        rollout: 0,
       },
     ] as never);
 
@@ -670,7 +861,7 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
       environmentId: 'env-1',
       type: 'flag_updated',
-      payload: { key: 'my-flag', enabled: true },
+      payload: { key: 'my-flag', enabled: true, type: 'boolean', rollout: 0 },
     });
   });
 
@@ -705,7 +896,7 @@ describe('flag event emission', () => {
     });
   });
 
-  it('POST /:flagId/unarchive emits flag_unarchived with enabled:false', async () => {
+  it('POST /:flagId/unarchive emits flag_unarchived per environment with type and rollout', async () => {
     mockPrisma.flag.findUnique.mockResolvedValue({
       id: 'flag-1',
       key: 'my-flag',
@@ -719,7 +910,18 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
       createdAt: new Date(),
       updatedAt: new Date(),
-      states: [],
+      states: [
+        {
+          type: 'boolean',
+          rollout: 0,
+          environment: { id: 'env-1', name: 'Production' },
+        },
+        {
+          type: 'percentage_rollout',
+          rollout: 50,
+          environment: { id: 'env-2', name: 'Staging' },
+        },
+      ],
     } as never);
 
     await app.request(`/projects/${PROJECT_ID}/flags/flag-1/unarchive`, {
@@ -727,12 +929,23 @@ describe('flag event emission', () => {
       headers: bearer(ownerToken(PROJECT_ID)),
     });
 
-    expect(mockEmit).toHaveBeenCalledOnce();
-    expect(mockEmit).toHaveBeenCalledWith({
+    expect(mockEmit).toHaveBeenCalledTimes(2);
+    expect(mockEmit).toHaveBeenNthCalledWith(1, {
       projectId: PROJECT_ID,
-      environmentId: null,
+      environmentId: 'env-1',
       type: 'flag_unarchived',
-      payload: { key: 'my-flag', enabled: false },
+      payload: { key: 'my-flag', enabled: false, type: 'boolean', rollout: 0 },
+    });
+    expect(mockEmit).toHaveBeenNthCalledWith(2, {
+      projectId: PROJECT_ID,
+      environmentId: 'env-2',
+      type: 'flag_unarchived',
+      payload: {
+        key: 'my-flag',
+        enabled: false,
+        type: 'percentage_rollout',
+        rollout: 50,
+      },
     });
   });
 
