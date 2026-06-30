@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "^1.0.0",
     "@repo/api": "workspace:*",
+    "@repo/pagination": "workspace:*",
     "@repo/auth": "workspace:*",
     "@repo/enums": "workspace:*",
     "@repo/exception": "workspace:*",

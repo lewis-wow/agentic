@@ -2,6 +2,7 @@ import { TargetingRuleSchema } from '@repo/api';
 import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { PROJECT_ROLE } from '@repo/auth/roles';
+import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Schema } from 'effect';
 import { Hono } from 'hono';
@@ -220,7 +221,10 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
 
   const flagState = await prisma.flagState.findUnique({
     where: { flagId_environmentId: { flagId, environmentId } },
-    include: { flag: { select: { projectId: true, key: true } } },
+    include: {
+      flag: { select: { projectId: true, key: true } },
+      environment: { select: { id: true, name: true } },
+    },
   });
 
   if (!flagState || flagState.flag.projectId !== claims.projectId) {
@@ -241,6 +245,8 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   const finalType = (type as string | undefined) ?? flagState.type;
   const finalRollout = (rollout as number | undefined) ?? flagState.rollout;
 
+  const environmentName = flagState.environment.name;
+
   const auditEvents = [
     prisma.auditEvent.create({
       data: {
@@ -248,8 +254,13 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
         userId: claims.userId,
         action: isRolloutChange ? 'flag.rollout_updated' : 'flag.toggled',
         meta: isRolloutChange
-          ? { environmentId, type: finalType, rollout: finalRollout }
-          : { environmentId, status },
+          ? {
+              environmentId,
+              environmentName,
+              type: finalType,
+              rollout: finalRollout,
+            }
+          : { environmentId, environmentName, status },
       },
     }),
   ];
@@ -296,6 +307,44 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   return c.json({ flagState: updated });
 });
 
+flagsRouter.get('/:flagId/audit-log', async (c) => {
+  const auth = c.get('auth');
+  const claims = requireProjectClaims(auth);
+  if (!claims) return new Forbidden().toResponse();
+
+  const { flagId } = c.req.param();
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+    { limit: 25 },
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
+
+  const [events, total] = await Promise.all([
+    prisma.auditEvent.findMany({
+      where: { flagId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+      include: { user: { select: { id: true, name: true } } },
+    }),
+    prisma.auditEvent.count({ where: { flagId } }),
+  ]);
+
+  return c.json({
+    events: events.map((e) => ({
+      id: e.id,
+      action: e.action,
+      meta: e.meta,
+      createdAt: e.createdAt,
+      userId: e.user.id,
+      userName: e.user.name,
+    })),
+    total,
+    page,
+    limit,
+  });
+});
+
 flagsRouter.get('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
@@ -311,11 +360,6 @@ flagsRouter.get('/:flagId', async (c) => {
           environment: { select: { id: true, name: true } },
         },
         orderBy: { environment: { createdAt: 'asc' } },
-      },
-      auditLog: {
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-        include: { user: { select: { id: true, name: true } } },
       },
     },
   });
@@ -337,14 +381,6 @@ flagsRouter.get('/:flagId', async (c) => {
         type: s.type,
         rollout: s.rollout,
         rules: Array.isArray(s.rules) ? s.rules : [],
-      })),
-      auditLog: flag.auditLog.map((e) => ({
-        id: e.id,
-        action: e.action,
-        meta: e.meta,
-        createdAt: e.createdAt,
-        userId: e.user.id,
-        userName: e.user.name,
       })),
     },
   });

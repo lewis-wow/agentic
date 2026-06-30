@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
+    "@repo/pagination": "workspace:*",
     "@repo/bff": "workspace:*",
     "@repo/prisma": "workspace:*",
     "@repo/ui": "workspace:*",

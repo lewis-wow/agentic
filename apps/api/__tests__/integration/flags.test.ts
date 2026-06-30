@@ -29,7 +29,7 @@ vi.mock('@repo/prisma', () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    auditEvent: { create: vi.fn() },
+    auditEvent: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -256,7 +256,7 @@ describe('GET /projects/:projectId/flags', () => {
 // GET /:flagId — flag detail
 // ---------------------------------------------------------------------------
 describe('GET /projects/:projectId/flags/:flagId', () => {
-  it('returns the flag with states and audit log', async () => {
+  it('returns the flag with states (no auditLog embedded)', async () => {
     mockPrisma.flag.findUnique.mockResolvedValue({
       id: 'flag-1',
       key: 'my-flag',
@@ -271,15 +271,6 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
           status: 'active',
         },
       ],
-      auditLog: [
-        {
-          id: 'audit-1',
-          action: 'flag.created',
-          meta: {},
-          createdAt: new Date(),
-          user: { id: 'user-owner', name: 'Owner' },
-        },
-      ],
     } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
@@ -290,8 +281,7 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
     const body = await res.json();
     expect(body.flag.key).toBe('my-flag');
     expect(body.flag.states).toHaveLength(1);
-    expect(body.flag.auditLog).toHaveLength(1);
-    expect(body.flag.auditLog[0].action).toBe('flag.created');
+    expect(body.flag).not.toHaveProperty('auditLog');
   });
 
   it('includes type and rollout in each state', async () => {
@@ -311,7 +301,6 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
           status: 'active',
         },
       ],
-      auditLog: [],
     } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
@@ -404,6 +393,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       environmentId: 'env-1',
       status: 'inactive',
       flag: { projectId: PROJECT_ID },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
 
     const updatedState = {
@@ -480,6 +470,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       type: 'boolean',
       rollout: 0,
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
       {
@@ -538,6 +529,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [],
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     const updatedState = {
       id: 'state-1',
@@ -627,6 +619,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     const updatedState = {
       id: 'state-1',
@@ -671,6 +664,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [],
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
       {
@@ -772,6 +766,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       type: 'boolean',
       rollout: 0,
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
       {
@@ -1015,6 +1010,7 @@ describe('flag event emission', () => {
       type: 'boolean',
       rollout: 0,
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
       {
@@ -1175,5 +1171,199 @@ describe('flag event emission', () => {
     });
 
     expect(mockEmit).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:flagId/audit-log
+// ---------------------------------------------------------------------------
+describe('GET /projects/:projectId/flags/:flagId/audit-log', () => {
+  const makeEvent = (n: number) => ({
+    id: `audit-${n}`,
+    action: 'flag.created',
+    meta: {},
+    createdAt: new Date(),
+    user: { id: 'user-owner', name: 'Owner' },
+  });
+
+  it('returns events with total/page/limit for default page=1&limit=25', async () => {
+    const events = Array.from({ length: 3 }, (_, i) => makeEvent(i + 1));
+    mockPrisma.auditEvent.findMany.mockResolvedValue(events as never);
+    mockPrisma.auditEvent.count.mockResolvedValue(3 as never);
+
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/audit-log`,
+      { headers: bearer(viewerToken(PROJECT_ID)) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.events).toHaveLength(3);
+    expect(body.total).toBe(3);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(25);
+    expect(body.events[0]).toMatchObject({
+      id: 'audit-1',
+      action: 'flag.created',
+      userId: 'user-owner',
+      userName: 'Owner',
+    });
+  });
+
+  it('uses page=2 to compute correct skip via parsePaginationParams', async () => {
+    mockPrisma.auditEvent.findMany.mockResolvedValue([] as never);
+    mockPrisma.auditEvent.count.mockResolvedValue(60 as never);
+
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/audit-log?page=2&limit=25`,
+      { headers: bearer(viewerToken(PROJECT_ID)) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.page).toBe(2);
+    expect(body.limit).toBe(25);
+    expect(mockPrisma.auditEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 25, take: 25 }),
+    );
+  });
+
+  it('returns 401 without auth', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/audit-log`,
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:flagId — no auditLog field
+// ---------------------------------------------------------------------------
+describe('GET /:flagId no longer includes auditLog', () => {
+  it('does not include auditLog in the response', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'My Flag',
+      projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      states: [
+        {
+          id: 'state-1',
+          type: 'boolean',
+          rollout: 0,
+          rules: [],
+          environment: { id: 'env-1', name: 'production' },
+          status: 'active',
+        },
+      ],
+    } as never);
+
+    const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
+      headers: bearer(viewerToken(PROJECT_ID)),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flag).not.toHaveProperty('auditLog');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Write-path: environmentName in audit events
+// ---------------------------------------------------------------------------
+describe('flag.toggled write-path includes environmentName', () => {
+  it('includes environmentName in the audit event meta when toggling', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'inactive',
+      type: 'boolean',
+      rollout: 0,
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+        type: 'boolean',
+        rollout: 0,
+      },
+    ] as never);
+
+    await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'active' }),
+      },
+    );
+
+    const transactionArgs = mockPrisma.$transaction.mock
+      .calls[0]?.[0] as unknown[];
+    expect(transactionArgs).toBeDefined();
+    expect(mockPrisma.auditEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'flag.toggled',
+          meta: expect.objectContaining({ environmentName: 'production' }),
+        }),
+      }),
+    );
+  });
+});
+
+describe('flag.rollout_updated write-path includes environmentName', () => {
+  it('includes environmentName in the audit event meta when updating rollout', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+      environment: { id: 'env-1', name: 'production' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+        type: 'percentage_rollout',
+        rollout: 40,
+      },
+    ] as never);
+
+    await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'percentage_rollout', rollout: 40 }),
+      },
+    );
+
+    expect(mockPrisma.auditEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'flag.rollout_updated',
+          meta: expect.objectContaining({ environmentName: 'production' }),
+        }),
+      }),
+    );
   });
 });

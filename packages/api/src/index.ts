@@ -23,3 +23,7 @@ export type {
   FlagDeletedEvent,
   TargetingRule,
 } from './schemas/flags.js';
+
+export { AuditLogEntrySchema, AuditLogPageSchema } from './schemas/auditLog.js';
+
+export type { AuditLogEntry, AuditLogPage } from './schemas/auditLog.js';

@@ -1,3 +1,5 @@
+import { usePaginatedQuery } from '@repo/pagination';
+import type { PagedResponse } from '@repo/pagination';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export type FlagStatus = 'active' | 'inactive' | 'archived';
@@ -45,7 +47,6 @@ export type FlagDetail = {
   createdAt: string;
   updatedAt: string;
   states: FlagState[];
-  auditLog: AuditLogEntry[];
 };
 
 export type Environment = {
@@ -61,6 +62,8 @@ export const flagKeys = {
     ['projects', projectId, 'flags', flagId] as const,
   environments: (projectId: string) =>
     ['projects', projectId, 'environments'] as const,
+  auditLog: (projectId: string, flagId: string) =>
+    ['projects', projectId, 'flags', flagId, 'audit-log'] as const,
 } as const;
 
 export const useEnvironments = (projectId: string) =>
@@ -277,6 +280,32 @@ export const useUpdateFlagRules = (projectId: string) => {
     },
   });
 };
+
+const AUDIT_LOG_LIMIT = 25;
+
+export const useAuditLog = (projectId: string, flagId: string) =>
+  usePaginatedQuery<AuditLogEntry>({
+    queryKey: [...flagKeys.auditLog(projectId, flagId)],
+    queryFn: async (page): Promise<PagedResponse<AuditLogEntry>> => {
+      const res = await fetch(
+        `/api/projects/${projectId}/flags/${flagId}/audit-log?page=${page}&limit=${AUDIT_LOG_LIMIT}`,
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as {
+        events: AuditLogEntry[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      return {
+        items: data.events,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+      };
+    },
+    limit: AUDIT_LOG_LIMIT,
+  });
 
 export const useDeleteFlag = (projectId: string) => {
   const queryClient = useQueryClient();

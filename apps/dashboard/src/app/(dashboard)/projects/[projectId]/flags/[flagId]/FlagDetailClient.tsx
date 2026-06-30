@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import {
   useArchiveFlag,
+  useAuditLog,
   useDeleteFlag,
   useFlagDetail,
   useRenameFlag,
@@ -70,7 +71,7 @@ export const FlagDetailClient = ({
             />
           ))}
 
-      <AuditLogSection entries={flag.auditLog} />
+      <AuditLogSection projectId={projectId} flagId={flagId} />
 
       {canManage && (
         <DangerSection
@@ -336,52 +337,152 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const formatMeta = (action: string, meta: Record<string, unknown>): string => {
+  if (action === 'flag.created') {
+    return `"${String(meta['key'])}"`;
+  }
   if (action === 'flag.renamed') {
     return `"${String(meta['oldName'])}" → "${String(meta['newName'])}"`;
   }
   if (action === 'flag.toggled') {
-    return `${String(meta['environmentId'])}: ${String(meta['status'])}`;
+    const envName = meta['environmentName'] ?? meta['environmentId'];
+    return `${String(envName)}: ${String(meta['status'])}`;
+  }
+  if (action === 'flag.rollout_updated') {
+    const envName = meta['environmentName'] ?? meta['environmentId'];
+    return `${String(envName)}: ${String(meta['type'])} ${String(meta['rollout'])}%`;
+  }
+  if (action === 'flag.rules_updated') {
+    const envName = meta['environmentName'] ?? meta['environmentId'];
+    return `${String(envName)}: rules updated`;
   }
   return '';
 };
 
-type AuditLogSectionProps = { entries: AuditLogEntry[] };
+const formatAbsoluteDate = (iso: string): string =>
+  new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso));
+
+const formatRelativeTime = (iso: string): string => {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `${diffSecs} seconds ago`;
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60)
+    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24)
+    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+};
+
+type AuditLogSectionProps = { projectId: string; flagId: string };
 const AuditLogSection = ({
-  entries,
-}: AuditLogSectionProps): React.ReactNode => (
-  <section className="space-y-3">
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-      Audit log
-    </h2>
-    {entries.length === 0 ? (
-      <p className="text-sm text-gray-500">No events yet.</p>
-    ) : (
-      <ul className="divide-y text-sm">
-        {entries.map((entry) => (
-          <li
-            key={entry.id}
-            className="flex items-start justify-between gap-4 py-2"
-          >
-            <div>
-              <span className="font-medium">
-                {ACTION_LABELS[entry.action] ?? entry.action}
-              </span>
-              {formatMeta(entry.action, entry.meta) && (
-                <span className="ml-2 text-gray-500">
-                  {formatMeta(entry.action, entry.meta)}
-                </span>
-              )}
-              <span className="ml-2 text-gray-400">by {entry.userName}</span>
+  projectId,
+  flagId,
+}: AuditLogSectionProps): React.ReactNode => {
+  const {
+    data: entries,
+    isPending,
+    error,
+    page,
+    setPage,
+    totalPages,
+  } = useAuditLog(projectId, flagId);
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Audit log
+      </h2>
+
+      {isPending && <p className="text-sm text-gray-500">Loading…</p>}
+      {error && <p className="text-sm text-red-700">{error.message}</p>}
+
+      {!isPending && !error && (
+        <>
+          {!entries || entries.length === 0 ? (
+            <p className="text-sm text-gray-500">No events yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-gray-500">
+                  <th className="pb-2 pr-4">Action</th>
+                  <th className="pb-2 pr-4">Detail</th>
+                  <th className="pb-2 pr-4">User</th>
+                  <th className="pb-2">When</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {entries.map((entry) => {
+                  const detail = formatMeta(entry.action, entry.meta);
+                  return (
+                    <tr key={entry.id}>
+                      <td className="py-2 pr-4 font-medium">
+                        {ACTION_LABELS[entry.action] ?? entry.action}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-500">{detail}</td>
+                      <td className="py-2 pr-4 text-gray-500">
+                        {entry.userName}
+                      </td>
+                      <td className="py-2">
+                        <time
+                          title={formatRelativeTime(entry.createdAt)}
+                          className="text-xs text-gray-400"
+                        >
+                          {formatAbsoluteDate(entry.createdAt)}
+                        </time>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 pt-2">
+              <button
+                type="button"
+                onClick={() => setPage(page - 1)}
+                disabled={page <= 1}
+                className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  className={[
+                    'rounded border px-2 py-1 text-xs',
+                    p === page ? 'bg-black text-white' : 'hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages}
+                className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Next
+              </button>
             </div>
-            <time className="shrink-0 text-xs text-gray-400">
-              {new Date(entry.createdAt).toLocaleString()}
-            </time>
-          </li>
-        ))}
-      </ul>
-    )}
-  </section>
-);
+          )}
+        </>
+      )}
+    </section>
+  );
+};
 
 type DangerSectionProps = {
   projectId: string;
