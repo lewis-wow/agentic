@@ -1075,7 +1075,7 @@ describe('flag event emission', () => {
     });
   });
 
-  it('POST /:flagId/unarchive emits flag_unarchived per environment with type and rollout', async () => {
+  it('POST /:flagId/unarchive emits flag_unarchived per environment with full state including rules', async () => {
     mockPrisma.flag.findUnique.mockResolvedValue({
       id: 'flag-1',
       key: 'my-flag',
@@ -1093,11 +1093,13 @@ describe('flag event emission', () => {
         {
           type: 'boolean',
           rollout: 0,
+          rules: [],
           environment: { id: 'env-1', name: 'Production' },
         },
         {
           type: 'percentage_rollout',
           rollout: 50,
+          rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
           environment: { id: 'env-2', name: 'Staging' },
         },
       ],
@@ -1113,7 +1115,13 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
       environmentId: 'env-1',
       type: 'flag_unarchived',
-      payload: { key: 'my-flag', enabled: false, type: 'boolean', rollout: 0 },
+      payload: {
+        key: 'my-flag',
+        enabled: false,
+        type: 'boolean',
+        rollout: 0,
+        rules: [],
+      },
     });
     expect(mockEmit).toHaveBeenNthCalledWith(2, {
       projectId: PROJECT_ID,
@@ -1124,6 +1132,7 @@ describe('flag event emission', () => {
         enabled: false,
         type: 'percentage_rollout',
         rollout: 50,
+        rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
       },
     });
   });

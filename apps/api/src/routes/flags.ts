@@ -158,6 +158,7 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
         enabled: false,
         type: state.type,
         rollout: state.rollout,
+        rules: Array.isArray(state.rules) ? (state.rules as unknown[]) : [],
       },
     });
   }

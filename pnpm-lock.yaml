@@ -414,7 +414,7 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  packages/sdk-node:
+  packages/sdk-core:
     dependencies:
       '@repo/api':
         specifier: workspace:*
@@ -425,6 +425,31 @@ importers:
       effect:
         specifier: ^3.21.4
         version: 3.21.4
+      eventsource:
+        specifier: ^3.0.7
+        version: 3.0.7
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest-config
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
+
+  packages/sdk-node:
+    dependencies:
+      '@repo/sdk-core':
+        specifier: workspace:*
+        version: link:../sdk-core
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -3151,6 +3176,14 @@ packages:
   esutils@2.0.3:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
+
+  eventsource-parser@3.1.0:
+    resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
+    engines: {node: '>=18.0.0'}
+
+  eventsource@3.0.7:
+    resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
+    engines: {node: '>=18.0.0'}
 
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
@@ -7195,6 +7228,12 @@ snapshots:
       '@types/estree': 1.0.9
 
   esutils@2.0.3: {}
+
+  eventsource-parser@3.1.0: {}
+
+  eventsource@3.0.7:
+    dependencies:
+      eventsource-parser: 3.1.0
 
   execa@5.1.1:
     dependencies:

@@ -1,5 +1,5 @@
 {
-  "name": "@repo/sdk-node",
+  "name": "@repo/sdk-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,10 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/sdk-core": "workspace:*"
+    "@repo/api": "workspace:*",
+    "@repo/exception": "workspace:*",
+    "effect": "^3.21.4",
+    "eventsource": "^3.0.7"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

@@ -4,8 +4,9 @@
   "exclude": ["node_modules"],
   "compilerOptions": {
     "paths": {
-      "@repo/sdk-node": ["./src/index.ts"],
-      "@repo/sdk-core": ["../sdk-core/src/index.ts"]
+      "@repo/sdk-core": ["./src/index.ts"],
+      "@repo/api": ["../api/src/index.ts"],
+      "@repo/exception": ["../exception/src/index.ts"]
     }
   }
 }
