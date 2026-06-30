@@ -15,6 +15,7 @@ export type FlagStreamEvent = {
     enabled?: boolean;
     type?: string;
     rollout?: number;
+    rules?: unknown[];
   };
 };
 

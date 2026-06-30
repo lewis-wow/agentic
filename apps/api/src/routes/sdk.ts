@@ -1,4 +1,8 @@
-import { type FlagType, FlagSnapshotResponseSchema } from '@repo/api';
+import {
+  type FlagType,
+  type TargetingRule,
+  FlagSnapshotResponseSchema,
+} from '@repo/api';
 import { isSdkClaims } from '@repo/auth';
 import { prisma } from '@repo/prisma';
 import { Schema } from 'effect';
@@ -15,8 +19,16 @@ import { Forbidden } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
-const toSdkFlagType = (prismaType: string): FlagType =>
-  prismaType === 'percentage_rollout' ? 'percentage_rollout' : 'boolean';
+const toSdkFlagType = (prismaType: string): FlagType => {
+  if (prismaType === 'percentage_rollout') return 'percentage_rollout';
+  if (prismaType === 'targeted') return 'targeted';
+  return 'boolean';
+};
+
+const parseRules = (raw: unknown): TargetingRule[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw as TargetingRule[];
+};
 
 export const sdkRouter = new Hono<AppEnv>();
 
@@ -113,7 +125,7 @@ sdkRouter.get('/flags/stream', async (c) => {
         include: {
           states: {
             where: { environmentId: auth.environmentId },
-            select: { status: true, type: true, rollout: true },
+            select: { status: true, type: true, rollout: true, rules: true },
           },
         },
         orderBy: { createdAt: 'asc' },
@@ -126,6 +138,7 @@ sdkRouter.get('/flags/stream', async (c) => {
           enabled: flag.states[0]?.status === 'active',
           type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
           rollout: flag.states[0]?.rollout ?? 0,
+          rules: parseRules(flag.states[0]?.rules),
         }));
 
       const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });
@@ -156,7 +169,7 @@ sdkRouter.get('/flags', async (c) => {
     include: {
       states: {
         where: { environmentId: auth.environmentId },
-        select: { status: true, type: true, rollout: true },
+        select: { status: true, type: true, rollout: true, rules: true },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -169,6 +182,7 @@ sdkRouter.get('/flags', async (c) => {
       enabled: flag.states[0]?.status === 'active',
       type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
       rollout: flag.states[0]?.rollout ?? 0,
+      rules: parseRules(flag.states[0]?.rules),
     }));
 
   const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });

@@ -22,21 +22,21 @@ src/
 
 **JWT claims contract** — `AuthJwtClaims` is the union type that `apps/api`'s JWT middleware decodes. The three variants are:
 
-| Type | Issued when | Carries |
-| --- | --- | --- |
-| `ProjectJwtClaims` | Dashboard user in a project context | `userId`, `systemRole`, `projectId`, `projectRole` |
-| `SdkJwtClaims` | SDK client authenticated via API key | `projectId`, `environmentId`, `projectRole: 'sdk-client'` |
-| `MeJwtClaims` | Dashboard user at non-project endpoints | `userId`, `systemRole` |
+| Type               | Issued when                             | Carries                                                   |
+| ------------------ | --------------------------------------- | --------------------------------------------------------- |
+| `ProjectJwtClaims` | Dashboard user in a project context     | `userId`, `systemRole`, `projectId`, `projectRole`        |
+| `SdkJwtClaims`     | SDK client authenticated via API key    | `projectId`, `environmentId`, `projectRole: 'sdk-client'` |
+| `MeJwtClaims`      | Dashboard user at non-project endpoints | `userId`, `systemRole`                                    |
 
 Use `isSdkClaims(claims)` to narrow `AuthJwtClaims` to `SdkJwtClaims`.
 
 **Role hierarchy** — three distinct role sets with different scopes:
 
-| Const | Scope | Used on |
-| --- | --- | --- |
-| `SYSTEM_ROLE` | Installation-wide (`OWNER` \| `MEMBER`) | `User.role` |
-| `MEMBERSHIP_ROLE` | Project-level (`admin` \| `viewer`) | `ProjectMember.role` |
-| `PROJECT_ROLE` | JWT claim (`owner` \| `admin` \| `viewer` \| `sdk-client`) | `projectRole` JWT claim |
+| Const             | Scope                                                      | Used on                 |
+| ----------------- | ---------------------------------------------------------- | ----------------------- |
+| `SYSTEM_ROLE`     | Installation-wide (`OWNER` \| `MEMBER`)                    | `User.role`             |
+| `MEMBERSHIP_ROLE` | Project-level (`admin` \| `viewer`)                        | `ProjectMember.role`    |
+| `PROJECT_ROLE`    | JWT claim (`owner` \| `admin` \| `viewer` \| `sdk-client`) | `projectRole` JWT claim |
 
 ## Rules
 

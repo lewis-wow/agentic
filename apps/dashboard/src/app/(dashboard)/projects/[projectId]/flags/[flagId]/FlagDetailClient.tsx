@@ -11,10 +11,12 @@ import {
   useToggleFlag,
   useUnarchiveFlag,
   useUpdateFlagEnvironment,
+  useUpdateFlagRules,
   type AuditLogEntry,
   type FlagDetail,
   type FlagState,
   type FlagType,
+  type TargetingRule,
 } from '../../../../../../queries/flags.js';
 
 type Props = {
@@ -55,6 +57,18 @@ export const FlagDetailClient = ({
         canManage={canManage}
         isArchived={isArchived}
       />
+
+      {canManage &&
+        flag.states
+          .filter((s) => s.type === 'targeted' && s.status !== 'archived')
+          .map((s) => (
+            <RuleBuilderSection
+              key={s.environmentId}
+              projectId={projectId}
+              flagId={flagId}
+              state={s}
+            />
+          ))}
 
       <AuditLogSection entries={flag.auditLog} />
 
@@ -289,6 +303,7 @@ const EnvironmentRow = ({
         >
           <option value="boolean">Boolean</option>
           <option value="percentage_rollout">Rollout %</option>
+          <option value="targeted">Targeted</option>
         </select>
       </td>
       <td className="py-2">
@@ -317,6 +332,7 @@ const ACTION_LABELS: Record<string, string> = {
   'flag.deleted': 'Deleted',
   'flag.toggled': 'Toggled',
   'flag.rollout_updated': 'Rollout updated',
+  'flag.rules_updated': 'Rules updated',
 };
 
 const formatMeta = (action: string, meta: Record<string, unknown>): string => {
@@ -463,6 +479,218 @@ const DangerSection = ({
           <p className="text-sm text-red-700">{deleteMutation.error.message}</p>
         )}
       </div>
+    </section>
+  );
+};
+
+type RuleBuilderSectionProps = {
+  projectId: string;
+  flagId: string;
+  state: FlagState;
+};
+
+type DraftRule = {
+  attribute: string;
+  operator: 'EQ' | 'NEQ' | 'IN' | 'NOT_IN' | 'CONTAINS';
+  valueRaw: string;
+};
+
+const toDraftRule = (rule: TargetingRule): DraftRule => ({
+  attribute: rule.attribute,
+  operator: rule.operator,
+  valueRaw: rule.value.join(', '),
+});
+
+const toTargetingRule = (draft: DraftRule): TargetingRule => ({
+  attribute: draft.attribute,
+  operator: draft.operator,
+  value: draft.valueRaw
+    .split(',')
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0),
+});
+
+const BLANK_RULE: DraftRule = {
+  attribute: '',
+  operator: 'EQ',
+  valueRaw: '',
+};
+
+const RuleBuilderSection = ({
+  projectId,
+  flagId,
+  state,
+}: RuleBuilderSectionProps): React.ReactNode => {
+  const [rules, setRules] = useState<DraftRule[]>(() =>
+    state.rules.map(toDraftRule),
+  );
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const mutation = useUpdateFlagRules(projectId);
+
+  const updateRule = (index: number, patch: Partial<DraftRule>): void => {
+    setRules((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+    );
+  };
+
+  const moveUp = (index: number): void => {
+    if (index === 0) return;
+    setRules((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+      return next;
+    });
+  };
+
+  const moveDown = (index: number): void => {
+    if (index === rules.length - 1) return;
+    setRules((prev) => {
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
+      return next;
+    });
+  };
+
+  const removeRule = (index: number): void => {
+    setRules((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addRule = (): void => {
+    setRules((prev) => [...prev, { ...BLANK_RULE }]);
+  };
+
+  const handleSave = (): void => {
+    setValidationError(null);
+    for (const r of rules) {
+      if (!r.attribute.trim()) {
+        setValidationError('All rules must have an attribute.');
+        return;
+      }
+      const value = r.valueRaw
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
+      if (value.length === 0) {
+        setValidationError('All rules must have at least one value.');
+        return;
+      }
+    }
+    mutation.mutate({
+      flagId,
+      environmentId: state.environmentId,
+      rules: rules.map(toTargetingRule),
+    });
+  };
+
+  const busy = mutation.isPending;
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Rules — {state.environmentName}
+      </h2>
+
+      {rules.length === 0 && (
+        <p className="text-sm text-gray-400">No rules yet. Add one below.</p>
+      )}
+
+      <div className="space-y-2">
+        {rules.map((rule, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 rounded-md border p-2"
+          >
+            <input
+              type="text"
+              placeholder="attribute"
+              value={rule.attribute}
+              onChange={(e) => updateRule(i, { attribute: e.target.value })}
+              disabled={busy}
+              className="w-32 rounded border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:opacity-40"
+            />
+            <select
+              value={rule.operator}
+              onChange={(e) =>
+                updateRule(i, {
+                  operator: e.target.value as DraftRule['operator'],
+                })
+              }
+              disabled={busy}
+              className="rounded border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:opacity-40"
+            >
+              <option value="EQ">EQ</option>
+              <option value="NEQ">NEQ</option>
+              <option value="IN">IN</option>
+              <option value="NOT_IN">NOT_IN</option>
+              <option value="CONTAINS">CONTAINS</option>
+            </select>
+            <input
+              type="text"
+              placeholder={
+                rule.operator === 'IN' || rule.operator === 'NOT_IN'
+                  ? 'value1, value2'
+                  : 'value'
+              }
+              value={rule.valueRaw}
+              onChange={(e) => updateRule(i, { valueRaw: e.target.value })}
+              disabled={busy}
+              className="flex-1 rounded border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:opacity-40"
+            />
+            <button
+              type="button"
+              onClick={() => moveUp(i)}
+              disabled={busy || i === 0}
+              aria-label="Move rule up"
+              className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => moveDown(i)}
+              disabled={busy || i === rules.length - 1}
+              aria-label="Move rule down"
+              className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => removeRule(i)}
+              disabled={busy}
+              className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={addRule}
+          disabled={busy}
+          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-40"
+        >
+          Add rule
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={busy}
+          className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+        >
+          {busy ? 'Saving…' : 'Save rules'}
+        </button>
+      </div>
+
+      {validationError && (
+        <p className="text-sm text-red-700">{validationError}</p>
+      )}
+      {mutation.isError && (
+        <p className="text-sm text-red-700">{mutation.error.message}</p>
+      )}
     </section>
   );
 };

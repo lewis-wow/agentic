@@ -1,7 +1,9 @@
+import { TargetingRuleSchema } from '@repo/api';
 import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { PROJECT_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
+import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
@@ -18,6 +20,7 @@ import {
   InvalidFlagStatus,
   InvalidFlagType,
   InvalidRollout,
+  RequestValidationFailed,
 } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
@@ -169,9 +172,14 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
 
   const { flagId, environmentId } = c.req.param();
   const body = await parseBody(c.req.raw);
-  const { status, type, rollout } = body;
+  const { status, type, rollout, rules } = body;
 
-  if (status === undefined && type === undefined && rollout === undefined) {
+  if (
+    status === undefined &&
+    type === undefined &&
+    rollout === undefined &&
+    rules === undefined
+  ) {
     return new InvalidFlagStatus().toResponse();
   }
 
@@ -182,7 +190,8 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   if (
     type !== undefined &&
     type !== 'boolean' &&
-    type !== 'percentage_rollout'
+    type !== 'percentage_rollout' &&
+    type !== 'targeted'
   ) {
     return new InvalidFlagType().toResponse();
   }
@@ -195,6 +204,18 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
       rollout > 100)
   ) {
     return new InvalidRollout().toResponse();
+  }
+
+  let validatedRules: Record<string, unknown>[] | undefined;
+  if (rules !== undefined) {
+    try {
+      const decoded = Schema.decodeUnknownSync(
+        Schema.Array(TargetingRuleSchema),
+      )(rules);
+      validatedRules = decoded as unknown as Record<string, unknown>[];
+    } catch {
+      return new RequestValidationFailed().toResponse();
+    }
   }
 
   const flagState = await prisma.flagState.findUnique({
@@ -214,16 +235,13 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   if (status !== undefined) updateData['status'] = status;
   if (type !== undefined) updateData['type'] = type;
   if (rollout !== undefined) updateData['rollout'] = rollout;
+  if (validatedRules !== undefined) updateData['rules'] = validatedRules;
 
   const isRolloutChange = type !== undefined || rollout !== undefined;
   const finalType = (type as string | undefined) ?? flagState.type;
   const finalRollout = (rollout as number | undefined) ?? flagState.rollout;
 
-  const [updated] = await prisma.$transaction([
-    prisma.flagState.update({
-      where: { flagId_environmentId: { flagId, environmentId } },
-      data: updateData,
-    }),
+  const auditEvents = [
     prisma.auditEvent.create({
       data: {
         flagId,
@@ -234,7 +252,33 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
           : { environmentId, status },
       },
     }),
+  ];
+
+  if (validatedRules !== undefined) {
+    auditEvents.push(
+      prisma.auditEvent.create({
+        data: {
+          flagId,
+          userId: claims.userId,
+          action: 'flag.rules_updated',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          meta: JSON.parse(
+            JSON.stringify({ environmentId, rules: validatedRules }),
+          ),
+        },
+      }),
+    );
+  }
+
+  const [updated] = await prisma.$transaction([
+    prisma.flagState.update({
+      where: { flagId_environmentId: { flagId, environmentId } },
+      data: updateData,
+    }),
+    ...auditEvents,
   ]);
+
+  const updatedRules = validatedRules ?? (flagState.rules as unknown[]);
 
   emitFlagEvent({
     projectId: claims.projectId,
@@ -245,6 +289,7 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
       enabled: updated.status === 'active',
       type: updated.type,
       rollout: updated.rollout,
+      rules: updatedRules,
     },
   });
 
@@ -291,6 +336,7 @@ flagsRouter.get('/:flagId', async (c) => {
         status: s.status,
         type: s.type,
         rollout: s.rollout,
+        rules: Array.isArray(s.rules) ? s.rules : [],
       })),
       auditLog: flag.auditLog.map((e) => ({
         id: e.id,

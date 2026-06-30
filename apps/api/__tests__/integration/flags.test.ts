@@ -510,7 +510,135 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
     expect(body.flagState.rollout).toBe(42);
   });
 
-  it('returns 400 InvalidFlagType for an unknown type value', async () => {
+  it('returns 400 InvalidFlagType for a truly unknown type value', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'unknown-type' }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('InvalidFlagType');
+  });
+
+  it('accepts targeted type with valid rules and writes them', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [],
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    const updatedState = {
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'targeted',
+      rollout: 0,
+      rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+    };
+    mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
+
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'targeted',
+          rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+        }),
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flagState.type).toBe('targeted');
+    expect(body.flagState.rules).toEqual([
+      { attribute: 'plan', operator: 'EQ', value: ['pro'] },
+    ]);
+  });
+
+  it('returns 400 RequestValidationFailed when rules have a missing attribute', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'targeted',
+          rules: [{ operator: 'EQ', value: ['pro'] }],
+        }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('RequestValidationFailed');
+  });
+
+  it('returns 400 RequestValidationFailed when rules has an invalid operator', async () => {
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'targeted',
+          rules: [
+            { attribute: 'plan', operator: 'STARTS_WITH', value: ['pro'] },
+          ],
+        }),
+      },
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('RequestValidationFailed');
+  });
+
+  it('PATCH with targeted but no rules field leaves existing rules unchanged', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    const updatedState = {
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'targeted',
+      rollout: 0,
+      rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+    };
+    mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
+
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
       {
@@ -523,9 +651,64 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       },
     );
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.code).toBe('InvalidFlagType');
+    expect(body.flagState.rules).toEqual([
+      { attribute: 'plan', operator: 'EQ', value: ['pro'] },
+    ]);
+    // rules should NOT be in the updateData passed to prisma
+    const transactionCall = mockPrisma.$transaction.mock.calls[0];
+    expect(transactionCall).toBeDefined();
+  });
+
+  it('emits flag_updated with rules from the updated state', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [],
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+        type: 'targeted',
+        rollout: 0,
+        rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+      },
+    ] as never);
+
+    const mockEmit = vi.mocked(emitFlagEvent);
+
+    await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'targeted',
+          rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+        }),
+      },
+    );
+
+    expect(mockEmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'flag_updated',
+        payload: expect.objectContaining({
+          rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+        }),
+      }),
+    );
   });
 
   it('returns 400 InvalidRollout when rollout is outside 0–100', async () => {

@@ -65,7 +65,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0, rules: [] }],
       },
       {
         id: 'flag-2',
@@ -74,7 +74,9 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'inactive', type: 'boolean', rollout: 0 }],
+        states: [
+          { status: 'inactive', type: 'boolean', rollout: 0, rules: [] },
+        ],
       },
     ] as never);
 
@@ -85,8 +87,20 @@ describe('GET /v1/flags', () => {
 
     const body = await res.json();
     expect(body.flags).toEqual([
-      { key: 'active-flag', enabled: true, type: 'boolean', rollout: 0 },
-      { key: 'inactive-flag', enabled: false, type: 'boolean', rollout: 0 },
+      {
+        key: 'active-flag',
+        enabled: true,
+        type: 'boolean',
+        rollout: 0,
+        rules: [],
+      },
+      {
+        key: 'inactive-flag',
+        enabled: false,
+        type: 'boolean',
+        rollout: 0,
+        rules: [],
+      },
     ]);
   });
 
@@ -99,7 +113,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0, rules: [] }],
       },
       {
         id: 'flag-2',
@@ -108,7 +122,9 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'archived', type: 'boolean', rollout: 0 }],
+        states: [
+          { status: 'archived', type: 'boolean', rollout: 0, rules: [] },
+        ],
       },
     ] as never);
 
@@ -119,7 +135,13 @@ describe('GET /v1/flags', () => {
 
     const body = await res.json();
     expect(body.flags).toEqual([
-      { key: 'live-flag', enabled: true, type: 'boolean', rollout: 0 },
+      {
+        key: 'live-flag',
+        enabled: true,
+        type: 'boolean',
+        rollout: 0,
+        rules: [],
+      },
     ]);
   });
 
@@ -161,7 +183,7 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0, rules: [] }],
       },
       {
         id: 'flag-2',
@@ -170,7 +192,14 @@ describe('GET /v1/flags', () => {
         projectId: 'proj-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active', type: 'percentage_rollout', rollout: 42 }],
+        states: [
+          {
+            status: 'active',
+            type: 'percentage_rollout',
+            rollout: 42,
+            rules: [],
+          },
+        ],
       },
     ] as never);
 
@@ -183,14 +212,57 @@ describe('GET /v1/flags', () => {
     const body = await res.json();
     expect(body).toEqual({
       flags: [
-        { key: 'dark-mode', enabled: true, type: 'boolean', rollout: 0 },
+        {
+          key: 'dark-mode',
+          enabled: true,
+          type: 'boolean',
+          rollout: 0,
+          rules: [],
+        },
         {
           key: 'new-onboarding',
           enabled: true,
           type: 'percentage_rollout',
           rollout: 42,
+          rules: [],
         },
       ],
+    });
+  });
+
+  it('includes rules for a targeted flag', async () => {
+    vi.mocked(prisma.flag.findMany).mockResolvedValue([
+      {
+        id: 'flag-1',
+        key: 'beta',
+        name: 'Beta',
+        projectId: 'proj-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        states: [
+          {
+            status: 'active',
+            type: 'targeted',
+            rollout: 0,
+            rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+          },
+        ],
+      },
+    ] as never);
+
+    const app = buildApp();
+    const res = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${sdkToken('proj-1', 'env-1')}` },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flags[0]).toEqual({
+      key: 'beta',
+      enabled: true,
+      type: 'targeted',
+      rollout: 0,
+      rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
     });
   });
 });

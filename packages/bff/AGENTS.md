@@ -10,13 +10,13 @@ Credential-exchange primitives shared by both BFF layers (`apps/bff` and `apps/d
 
 ## Exports
 
-| Export | Description |
-| --- | --- |
-| `SESSION_COOKIE` | Name of the Better Auth session cookie (`better-auth.session_token`) |
-| `SessionWithUser` | Type: a `Session` row joined with its `User` |
-| `extractSessionToken` | Strips the `.signature` suffix from the raw cookie value |
-| `resolveSessionUser` | Validates the session token against the DB and returns the `User` or `null` |
-| `forwardWithJwt` | Injects `Authorization: Bearer <jwt>`, rewrites origin to `apiBaseUrl`, and reverse-proxies the request |
+| Export                | Description                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `SESSION_COOKIE`      | Name of the Better Auth session cookie (`better-auth.session_token`)                                    |
+| `SessionWithUser`     | Type: a `Session` row joined with its `User`                                                            |
+| `extractSessionToken` | Strips the `.signature` suffix from the raw cookie value                                                |
+| `resolveSessionUser`  | Validates the session token against the DB and returns the `User` or `null`                             |
+| `forwardWithJwt`      | Injects `Authorization: Bearer <jwt>`, rewrites origin to `apiBaseUrl`, and reverse-proxies the request |
 
 ## Rules
 

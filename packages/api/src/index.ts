@@ -1,5 +1,6 @@
 export {
   FLAG_TYPE,
+  RULE_OPERATOR,
   FlagConfigSchema,
   FlagSnapshotResponseSchema,
   FlagCreatedEventSchema,
@@ -7,10 +8,12 @@ export {
   FlagUnarchivedEventSchema,
   FlagArchivedEventSchema,
   FlagDeletedEventSchema,
+  TargetingRuleSchema,
 } from './schemas/flags.js';
 
 export type {
   FlagType,
+  RuleOperator,
   FlagConfig,
   FlagSnapshotResponse,
   FlagCreatedEvent,
@@ -18,4 +21,5 @@ export type {
   FlagUnarchivedEvent,
   FlagArchivedEvent,
   FlagDeletedEvent,
+  TargetingRule,
 } from './schemas/flags.js';

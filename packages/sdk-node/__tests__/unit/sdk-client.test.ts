@@ -11,11 +11,19 @@ const makeClient = () =>
   createClient({ apiUrl: 'http://bff:3002', apiKey: 'env_test.secret' });
 
 const makeSuccessfulFetch = (
-  flags: { key: string; enabled: boolean; type: string; rollout: number }[],
+  flags: {
+    key: string;
+    enabled: boolean;
+    type: string;
+    rollout: number;
+    rules?: { attribute: string; operator: string; value: string[] }[];
+  }[],
 ) =>
   vi.fn().mockResolvedValue({
     ok: true,
-    json: async () => ({ flags }),
+    json: async () => ({
+      flags: flags.map((f) => ({ rules: [], ...f })),
+    }),
   });
 
 const computeBucket = (flagKey: string, userId: string): number => {

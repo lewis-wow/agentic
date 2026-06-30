@@ -11,7 +11,13 @@ export type FlagListItem = {
   updatedAt: string;
 };
 
-export type FlagType = 'boolean' | 'percentage_rollout';
+export type FlagType = 'boolean' | 'percentage_rollout' | 'targeted';
+
+export type TargetingRule = {
+  attribute: string;
+  operator: 'EQ' | 'NEQ' | 'IN' | 'NOT_IN' | 'CONTAINS';
+  value: string[];
+};
 
 export type FlagState = {
   id: string;
@@ -20,6 +26,7 @@ export type FlagState = {
   status: FlagStatus;
   type: FlagType;
   rollout: number;
+  rules: TargetingRule[];
 };
 
 export type AuditLogEntry = {
@@ -239,6 +246,34 @@ export const useUnarchiveFlag = (projectId: string, flagId: string) => {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
+    },
+  });
+};
+
+type UpdateFlagRulesArgs = {
+  flagId: string;
+  environmentId: string;
+  rules: TargetingRule[];
+};
+
+export const useUpdateFlagRules = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: UpdateFlagRulesArgs): Promise<void> => {
+      const res = await fetch(
+        `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rules: args.rules }),
+        },
+      );
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: flagKeys.detail(projectId, variables.flagId),
+      });
     },
   });
 };
