@@ -72,69 +72,9 @@ This is a **Turborepo monorepo** with two workspace groups:
 
 ### Data Flow — API is the Single Source of Truth
 
-**`apps/api` is the only service that reads or writes data.** The dashboard never accesses Prisma directly and never uses Next.js server actions for data operations. All reads and writes go through `apps/api` via a credential-exchange layer.
+**`apps/api` is the only service that reads or writes data.** All reads and writes from every other layer go through `apps/api` via a credential-exchange layer.
 
-There are two credential paths, both implemented using the shared `@repo/bff` package:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Dashboard browser (React + TanStack Query)                  │
-│  fetch('/api/...')  — same-origin Next.js API routes         │
-└─────────────────────────┬───────────────────────────────────┘
-                          │  session cookie
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Next.js API Route Handlers  (apps/dashboard/src/app/api/)   │
-│  uses @repo/bff: session cookie → RS256 JWT                  │
-│  forwards request to apps/api with Authorization header      │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-          ┌───────────────┴──────────────┐
-          │                              │
-          ▼                              ▼
-┌──────────────────────┐    ┌────────────────────────────────┐
-│  apps/api (Hono)     │    │  apps/bff (Hono)               │
-│  verify RS256 JWT    │◄───│  uses @repo/bff:               │
-│  all Prisma + logic  │    │  API key → RS256 JWT           │
-└──────────────────────┘    │  forwards to apps/api          │
-                            └────────────────────────────────┘
-                                         ▲
-                                         │  env_<id>.<secret>
-                            ┌────────────┴───────────────────┐
-                            │  External SDK clients           │
-                            └────────────────────────────────┘
-```
-
-**Role of each layer:**
-
-- **`apps/api`** — the single source of truth. Owns every Prisma query, all business logic, and all validation. Routes are protected by JWT verification; the service has no knowledge of sessions or API keys.
-- **`apps/dashboard` Next.js API routes** — internal BFF for the browser UI. A route handler reads the Better Auth session cookie, uses `@repo/bff` to validate it and mint a short-lived RS256 JWT, then forwards the request to `apps/api`. No business logic lives here.
-- **`apps/bff`** — external BFF for SDK clients. Parses `env_<apiKeyId>.<secret>` Bearer tokens, uses `@repo/bff` to verify and mint an RS256 JWT, then forwards to `apps/api`. No business logic lives here.
-- **`packages/bff`** — shared credential-exchange primitives used by both BFF layers: session token extraction and validation, JWT minting, and `forwardWithJwt` request forwarding. Framework-agnostic (works in Hono middleware and Next.js Route Handlers alike).
-
-**Dashboard data rules:**
-
-- Client components use TanStack Query (`useQuery` / `useMutation`) to call the Next.js API routes at `/api/...`.
-- Next.js API routes do nothing except authenticate and proxy — they contain no business logic.
-- **No Next.js server actions for data.** Server actions were used in Slices 1–3 and must be migrated. New code must never introduce server actions for data fetching or mutation.
-- **No direct Prisma calls from the dashboard.** All reads and writes go through `apps/api`.
-
-### Apps
-
-**`apps/bff`** — External BFF for SDK clients. Built with [Hono](https://hono.dev) on `@hono/node-server`. Runs via `tsx` in dev. Validates `env_<apiKeyId>.<secret>` Bearer tokens, mints RS256 JWTs via `@repo/bff`, and reverse-proxies to `apps/api`. Environment variables validated at startup via Effect `Schema` (see `src/env.ts`). Build output goes to `dist/`.
-
-### Shared Packages
-
-| Package                      | Purpose                                                                                        |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `packages/bff`               | Credential-exchange primitives: session validation, JWT minting, `forwardWithJwt` forwarding   |
-| `packages/auth`              | JWT sign/verify, RS256 key helpers, API key generate/verify, role constants, shared JWT claims |
-| `packages/enums`             | Shared `as const` enums: `HttpStatusCode`, `NodeEnv`, and their derived union types            |
-| `packages/exception`         | `Exception<TData>` base class, `AnyException` type, `ExceptionShapeSchema` for error parsing   |
-| `packages/prisma`            | Prisma schema, generated client, re-exported as `@repo/prisma`                                 |
-| `packages/typescript-config` | Shared `tsconfig` presets (`base.json`, `node.json`)                                           |
-| `packages/eslint-config`     | Shared ESLint flat-config presets (`base.js`, `node.js`)                                       |
-| `packages/vitest-config`     | Shared Vitest config factories (`unit.ts`, `integration.ts`, `consts.ts`)                      |
+Each layer has its own `AGENTS.md` with layer-specific rules. Read the relevant one before working in that layer.
 
 ### Testing Convention
 
@@ -200,19 +140,16 @@ The type export is cheap and makes the contract immediately usable by consumers 
 
 ### App-Scoped Packages for Domain Schemas
 
-Each application that exposes a contract (HTTP responses, request bodies, events) owns a sibling `packages/<app-name>` package for the schemas and other artefacts that belong to that domain. Examples:
+Each application that exposes a contract (HTTP responses, request bodies, events) owns a sibling `packages/<app-name>` package for the schemas and other artefacts that belong to that domain:
 
-| App              | Sibling package                    | What goes there                                                                                 |
-| ---------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `apps/api`       | `packages/api`                     | Request/response schemas for every `apps/api` endpoint, shared types derived from those schemas |
-| `apps/bff`       | `packages/bff` _(already exists)_  | Credential-exchange primitives used by both BFF layers                                          |
-| `apps/dashboard` | `packages/dashboard` _(if needed)_ | Dashboard-specific shared types, query-key factories, etc.                                      |
+| App        | Sibling package | What goes there                                                                                 |
+| ---------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| `apps/api` | `packages/api`  | Request/response schemas for every `apps/api` endpoint, shared types derived from those schemas |
+| `apps/bff` | `packages/bff`  | Credential-exchange primitives used by both BFF layers                                          |
 
 **Rule:** if a schema or type is only consumed by one application's domain, it lives in that application's sibling package — not in a generic shared package such as `packages/types` or a hypothetical `packages/schemas`.
 
 Generic shared packages (`packages/types`, `packages/auth`, `packages/prisma`, …) are reserved for cross-cutting infrastructure concerns that are genuinely independent of any single application's domain. Do not add domain schemas there.
-
-When a second application (e.g. an SDK client package) needs to consume `apps/api` response shapes, it imports from `packages/api` — the already-correct location — rather than requiring a migration out of a generic package.
 
 ### Enums and Constants
 
@@ -229,31 +166,11 @@ export type SystemRole = ValueOfEnum<typeof SYSTEM_ROLE>;
 
 **True constants** (single values that are not part of an enum set) must be placed in a `consts.ts` file scoped to the app or package that owns them. Export them as `UPPER_SNAKE_CASE` named exports.
 
-```ts
-// apps/bff/src/consts.ts
-export const JWT_TTL_SECONDS = 60;
-
-// packages/bff/src/consts.ts
-export const SESSION_COOKIE = 'better-auth.session_token';
-```
-
 Do not export constants from middleware, route, or utility files. If a constant is only used within one module, it can remain as a non-exported local `const`; only move it to `consts.ts` when it is shared or logically belongs at the package/app boundary.
-
-### HTTP Status Codes
-
-Always use the `HttpStatusCode` const enum from `@repo/enums` for every HTTP status code. Never use raw number literals for status codes.
-
-```ts
-import { HttpStatusCode } from '@repo/enums';
-
-return c.json({ error: 'Not found' }, HttpStatusCode.NOT_FOUND_404);
-```
-
-The enum keys follow the pattern `NAME_NNN` (e.g. `BAD_REQUEST_400`, `NOT_FOUND_404`). Use the `HttpStatusCode` type (also exported from `@repo/enums`) wherever a status code type is needed.
 
 ### Error Handling with Exception Classes
 
-Every error returned from an HTTP handler must be an instance of `Exception` from `@repo/exception`. Never return plain `Error` objects or raw `{ error: string }` JSON — always use the structured exception pattern.
+Every error returned from an HTTP handler must be an instance of `Exception` from `@repo/exception`. Never return plain `Error` objects, raw `{ error: string }` JSON, or call `c.json()` directly with a status code — always use the structured exception pattern.
 
 Define a concrete subclass for each distinct error case. The subclass lives in an `exceptions/` folder inside the package or app that owns the error domain (e.g. `apps/api/src/exceptions/`, `packages/bff/src/exceptions/`). Export all exception classes from an `index.ts` barrel in that folder.
 

@@ -1,0 +1,41 @@
+# AGENTS.md — apps/bff
+
+## Role
+
+`apps/bff` is the **external BFF (Backend For Frontend) for SDK clients**. It validates SDK API keys, mints short-lived RS256 JWTs, and reverse-proxies all requests to `apps/api`. It contains no business logic.
+
+## Required Context Loading
+
+Before writing, refactoring, or reviewing any code here, read:
+
+- @.docs/typescript.md
+- @.docs/hono.md
+- @.docs/effect.md
+
+## Source Layout
+
+```text
+src/
+  auth/middleware.ts   # Bearer token validation → RS256 JWT minting
+  consts.ts            # App-scoped constants (UPPER_SNAKE_CASE)
+  env.ts               # Effect Schema env validation (validated at startup)
+  index.ts             # Hono app entry point (@hono/node-server)
+```
+
+## Rules
+
+- **No business logic.** The only work done here is authentication (parse Bearer token, verify API key, mint JWT) and proxying the request to `apps/api` via `@repo/bff`'s `forwardWithJwt`.
+- **Bearer token format:** `env_<apiKeyId>.<secret>`. Parsing and verification use `@repo/bff` primitives.
+- **No Prisma access.** Never import `@repo/prisma` here.
+- **Every error is an `Exception` subclass.** Never call `c.json()` directly with a status code. Exceptions live in `src/exceptions/` if any are needed.
+- **Environment variables** are validated at startup in `src/env.ts` via Effect `Schema.Struct`.
+- **Build output** goes to `dist/`. Runs via `tsx` in development.
+
+## Commands
+
+```bash
+pnpm dev          # start in watch mode (from repo root)
+pnpm build        # build to dist/
+pnpm lint
+pnpm check-types
+```
