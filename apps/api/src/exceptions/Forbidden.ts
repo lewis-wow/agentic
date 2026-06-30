@@ -1,7 +1,7 @@
 import { HttpStatusCode } from '@repo/enums';
-import { Exception } from '@repo/exception';
+import { HttpException } from '@repo/exception';
 
-export class Forbidden extends Exception {
+export class Forbidden extends HttpException {
   static readonly status = HttpStatusCode.FORBIDDEN_403;
   static readonly code = 'Forbidden';
   static readonly message =

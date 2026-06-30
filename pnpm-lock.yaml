@@ -47,9 +47,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.0.0
         version: 1.19.14(hono@4.12.27)
-      '@repo/api-schemas':
+      '@repo/api':
         specifier: workspace:*
-        version: link:../../packages/api-schemas
+        version: link:../../packages/api
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -222,7 +222,7 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  packages/api-schemas:
+  packages/api:
     dependencies:
       effect:
         specifier: ^3.21.4
@@ -348,9 +348,15 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest-config
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/prisma:
     dependencies:
@@ -373,6 +379,34 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+
+  packages/sdk-node:
+    dependencies:
+      '@repo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@repo/exception':
+        specifier: workspace:*
+        version: link:../exception
+      effect:
+        specifier: ^3.21.4
+        version: 3.21.4
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest-config
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/types:
     devDependencies:

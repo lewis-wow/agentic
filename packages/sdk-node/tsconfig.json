@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/typescript-config/node.json",
+  "include": ["src"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "paths": {
+      "@repo/sdk-node": ["./src/index.ts"],
+      "@repo/api": ["../api/src/index.ts"],
+      "@repo/exception": ["../exception/src/index.ts"]
+    }
+  }
+}

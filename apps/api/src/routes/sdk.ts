@@ -1,4 +1,4 @@
-import { FlagSnapshotResponseSchema } from '@repo/api-schemas';
+import { FlagSnapshotResponseSchema } from '@repo/api';
 import { isSdkClaims } from '@repo/auth';
 import { prisma } from '@repo/prisma';
 import { Schema } from 'effect';

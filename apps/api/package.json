@@ -1,5 +1,5 @@
 {
-  "name": "@repo/api",
+  "name": "@repo/api-server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
-    "@repo/api-schemas": "workspace:*",
+    "@repo/api": "workspace:*",
     "@repo/auth": "workspace:*",
     "@repo/enums": "workspace:*",
     "@repo/exception": "workspace:*",

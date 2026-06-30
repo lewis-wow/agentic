@@ -1,7 +1,7 @@
 import { HttpStatusCode } from '@repo/enums';
-import { Exception } from '@repo/exception';
+import { HttpException } from '@repo/exception';
 
-export class InvalidFlagStatus extends Exception {
+export class InvalidFlagStatus extends HttpException {
   static readonly status = HttpStatusCode.BAD_REQUEST_400;
   static readonly code = 'InvalidFlagStatus';
   static readonly message = 'status must be "active" or "inactive".';
