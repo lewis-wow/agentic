@@ -5,6 +5,7 @@ import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
+import { emitFlagEvent } from '../events/emitter.js';
 import {
   EnvironmentIdRequired,
   FlagIsArchived,
@@ -85,6 +86,13 @@ flagsRouter.post('/:flagId/archive', async (c) => {
     }),
   ]);
 
+  emitFlagEvent({
+    projectId: claims.projectId,
+    environmentId: null,
+    type: 'flag_archived',
+    payload: { key: flag.key },
+  });
+
   const updated = await prisma.flag.findUniqueOrThrow({
     where: { id: flagId },
     include: {
@@ -125,6 +133,13 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
     }),
   ]);
 
+  emitFlagEvent({
+    projectId: claims.projectId,
+    environmentId: null,
+    type: 'flag_unarchived',
+    payload: { key: flag.key, enabled: false },
+  });
+
   const updated = await prisma.flag.findUniqueOrThrow({
     where: { id: flagId },
     include: {
@@ -153,7 +168,7 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
 
   const flagState = await prisma.flagState.findUnique({
     where: { flagId_environmentId: { flagId, environmentId } },
-    include: { flag: { select: { projectId: true } } },
+    include: { flag: { select: { projectId: true, key: true } } },
   });
 
   if (!flagState || flagState.flag.projectId !== claims.projectId) {
@@ -178,6 +193,13 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
       },
     }),
   ]);
+
+  emitFlagEvent({
+    projectId: claims.projectId,
+    environmentId,
+    type: 'flag_updated',
+    payload: { key: flagState.flag.key, enabled: status === 'active' },
+  });
 
   return c.json({ flagState: updated });
 });
@@ -282,6 +304,13 @@ flagsRouter.delete('/:flagId', async (c) => {
 
   await prisma.flag.delete({ where: { id: flagId } });
 
+  emitFlagEvent({
+    projectId: claims.projectId,
+    environmentId: null,
+    type: 'flag_deleted',
+    payload: { key: flag.key },
+  });
+
   return new Response(null, { status: 204 });
 });
 
@@ -371,6 +400,13 @@ flagsRouter.post('/', async (c) => {
         },
       },
     },
+  });
+
+  emitFlagEvent({
+    projectId: claims.projectId,
+    environmentId: null,
+    type: 'flag_created',
+    payload: { key, enabled: false },
   });
 
   return c.json({ flag }, 201);

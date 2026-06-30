@@ -9,6 +9,7 @@ import {
   type ApiAuthVariables,
   createJwtVerifyMiddleware,
 } from '../../src/auth/middleware.js';
+import { emitFlagEvent } from '../../src/events/emitter.js';
 import { flagsRouter } from '../../src/routes/flags.js';
 import { generateTestKeys } from '../helpers/keys.js';
 
@@ -31,6 +32,13 @@ vi.mock('@repo/prisma', () => ({
     auditEvent: { create: vi.fn() },
     $transaction: vi.fn(),
   },
+}));
+
+vi.mock('../../src/events/emitter.js', () => ({
+  emitFlagEvent: vi.fn(),
+  flagEmitter: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+  getRingBuffer: vi.fn().mockReturnValue([]),
+  _resetForTesting: vi.fn(),
 }));
 
 const { privateKey, publicKey } = generateTestKeys();
@@ -589,5 +597,187 @@ describe('DELETE /projects/:projectId/flags/:flagId', () => {
     });
 
     expect(res.status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Flag event emission
+// ---------------------------------------------------------------------------
+describe('flag event emission', () => {
+  const mockEmit = vi.mocked(emitFlagEvent);
+
+  it('POST / emits flag_created with enabled:false', async () => {
+    mockPrisma.environment.findMany.mockResolvedValue([] as never);
+    mockPrisma.flag.findUnique.mockResolvedValue(null);
+    mockPrisma.flag.create.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'My Flag',
+      projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    await app.request(`/projects/${PROJECT_ID}/flags`, {
+      method: 'POST',
+      headers: {
+        ...bearer(ownerToken(PROJECT_ID)),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ key: 'my-flag', name: 'My Flag' }),
+    });
+
+    expect(mockEmit).toHaveBeenCalledOnce();
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: null,
+      type: 'flag_created',
+      payload: { key: 'my-flag', enabled: false },
+    });
+  });
+
+  it('PATCH /:flagId/environments/:environmentId emits flag_updated scoped to that env', async () => {
+    mockPrisma.flagState.findUnique.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'inactive',
+      flag: { projectId: PROJECT_ID, key: 'my-flag' },
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      {
+        id: 'state-1',
+        flagId: 'flag-1',
+        environmentId: 'env-1',
+        status: 'active',
+      },
+    ] as never);
+
+    await app.request(
+      `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...bearer(ownerToken(PROJECT_ID)),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'active' }),
+      },
+    );
+
+    expect(mockEmit).toHaveBeenCalledOnce();
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: 'env-1',
+      type: 'flag_updated',
+      payload: { key: 'my-flag', enabled: true },
+    });
+  });
+
+  it('POST /:flagId/archive emits flag_archived with no environmentId', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      projectId: PROJECT_ID,
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([] as never);
+    mockPrisma.flag.findUniqueOrThrow.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'My Flag',
+      projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      states: [],
+    } as never);
+
+    await app.request(`/projects/${PROJECT_ID}/flags/flag-1/archive`, {
+      method: 'POST',
+      headers: bearer(ownerToken(PROJECT_ID)),
+    });
+
+    expect(mockEmit).toHaveBeenCalledOnce();
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: null,
+      type: 'flag_archived',
+      payload: { key: 'my-flag' },
+    });
+  });
+
+  it('POST /:flagId/unarchive emits flag_unarchived with enabled:false', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      projectId: PROJECT_ID,
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([] as never);
+    mockPrisma.flag.findUniqueOrThrow.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'My Flag',
+      projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      states: [],
+    } as never);
+
+    await app.request(`/projects/${PROJECT_ID}/flags/flag-1/unarchive`, {
+      method: 'POST',
+      headers: bearer(ownerToken(PROJECT_ID)),
+    });
+
+    expect(mockEmit).toHaveBeenCalledOnce();
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: null,
+      type: 'flag_unarchived',
+      payload: { key: 'my-flag', enabled: false },
+    });
+  });
+
+  it('DELETE /:flagId emits flag_deleted', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      projectId: PROJECT_ID,
+    } as never);
+    mockPrisma.flag.delete.mockResolvedValue({} as never);
+
+    await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
+      method: 'DELETE',
+      headers: bearer(ownerToken(PROJECT_ID)),
+    });
+
+    expect(mockEmit).toHaveBeenCalledOnce();
+    expect(mockEmit).toHaveBeenCalledWith({
+      projectId: PROJECT_ID,
+      environmentId: null,
+      type: 'flag_deleted',
+      payload: { key: 'my-flag' },
+    });
+  });
+
+  it('PATCH /:flagId (rename) does not emit any event', async () => {
+    mockPrisma.flag.findUnique.mockResolvedValue({
+      id: 'flag-1',
+      key: 'my-flag',
+      name: 'Old Name',
+      projectId: PROJECT_ID,
+    } as never);
+    mockPrisma.$transaction.mockResolvedValue([
+      { id: 'flag-1', key: 'my-flag', name: 'New Name', projectId: PROJECT_ID },
+    ] as never);
+
+    await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
+      method: 'PATCH',
+      headers: {
+        ...bearer(ownerToken(PROJECT_ID)),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'New Name' }),
+    });
+
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 });
