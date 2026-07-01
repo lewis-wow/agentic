@@ -15,17 +15,16 @@ services:
       timeout: 5s
       retries: 5
 
-  dashboard:
+  migrator:
     build:
       context: .
-      dockerfile: apps/dashboard/Dockerfile
-    ports:
-      - '3000:3000'
+      dockerfile: packages/prisma/Dockerfile
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags
     depends_on:
       postgres:
         condition: service_healthy
+    restart: 'no'
 
   api:
     build:
@@ -34,9 +33,36 @@ services:
     ports:
       - '3001:3001'
     environment:
+      DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY_API:-}
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags
     depends_on:
-      postgres:
+      migrator:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3001/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - '3000:3000'
+    environment:
+      DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY_DASHBOARD:-}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags
+      API_URL: http://api:3001
+    depends_on:
+      api:
         condition: service_healthy
 
   bff:
@@ -45,8 +71,13 @@ services:
       dockerfile: apps/bff/Dockerfile
     ports:
       - '3002:3000'
+    environment:
+      DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY_BFF:-}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags
+      API_URL: http://api:3001
     depends_on:
-      - postgres
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:
