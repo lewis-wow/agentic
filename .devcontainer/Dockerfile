@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     wget \
     libatomic1 \
+    socat \
+    sudo \
     && install -m 0755 -d /etc/apt/keyrings \
     # Docker repository setup
     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \

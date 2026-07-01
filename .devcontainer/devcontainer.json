@@ -14,7 +14,8 @@
   "remoteUser": "node",
 
   "features": {
-    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+    "ghcr.io/devcontainers/features/desktop-lite:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 
   // Settings specific to the editor and AI tools
