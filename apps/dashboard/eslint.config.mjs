@@ -4,6 +4,10 @@ import { FlatCompat } from '@eslint/eslintrc';
 const compat = new FlatCompat();
 
 /** @type {import("eslint").Linter.Config[]} */
-const eslintConfig = [...config, ...compat.extends('next/core-web-vitals')];
+const eslintConfig = [
+  ...config,
+  ...compat.extends('next/core-web-vitals'),
+  { ignores: ['.next/**', 'next-env.d.ts'] },
+];
 
 export default eslintConfig;

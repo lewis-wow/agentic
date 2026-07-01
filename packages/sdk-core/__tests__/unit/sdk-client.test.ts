@@ -30,33 +30,24 @@ const mockES = vi.hoisted(() => {
     constructor(url: string, _opts?: unknown) {
       super();
       this.url = url;
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      lastInstance = this;
+    }
 
-      // Expose control surface for tests via closure
-      const self = this;
-      lastInstance = {
-        get url() {
-          return self.url;
-        },
-        get readyState() {
-          return self.readyState;
-        },
-        fireEvent(type: string, data: string) {
-          self.dispatchEvent(new MessageEvent(type, { data }));
-        },
-        fireError(code?: number) {
-          self.dispatchEvent(Object.assign(new Event('error'), { code }));
-        },
-        close() {
-          self.close();
-        },
-        isClosed() {
-          return self.readyState === MockEventSource.CLOSED;
-        },
-      };
+    fireEvent(type: string, data: string): void {
+      this.dispatchEvent(new MessageEvent(type, { data }));
+    }
+
+    fireError(code?: number): void {
+      this.dispatchEvent(Object.assign(new Event('error'), { code }));
     }
 
     close(): void {
       this.readyState = MockEventSource.CLOSED;
+    }
+
+    isClosed(): boolean {
+      return this.readyState === MockEventSource.CLOSED;
     }
   }
 

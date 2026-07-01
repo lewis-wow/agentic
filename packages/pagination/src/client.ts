@@ -31,7 +31,6 @@ export const usePaginatedQuery = <T>(
   const queryKeyStr = JSON.stringify(options.queryKey);
   useEffect(() => {
     setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKeyStr]);
 
   const { data, isPending, error } = useQuery({

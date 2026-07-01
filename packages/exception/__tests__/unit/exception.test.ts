@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Exception, HttpException } from '../../src/index.js';
+import { HttpException } from '../../src/index.js';
 
 class TestHttpError extends HttpException {
   static readonly status = 404;

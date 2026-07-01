@@ -1,5 +1,5 @@
 import { SdkClient } from './SdkClient.js';
-import type { SdkClientOptions, FlagChangeDetail } from './SdkClient.js';
+import type { SdkClientOptions } from './SdkClient.js';
 
 export { SdkClient } from './SdkClient.js';
 export type { SdkClientOptions, FlagChangeDetail } from './SdkClient.js';

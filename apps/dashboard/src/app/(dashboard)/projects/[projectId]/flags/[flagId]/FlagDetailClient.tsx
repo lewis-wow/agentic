@@ -13,7 +13,6 @@ import {
   useUnarchiveFlag,
   useUpdateFlagEnvironment,
   useUpdateFlagRules,
-  type AuditLogEntry,
   type FlagDetail,
   type FlagState,
   type FlagType,
