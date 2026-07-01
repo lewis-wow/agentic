@@ -5,7 +5,7 @@
   "compilerOptions": {
     "incremental": false,
     "paths": {
-      "@repo/sdk-node": ["./src/index.ts"],
+      "@repo/sdk-browser": ["./src/index.ts"],
       "@repo/sdk-core": ["../sdk-core/src/index.ts"]
     }
   }
