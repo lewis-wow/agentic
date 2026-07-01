@@ -8,6 +8,14 @@ import { env } from '../env';
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.NEXT_PUBLIC_APP_URL,
+  // The devcontainer's forwarded port is only reachable via 127.0.0.1 on some
+  // hosts (localhost resolves to ::1 first with no IPv6 forwarder listening),
+  // so trust both loopback forms in development.
+  trustedOrigins:
+    process.env.NODE_ENV === 'production'
+      ? [env.NEXT_PUBLIC_APP_URL]
+      : [env.NEXT_PUBLIC_APP_URL, 'http://127.0.0.1:3000'],
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),

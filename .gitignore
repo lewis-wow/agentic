@@ -6,5 +6,5 @@ coverage
 *.tsbuildinfo
 
 .devcontainer/.claude/
-.devcontainer/.pnpm-store/
+.pnpm-store/
 .ralph

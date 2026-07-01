@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     '@repo/ui',
     '@repo/utils',
     '@repo/prisma',
+    '@repo/pagination',
     '@prisma/client',
     'effect',
   ],
