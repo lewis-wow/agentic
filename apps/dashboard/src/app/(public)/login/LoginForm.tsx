@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { authClient } from '../../../lib/auth-client.js';
+import { authClient } from '../../../lib/auth-client';
 
 export const LoginForm = (): React.ReactNode => {
   const router = useRouter();

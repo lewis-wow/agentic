@@ -8,8 +8,8 @@ import {
 import { prisma } from '@repo/prisma';
 import { forbidden, redirect } from 'next/navigation';
 
-import { type Session } from './auth.js';
-import { getSession } from './session.js';
+import { type Session } from './auth';
+import { getSession } from './session';
 
 export type AuthedUser = {
   id: string;

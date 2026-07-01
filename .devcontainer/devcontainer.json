@@ -33,6 +33,8 @@
     "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
 
+  "forwardPorts": [3000, 5432],
+
   // Commands that run after the container is successfully built
   // pnpm store prune saves disk space and pnpm install prepares dependencies
   "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh"

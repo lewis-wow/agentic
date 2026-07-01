@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 
-import { createProjectAction, type ProjectActionState } from './actions.js';
+import { createProjectAction, type ProjectActionState } from './actions';
 
 const initialState: ProjectActionState = {};
 

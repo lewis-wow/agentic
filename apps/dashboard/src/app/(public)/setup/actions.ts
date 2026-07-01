@@ -5,7 +5,7 @@ import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import { redirect } from 'next/navigation';
 
-import { auth } from '../../../lib/auth.js';
+import { auth } from '../../../lib/auth';
 
 export type SetupActionState = {
   error?: string;

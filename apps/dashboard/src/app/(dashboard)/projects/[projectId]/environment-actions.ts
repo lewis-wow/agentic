@@ -5,7 +5,7 @@ import { PROJECT_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import { revalidatePath } from 'next/cache';
 
-import { requireProjectAccess } from '../../../../lib/guards.js';
+import { requireProjectAccess } from '../../../../lib/guards';
 
 export type EnvironmentActionState = {
   error?: string;

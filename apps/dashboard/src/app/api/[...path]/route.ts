@@ -5,8 +5,8 @@ import { forwardWithJwt, resolveSessionUser, SESSION_COOKIE } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { cookies } from 'next/headers';
 
-import { JWT_TTL_SECONDS } from '../../../consts.js';
-import { env } from '../../../env.js';
+import { JWT_TTL_SECONDS } from '../../../consts';
+import { env } from '../../../env';
 
 const handler = async (
   request: Request,

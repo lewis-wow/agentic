@@ -5,7 +5,7 @@ import { useActionState, useState } from 'react';
 import {
   deleteProjectAction,
   type ProjectActionState,
-} from '../../dashboard/actions.js';
+} from '../../dashboard/actions';
 
 type Props = {
   projectId: string;

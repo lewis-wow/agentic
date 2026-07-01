@@ -2,7 +2,13 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  transpilePackages: ['@repo/ui', '@repo/utils', '@repo/prisma', 'effect'],
+  transpilePackages: [
+    '@repo/ui',
+    '@repo/utils',
+    '@repo/prisma',
+    '@prisma/client',
+    'effect',
+  ],
   devIndicators: false,
   experimental: {
     // Enables forbidden() / unauthorized() interrupts used by the route guards.

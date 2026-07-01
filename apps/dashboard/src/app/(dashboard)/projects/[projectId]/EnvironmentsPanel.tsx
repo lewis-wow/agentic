@@ -7,7 +7,7 @@ import {
   deleteEnvironmentAction,
   type EnvironmentActionState,
   rotateApiKeyAction,
-} from './environment-actions.js';
+} from './environment-actions';
 
 type Environment = {
   id: string;

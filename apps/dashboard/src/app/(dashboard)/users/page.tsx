@@ -1,6 +1,6 @@
 import { prisma } from '@repo/prisma';
 
-import { requireOwner } from '../../../lib/guards.js';
+import { requireOwner } from '../../../lib/guards';
 
 export const dynamic = 'force-dynamic';
 

@@ -2,8 +2,8 @@ import { prisma } from '@repo/prisma';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { getSession } from '../../../lib/session.js';
-import { LoginForm } from './LoginForm.js';
+import { getSession } from '../../../lib/session';
+import { LoginForm } from './LoginForm';
 
 export const dynamic = 'force-dynamic';
 

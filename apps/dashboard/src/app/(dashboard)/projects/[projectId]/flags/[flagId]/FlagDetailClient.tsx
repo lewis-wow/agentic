@@ -17,7 +17,7 @@ import {
   type FlagState,
   type FlagType,
   type TargetingRule,
-} from '../../../../../../queries/flags.js';
+} from '../../../../../../queries/flags';
 
 type Props = {
   projectId: string;

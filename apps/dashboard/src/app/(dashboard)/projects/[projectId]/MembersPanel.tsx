@@ -9,7 +9,7 @@ import {
   type MemberActionState,
   removeMemberAction,
   searchAddableUsers,
-} from './actions.js';
+} from './actions';
 
 type Member = {
   id: string;

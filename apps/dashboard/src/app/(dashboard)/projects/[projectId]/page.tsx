@@ -3,10 +3,10 @@ import { prisma } from '@repo/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { requireProjectAccess } from '../../../../lib/guards.js';
-import { DeleteProjectForm } from './DeleteProjectForm.js';
-import { EnvironmentsPanel } from './EnvironmentsPanel.js';
-import { MembersPanel } from './MembersPanel.js';
+import { requireProjectAccess } from '../../../../lib/guards';
+import { DeleteProjectForm } from './DeleteProjectForm';
+import { EnvironmentsPanel } from './EnvironmentsPanel';
+import { MembersPanel } from './MembersPanel';
 
 export const dynamic = 'force-dynamic';
 

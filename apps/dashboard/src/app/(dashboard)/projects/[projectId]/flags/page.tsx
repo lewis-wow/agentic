@@ -1,8 +1,8 @@
 import { PROJECT_ROLE } from '@repo/auth/roles';
 import Link from 'next/link';
 
-import { requireProjectAccess } from '../../../../../lib/guards.js';
-import { FlagsClient } from './FlagsClient.js';
+import { requireProjectAccess } from '../../../../../lib/guards';
+import { FlagsClient } from './FlagsClient';
 
 type Props = {
   params: Promise<{ projectId: string }>;

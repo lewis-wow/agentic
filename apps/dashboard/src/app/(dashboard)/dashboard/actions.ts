@@ -4,7 +4,7 @@ import { prisma } from '@repo/prisma';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { requireOwner } from '../../../lib/guards.js';
+import { requireOwner } from '../../../lib/guards';
 
 export type ProjectActionState = {
   error?: string;

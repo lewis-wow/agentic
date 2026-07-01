@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-import { authClient } from '../../lib/auth-client.js';
+import { authClient } from '../../lib/auth-client';
 
 export const LogoutButton = (): React.ReactNode => {
   const router = useRouter();

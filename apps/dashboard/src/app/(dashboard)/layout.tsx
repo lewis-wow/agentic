@@ -1,9 +1,9 @@
 import { SYSTEM_ROLE } from '@repo/auth/roles';
 import Link from 'next/link';
 
-import { requireSession } from '../../lib/guards.js';
-import { LogoutButton } from './LogoutButton.js';
-import { Providers } from './providers.js';
+import { requireSession } from '../../lib/guards';
+import { LogoutButton } from './LogoutButton';
+import { Providers } from './providers';
 
 export default async function DashboardLayout({
   children,

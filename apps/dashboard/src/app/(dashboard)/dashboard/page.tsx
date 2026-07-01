@@ -2,8 +2,8 @@ import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import Link from 'next/link';
 
-import { requireSession } from '../../../lib/guards.js';
-import { CreateProjectForm } from './CreateProjectForm.js';
+import { requireSession } from '../../../lib/guards';
+import { CreateProjectForm } from './CreateProjectForm';
 
 export const dynamic = 'force-dynamic';
 

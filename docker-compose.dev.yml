@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:latest
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    name: agentic_devcontainer_agent-net
+    external: true

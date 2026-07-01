@@ -9,7 +9,7 @@ import {
   useToggleFlag,
   type Environment,
   type FlagListItem,
-} from '../../../../../queries/flags.js';
+} from '../../../../../queries/flags';
 
 type Props = {
   projectId: string;

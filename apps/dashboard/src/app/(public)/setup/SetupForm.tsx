@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 
-import { setupAction, type SetupActionState } from './actions.js';
+import { setupAction, type SetupActionState } from './actions';
 
 const initialState: SetupActionState = {};
 

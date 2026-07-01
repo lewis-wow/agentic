@@ -1,7 +1,7 @@
 import { prisma } from '@repo/prisma';
 import { redirect } from 'next/navigation';
 
-import { SetupForm } from './SetupForm.js';
+import { SetupForm } from './SetupForm';
 
 export const dynamic = 'force-dynamic';
 

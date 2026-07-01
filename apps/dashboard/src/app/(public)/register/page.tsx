@@ -1,8 +1,8 @@
 import { prisma } from '@repo/prisma';
 import { redirect } from 'next/navigation';
 
-import { getSession } from '../../../lib/session.js';
-import { RegisterForm } from './RegisterForm.js';
+import { getSession } from '../../../lib/session';
+import { RegisterForm } from './RegisterForm';
 
 export const dynamic = 'force-dynamic';
 

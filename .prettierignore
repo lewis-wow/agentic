@@ -7,3 +7,4 @@ pnpm-lock.yaml
 .claude
 .ralph
 packages/ui/src/components/ui
+**/.next
