@@ -18,6 +18,13 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/ui/select';
 import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
@@ -288,18 +295,22 @@ const StatesSection = ({
         const disabled =
           !canManage || isArchived || isUpdating(state.environmentId);
         return (
-          <select
+          <Select
             value={state.type}
-            onChange={(e) =>
-              handleTypeChange(state, e.target.value as FlagType)
+            onValueChange={(value) =>
+              handleTypeChange(state, value as FlagType)
             }
             disabled={disabled}
-            className="rounded-md border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <option value="boolean">Boolean</option>
-            <option value="percentage_rollout">Rollout %</option>
-            <option value="targeted">Targeted</option>
-          </select>
+            <SelectTrigger size="sm" className="text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="boolean">Boolean</SelectItem>
+              <SelectItem value="percentage_rollout">Rollout %</SelectItem>
+              <SelectItem value="targeted">Targeted</SelectItem>
+            </SelectContent>
+          </Select>
         );
       },
     },
@@ -468,18 +479,22 @@ const RuleBuilderSection = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <select
+                          <Select
                             value={field.value}
-                            onChange={field.onChange}
+                            onValueChange={field.onChange}
                             disabled={busy}
-                            className="rounded border px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black disabled:opacity-40"
                           >
-                            <option value="EQ">EQ</option>
-                            <option value="NEQ">NEQ</option>
-                            <option value="IN">IN</option>
-                            <option value="NOT_IN">NOT_IN</option>
-                            <option value="CONTAINS">CONTAINS</option>
-                          </select>
+                            <SelectTrigger className="text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="EQ">EQ</SelectItem>
+                              <SelectItem value="NEQ">NEQ</SelectItem>
+                              <SelectItem value="IN">IN</SelectItem>
+                              <SelectItem value="NOT_IN">NOT_IN</SelectItem>
+                              <SelectItem value="CONTAINS">CONTAINS</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                       </FormItem>
                     )}
