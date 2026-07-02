@@ -1,6 +1,6 @@
 import type { Session, User } from '@repo/prisma';
 
-export { SESSION_COOKIE } from './consts.js';
+export { SESSION_COOKIE } from './consts';
 
 export type SessionWithUser = Session & { user: User };
 
