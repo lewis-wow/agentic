@@ -5,12 +5,15 @@ import { MEMBERSHIP_ROLE } from '@repo/auth/roles';
 import { Avatar, AvatarFallback } from '@repo/ui/components/ui/avatar';
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Button } from '@repo/ui/components/ui/button';
+import { Card, CardContent } from '@repo/ui/components/ui/card';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/ui/card';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@repo/ui/components/ui/dialog';
 import {
   Empty,
   EmptyDescription,
@@ -41,7 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from '@repo/ui/components/ui/table';
-import { Trash2, Users } from 'lucide-react';
+import { Plus, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -111,6 +114,7 @@ export const MembersPanel = ({
             People with access to this project.
           </p>
         </div>
+        {canManage && <AddMemberDialog projectId={projectId} />}
       </div>
 
       {isPending ? (
@@ -183,17 +187,18 @@ export const MembersPanel = ({
       {removeMutation.isError && (
         <p className="text-sm text-red-700">{removeMutation.error.message}</p>
       )}
-
-      {canManage && <AddMemberCard projectId={projectId} />}
     </div>
   );
 };
 
-type AddMemberCardProps = {
+type AddMemberDialogProps = {
   projectId: string;
 };
 
-const AddMemberCard = ({ projectId }: AddMemberCardProps): React.ReactNode => {
+const AddMemberDialog = ({
+  projectId,
+}: AddMemberDialogProps): React.ReactNode => {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selected, setSelected] = useState<AddableUser | null>(null);
@@ -215,11 +220,16 @@ const AddMemberCard = ({ projectId }: AddMemberCardProps): React.ReactNode => {
     defaultValues: { userId: '', role: MEMBERSHIP_ROLE.VIEWER },
   });
 
-  const handleCancel = (): void => {
+  const reset = (): void => {
     setSelected(null);
     setQuery('');
     setDebouncedQuery('');
     form.reset({ userId: '', role: MEMBERSHIP_ROLE.VIEWER });
+  };
+
+  const handleOpenChange = (next: boolean): void => {
+    if (!next) reset();
+    setOpen(next);
   };
 
   const handleSelect = (user: AddableUser): void => {
@@ -228,122 +238,131 @@ const AddMemberCard = ({ projectId }: AddMemberCardProps): React.ReactNode => {
   };
 
   const onSubmit = (values: AddMemberFormValues): void => {
-    mutation.mutate(values, { onSuccess: handleCancel });
+    mutation.mutate(values, { onSuccess: () => handleOpenChange(false) });
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Add a member</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {selected ? (
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="flex flex-wrap items-center gap-3"
-            >
-              <div className="flex items-center gap-2">
-                <Avatar className="size-8">
-                  <AvatarFallback>{initials(selected.name)}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm">
-                  {selected.name}{' '}
-                  <span className="text-muted-foreground">
-                    &lt;{selected.email}&gt;
-                  </span>
-                </span>
-              </div>
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger size="sm" className="w-[110px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={MEMBERSHIP_ROLE.VIEWER}>
-                            viewer
-                          </SelectItem>
-                          <SelectItem value={MEMBERSHIP_ROLE.ADMIN}>
-                            admin
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" size="sm" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Adding…' : 'Add'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleCancel}
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus />
+          Add member
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a member</DialogTitle>
+          <DialogDescription>
+            Search for a user to give them access to this project.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          {selected ? (
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="flex flex-wrap items-center gap-3"
               >
-                Cancel
-              </Button>
-            </form>
-          </Form>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or email"
-            />
-            {isSearching && (
-              <ul className="divide-y rounded-md border">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between px-3 py-2"
-                  >
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!isSearching && results.length > 0 && (
-              <ul className="divide-y rounded-md border">
-                {results.map((user) => (
-                  <li key={user.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(user)}
-                      className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
+                <div className="flex items-center gap-2">
+                  <Avatar className="size-8">
+                    <AvatarFallback>{initials(selected.name)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">
+                    {selected.name}{' '}
+                    <span className="text-muted-foreground">
+                      &lt;{selected.email}&gt;
+                    </span>
+                  </span>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger size="sm" className="w-[110px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={MEMBERSHIP_ROLE.VIEWER}>
+                              viewer
+                            </SelectItem>
+                            <SelectItem value={MEMBERSHIP_ROLE.ADMIN}>
+                              admin
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" size="sm" disabled={mutation.isPending}>
+                  {mutation.isPending ? 'Adding…' : 'Add'}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={reset}>
+                  Cancel
+                </Button>
+              </form>
+            </Form>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name or email"
+                autoFocus
+              />
+              {isSearching && (
+                <ul className="divide-y rounded-md border">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between px-3 py-2"
                     >
-                      <span>{user.name}</span>
-                      <span className="text-muted-foreground">
-                        {user.email}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!isSearching && debouncedQuery.trim() && results.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No matching users.
-              </p>
-            )}
-          </div>
-        )}
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-32" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!isSearching && results.length > 0 && (
+                <ul className="divide-y rounded-md border">
+                  {results.map((user) => (
+                    <li key={user.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(user)}
+                        className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
+                      >
+                        <span>{user.name}</span>
+                        <span className="text-muted-foreground">
+                          {user.email}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!isSearching &&
+                debouncedQuery.trim() &&
+                results.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No matching users.
+                  </p>
+                )}
+            </div>
+          )}
 
-        {mutation.isError && (
-          <p className="text-sm text-red-700">{mutation.error.message}</p>
-        )}
-      </CardContent>
-    </Card>
+          {mutation.isError && (
+            <p className="text-sm text-red-700">{mutation.error.message}</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
