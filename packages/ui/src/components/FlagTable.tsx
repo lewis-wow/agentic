@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui/components/ui/dropdown-menu';
 import { Input } from '@repo/ui/components/ui/input';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import { Switch } from '@repo/ui/components/ui/switch';
 import {
   Table,
@@ -45,7 +46,36 @@ export type FlagTableProps = {
   filters?: React.ReactNode;
   /** Actions (e.g. a "Create flag" button) rendered on the right of the toolbar. */
   actions?: React.ReactNode;
+  /** Renders skeleton rows instead of `flags` while the flag list is loading. */
+  loading?: boolean;
 };
+
+const FLAG_ROW_SKELETON_COUNT = 4;
+
+const FlagRowSkeleton = (): React.ReactNode => (
+  <TableRow>
+    <TableCell>
+      <Skeleton className="h-4 w-32" />
+    </TableCell>
+    <TableCell>
+      <Skeleton className="h-4 w-20" />
+    </TableCell>
+    <TableCell>
+      <Skeleton className="h-5 w-16 rounded-full" />
+    </TableCell>
+    <TableCell>
+      <Skeleton className="h-4 w-10" />
+    </TableCell>
+    <TableCell>
+      <div className="flex items-center justify-center">
+        <Skeleton className="h-5 w-9 rounded-full" />
+      </div>
+    </TableCell>
+    <TableCell className="text-right">
+      <Skeleton className="ml-auto size-8 rounded-md" />
+    </TableCell>
+  </TableRow>
+);
 
 const STATUS_VARIANT: Record<
   FlagTableStatus,
@@ -67,6 +97,7 @@ export const FlagTable = ({
   isToggling,
   filters,
   actions,
+  loading = false,
 }: FlagTableProps): React.ReactNode => {
   const [query, setQuery] = useState('');
 
@@ -116,78 +147,83 @@ export const FlagTable = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((flag) => (
-              <TableRow key={flag.id}>
-                <TableCell>
-                  <span className="font-medium">{flag.name}</span>
-                </TableCell>
-                <TableCell>
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
-                    {flag.key}
-                  </code>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[flag.status]}>
-                    {flag.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {flag.rollout}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center">
-                    <Switch
-                      checked={flag.status === 'active'}
-                      onCheckedChange={() => onToggle(flag)}
-                      disabled={
-                        !canManage ||
-                        flag.status === 'archived' ||
-                        (isToggling?.(flag) ?? false)
-                      }
-                      aria-label={`Toggle ${flag.name}`}
-                    />
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem onClick={() => onEdit(flag)}>
-                          Edit flag
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onViewHistory(flag)}>
-                          View history
-                        </DropdownMenuItem>
-                        {canManage && (
-                          <DropdownMenuItem
-                            onClick={() => onArchiveToggle(flag)}
-                          >
-                            {flag.status === 'archived'
-                              ? 'Unarchive'
-                              : 'Archive'}
+            {loading &&
+              Array.from({ length: FLAG_ROW_SKELETON_COUNT }).map((_, i) => (
+                <FlagRowSkeleton key={i} />
+              ))}
+            {!loading &&
+              filtered.map((flag) => (
+                <TableRow key={flag.id}>
+                  <TableCell>
+                    <span className="font-medium">{flag.name}</span>
+                  </TableCell>
+                  <TableCell>
+                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+                      {flag.key}
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANT[flag.status]}>
+                      {flag.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {flag.rollout}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center">
+                      <Switch
+                        checked={flag.status === 'active'}
+                        onCheckedChange={() => onToggle(flag)}
+                        disabled={
+                          !canManage ||
+                          flag.status === 'archived' ||
+                          (isToggling?.(flag) ?? false)
+                        }
+                        aria-label={`Toggle ${flag.name}`}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onClick={() => onEdit(flag)}>
+                            Edit flag
                           </DropdownMenuItem>
-                        )}
-                        {canManage && (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => onDelete(flag)}
-                          >
-                            Delete
+                          <DropdownMenuItem onClick={() => onViewHistory(flag)}>
+                            View history
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
+                          {canManage && (
+                            <DropdownMenuItem
+                              onClick={() => onArchiveToggle(flag)}
+                            >
+                              {flag.status === 'archived'
+                                ? 'Unarchive'
+                                : 'Archive'}
+                            </DropdownMenuItem>
+                          )}
+                          {canManage && (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => onDelete(flag)}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            {!loading && filtered.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={6}

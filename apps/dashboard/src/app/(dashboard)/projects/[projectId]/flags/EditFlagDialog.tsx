@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -73,7 +74,18 @@ export const EditFlagDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {isPending && <p className="text-sm text-gray-500">Loading…</p>}
+        {isPending && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 flex-1" />
+              <Skeleton className="h-9 w-16" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </div>
+        )}
         {error && <p className="text-sm text-red-700">{error.message}</p>}
 
         {flag && (

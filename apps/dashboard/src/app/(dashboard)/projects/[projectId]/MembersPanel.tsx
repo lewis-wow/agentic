@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/ui/select';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ import { Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { PersonTableSkeleton } from '../../../../components/PersonTableSkeleton';
 import {
   useAddableUsers,
   useAddMember,
@@ -74,7 +76,7 @@ export const MembersPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: project } = useProject(projectId);
+  const { data: project, isPending } = useProject(projectId);
   const removeMutation = useRemoveMember(projectId);
 
   const rows = project
@@ -111,7 +113,9 @@ export const MembersPanel = ({
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {isPending ? (
+        <PersonTableSkeleton rows={2} showActions />
+      ) : rows.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -298,9 +302,19 @@ const AddMemberCard = ({ projectId }: AddMemberCardProps): React.ReactNode => {
               placeholder="Search by name or email"
             />
             {isSearching && (
-              <p className="text-xs text-muted-foreground">Searching…</p>
+              <ul className="divide-y rounded-md border">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                  </li>
+                ))}
+              </ul>
             )}
-            {results.length > 0 && (
+            {!isSearching && results.length > 0 && (
               <ul className="divide-y rounded-md border">
                 {results.map((user) => (
                   <li key={user.id}>

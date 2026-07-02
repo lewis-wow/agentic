@@ -15,6 +15,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@repo/ui/components/ui/empty';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import { ArrowRight, FolderKanban, Layers } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,7 +24,7 @@ import { CreateProjectDialog } from '../CreateProjectDialog';
 
 type StatCardProps = {
   label: string;
-  value: number;
+  value: number | null;
   icon: React.ComponentType<{ className?: string }>;
 };
 
@@ -35,12 +36,26 @@ const StatCard = ({
   <Card>
     <CardHeader>
       <CardDescription>{label}</CardDescription>
-      <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+      {value === null ? (
+        <Skeleton className="h-9 w-12" />
+      ) : (
+        <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+      )}
     </CardHeader>
     <CardContent>
       <Icon className="size-5 text-muted-foreground" />
     </CardContent>
   </Card>
+);
+
+const ProjectCardSkeleton = (): React.ReactNode => (
+  <div className="rounded-lg border p-4">
+    <div className="flex items-start justify-between gap-2">
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="size-4 shrink-0" />
+    </div>
+    <Skeleton className="mt-3 h-5 w-28 rounded-full" />
+  </div>
 );
 
 type Props = {
@@ -69,10 +84,14 @@ export const DashboardOverview = ({ isOwner }: Props): React.ReactNode => {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Projects"
-          value={projects.length}
+          value={isPending ? null : projects.length}
           icon={FolderKanban}
         />
-        <StatCard label="Environments" value={environmentCount} icon={Layers} />
+        <StatCard
+          label="Environments"
+          value={isPending ? null : environmentCount}
+          icon={Layers}
+        />
       </div>
 
       <Card>
@@ -86,7 +105,10 @@ export const DashboardOverview = ({ isOwner }: Props): React.ReactNode => {
         </CardHeader>
         <CardContent>
           {isPending ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ProjectCardSkeleton />
+              <ProjectCardSkeleton />
+            </div>
           ) : projects.length === 0 ? (
             <Empty>
               <EmptyHeader>

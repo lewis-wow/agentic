@@ -8,6 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@repo/ui/components/ui/dialog';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@repo/ui/components/ui/table';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { useAuditLog, type AuditLogEntry } from '../../../../../queries/flags';
@@ -142,7 +151,36 @@ export const FlagHistoryDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {isPending && <p className="text-sm text-gray-500">Loading…</p>}
+        {isPending && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Action</TableHead>
+                <TableHead>Detail</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
         {error && <p className="text-sm text-red-700">{error.message}</p>}
 
         {!isPending && !error && (

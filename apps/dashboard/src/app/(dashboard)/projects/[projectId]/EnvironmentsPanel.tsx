@@ -44,6 +44,7 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import { Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -66,11 +67,23 @@ type Props = {
   canManage: boolean;
 };
 
+const EnvironmentCardSkeleton = (): React.ReactNode => (
+  <Card>
+    <CardHeader>
+      <Skeleton className="h-5 w-24" />
+      <Skeleton className="h-4 w-32" />
+    </CardHeader>
+    <CardContent className="flex items-center justify-end">
+      <Skeleton className="size-8 rounded-md" />
+    </CardContent>
+  </Card>
+);
+
 export const EnvironmentsPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: project } = useProject(projectId);
+  const { data: project, isPending } = useProject(projectId);
   const environments = project?.environments ?? [];
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Environment | null>(null);
@@ -96,7 +109,12 @@ export const EnvironmentsPanel = ({
         <ApiKeyReveal fullKey={revealedKey} label="New environment created" />
       )}
 
-      {environments.length === 0 ? (
+      {isPending ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <EnvironmentCardSkeleton />
+          <EnvironmentCardSkeleton />
+        </div>
+      ) : environments.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
             <EmptyMedia variant="icon">

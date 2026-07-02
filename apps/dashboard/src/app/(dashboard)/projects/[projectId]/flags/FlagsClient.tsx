@@ -111,7 +111,16 @@ export const FlagsClient = ({
 
   if (envsLoading) {
     return (
-      <p className="text-sm text-muted-foreground">Loading environments…</p>
+      <FlagTable
+        flags={[]}
+        canManage={canManage}
+        onToggle={() => {}}
+        onEdit={() => {}}
+        onViewHistory={() => {}}
+        onArchiveToggle={() => {}}
+        onDelete={() => {}}
+        loading
+      />
     );
   }
 
@@ -125,69 +134,66 @@ export const FlagsClient = ({
 
   return (
     <div className="space-y-6">
-      {flagsLoading ? (
-        <p className="text-sm text-muted-foreground">Loading flags…</p>
-      ) : (
-        <FlagTable
-          flags={rows}
-          canManage={canManage}
-          onToggle={handleToggle}
-          onEdit={setEditingFlag}
-          onViewHistory={setHistoryFlag}
-          onArchiveToggle={handleArchiveToggle}
-          onDelete={setDeletingFlag}
-          isToggling={(row) =>
-            toggleMutation.isPending &&
-            toggleMutation.variables?.flagId === row.id
-          }
-          filters={
-            <>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) =>
-                  setStatusFilter(value as FlagStatus | 'all')
-                }
+      <FlagTable
+        flags={rows}
+        canManage={canManage}
+        loading={flagsLoading}
+        onToggle={handleToggle}
+        onEdit={setEditingFlag}
+        onViewHistory={setHistoryFlag}
+        onArchiveToggle={handleArchiveToggle}
+        onDelete={setDeletingFlag}
+        isToggling={(row) =>
+          toggleMutation.isPending &&
+          toggleMutation.variables?.flagId === row.id
+        }
+        filters={
+          <>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as FlagStatus | 'all')
+              }
+            >
+              <SelectTrigger
+                className="w-[150px]"
+                aria-label="Filter by status"
               >
-                <SelectTrigger
-                  className="w-[150px]"
-                  aria-label="Filter by status"
-                >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTERS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {currentEnvId && (
+              <Select
+                value={currentEnvId}
+                onValueChange={handleEnvironmentChange}
+              >
+                <SelectTrigger className="w-[170px]" aria-label="Environment">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUS_FILTERS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {environments.map((env) => (
+                    <SelectItem key={env.id} value={env.id}>
+                      {env.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {currentEnvId && (
-                <Select
-                  value={currentEnvId}
-                  onValueChange={handleEnvironmentChange}
-                >
-                  <SelectTrigger className="w-[170px]" aria-label="Environment">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {environments.map((env) => (
-                      <SelectItem key={env.id} value={env.id}>
-                        {env.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </>
-          }
-          actions={
-            canManage && currentEnvId ? (
-              <CreateFlagDialog projectId={projectId} />
-            ) : null
-          }
-        />
-      )}
+            )}
+          </>
+        }
+        actions={
+          canManage && currentEnvId ? (
+            <CreateFlagDialog projectId={projectId} />
+          ) : null
+        }
+      />
 
       {editingFlag && (
         <EditFlagDialog

@@ -10,6 +10,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@repo/ui/components/ui/empty';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -30,11 +31,34 @@ type Props = {
   canManage: boolean;
 };
 
+const ApiKeyRowSkeleton = ({
+  canManage,
+}: {
+  canManage: boolean;
+}): React.ReactNode => (
+  <TableRow>
+    <TableCell>
+      <Skeleton className="h-4 w-24" />
+    </TableCell>
+    <TableCell>
+      <Skeleton className="h-5 w-20 rounded-full" />
+    </TableCell>
+    <TableCell>
+      <Skeleton className="h-4 w-40" />
+    </TableCell>
+    {canManage && (
+      <TableCell className="text-right">
+        <Skeleton className="ml-auto size-8 rounded-md" />
+      </TableCell>
+    )}
+  </TableRow>
+);
+
 export const ApiKeysPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: project } = useProject(projectId);
+  const { data: project, isPending } = useProject(projectId);
   const environments = project?.environments ?? [];
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
@@ -54,7 +78,7 @@ export const ApiKeysPanel = ({
         <ApiKeyReveal fullKey={revealedKey} label="API key rotated" />
       )}
 
-      {environments.length === 0 ? (
+      {!isPending && environments.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -81,15 +105,22 @@ export const ApiKeysPanel = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {environments.map((env) => (
-                  <ApiKeyRow
-                    key={env.id}
-                    projectId={projectId}
-                    environment={env}
-                    canManage={canManage}
-                    onRotated={setRevealedKey}
-                  />
-                ))}
+                {isPending ? (
+                  <>
+                    <ApiKeyRowSkeleton canManage={canManage} />
+                    <ApiKeyRowSkeleton canManage={canManage} />
+                  </>
+                ) : (
+                  environments.map((env) => (
+                    <ApiKeyRow
+                      key={env.id}
+                      projectId={projectId}
+                      environment={env}
+                      canManage={canManage}
+                      onRotated={setRevealedKey}
+                    />
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

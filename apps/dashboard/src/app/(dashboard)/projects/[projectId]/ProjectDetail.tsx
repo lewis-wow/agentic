@@ -48,11 +48,11 @@ export const ProjectDetail = ({
   canManage,
   projectRole,
 }: Props): React.ReactNode => {
-  const { data: project } = useProject(projectId);
+  const { data: project, isPending: projectPending } = useProject(projectId);
   const searchParams = useSearchParams();
   const environmentId = searchParams.get('environmentId');
   const firstEnvironmentId = project?.environments[0]?.id ?? null;
-  const { data: flags } = useFlags(
+  const { data: flags, isPending: flagsPending } = useFlags(
     projectId,
     environmentId ?? firstEnvironmentId,
   );
@@ -105,9 +105,21 @@ export const ProjectDetail = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{flags?.length ?? 0} flags</Badge>
-          <Badge variant="secondary">{environmentCount} environments</Badge>
-          <Badge variant="secondary">{environmentCount} API keys</Badge>
+          {flagsPending ? (
+            <Skeleton className="h-5 w-16 rounded-full" />
+          ) : (
+            <Badge variant="secondary">{flags?.length ?? 0} flags</Badge>
+          )}
+          {projectPending ? (
+            <Skeleton className="h-5 w-28 rounded-full" />
+          ) : (
+            <Badge variant="secondary">{environmentCount} environments</Badge>
+          )}
+          {projectPending ? (
+            <Skeleton className="h-5 w-24 rounded-full" />
+          ) : (
+            <Badge variant="secondary">{environmentCount} API keys</Badge>
+          )}
         </div>
 
         <Tabs defaultValue="flags">
