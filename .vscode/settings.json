@@ -22,5 +22,14 @@
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.turbo": true,
+    "**/.next": true
+  },
+  "files.exclude": {
+    "**/.turbo": true
   }
 }
