@@ -18,26 +18,17 @@ import { FlagIcon, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-export type SidebarEnvironment = {
-  id: string;
-  name: string;
-};
-
-export type SidebarProject = {
-  id: string;
-  name: string;
-  environments: SidebarEnvironment[];
-};
+import { useProjects } from '../../queries/projects';
 
 type Props = {
-  projects: SidebarProject[];
   isOwner: boolean;
 };
 
-export const AppSidebar = ({ projects, isOwner }: Props): React.ReactNode => {
+export const AppSidebar = ({ isOwner }: Props): React.ReactNode => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentEnvironmentId = searchParams.get('environmentId');
+  const { data: projects = [] } = useProjects();
 
   return (
     <Sidebar>

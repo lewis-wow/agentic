@@ -25,12 +25,16 @@ src/
   index.ts             # Hono app entry point
 ```
 
+Routes: `flags.ts` (mounted at `/projects/:projectId/flags`), `projects.ts` (mounted at `/projects` — list/create are non-project-scoped, detail/delete are project-scoped), `environments.ts` (mounted at `/projects/:projectId/environments`), `members.ts` (mounted at `/projects/:projectId/members`), `users.ts` (mounted at `/users`, owner-only), `sdk.ts` (mounted at `/v1`, for SDK clients).
+
+Non-project-scoped routes (`/projects` list+create, `/users`) receive a `MeJwtClaims` token (`{ userId, systemRole }`, no `projectId`) rather than `ProjectJwtClaims` — narrow with `isSdkClaims` and a `'projectId' in auth` check the same way `flags.ts` does, not by assuming every claims object has a `projectId`.
+
 ## Rules
 
 - **No session cookies or API keys.** This service only understands RS256 JWTs issued by either BFF layer. JWT verification is wired via `src/auth/middleware.ts`.
 - **All Prisma access lives here.** No other app or package may import `@repo/prisma` and query the database.
 - **All business logic lives here.** Route handlers perform validation, execute Prisma queries, and return structured responses. There is no business logic in the BFF layers.
-- **Every request body and response shape is an Effect `Schema.Struct`** defined in `packages/api` (the sibling package). Import schemas from there; never define inline types for HTTP contracts.
+- **Every mutating request body is decoded through an Effect `Schema.Struct`** defined in `packages/api` (the sibling package) — see `CreateProjectRequestSchema`, `CreateEnvironmentRequestSchema`, `AddMemberRequestSchema` for the pattern (`Schema.decodeUnknownEither`, branch on `Either.isLeft`). Never define inline types for request bodies. GET responses are currently returned as plain typed Prisma projections rather than encoded through a schema (existing convention in `flags.ts`); match that for new GET routes rather than introducing a second style.
 - **Every error is an `Exception` subclass** from `src/exceptions/`. Never call `c.json()` directly with a status code. Use `exception.toResponse()` or `throw exception`.
 
 ## Adding a New Route
@@ -47,14 +51,16 @@ Create a new file in `src/exceptions/` and export it from `src/exceptions/index.
 
 ```ts
 import { HttpStatusCode } from '@repo/enums';
-import { Exception } from '@repo/exception';
+import { HttpException } from '@repo/exception';
 
-export class FlagNotFound extends Exception {
+export class FlagNotFound extends HttpException {
   static readonly status = HttpStatusCode.NOT_FOUND_404;
   static readonly code = 'FlagNotFound';
   static readonly message = 'Flag not found.';
 }
 ```
+
+Extend `HttpException` (not the plain `Exception` base) — it adds `.toResponse()`, which every route handler in this app returns directly.
 
 ## Environment Variables
 

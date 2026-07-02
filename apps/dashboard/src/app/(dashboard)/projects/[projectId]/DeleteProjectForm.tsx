@@ -1,28 +1,60 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { Button } from '@repo/ui/components/ui/button';
 import {
-  deleteProjectAction,
-  type ProjectActionState,
-} from '../../dashboard/actions';
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from '@repo/ui/components/ui/form';
+import { Input } from '@repo/ui/components/ui/input';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+
+import { useDeleteProject, useProject } from '../../../../queries/projects';
+import {
+  makeDeleteProjectFormSchema,
+  type DeleteProjectFormValues,
+} from '../../../../schemas/projects';
 
 type Props = {
+  projectId: string;
+};
+
+export const DeleteProjectForm = ({ projectId }: Props): React.ReactNode => {
+  const { data: project } = useProject(projectId);
+
+  if (!project) return null;
+
+  return (
+    <DeleteProjectFormFields projectId={projectId} projectName={project.name} />
+  );
+};
+
+type DeleteProjectFormFieldsProps = {
   projectId: string;
   projectName: string;
 };
 
-const initialState: ProjectActionState = {};
-
-export const DeleteProjectForm = ({
+const DeleteProjectFormFields = ({
   projectId,
   projectName,
-}: Props): React.ReactNode => {
-  const [confirmation, setConfirmation] = useState('');
-  const [state, action, isPending] = useActionState(
-    deleteProjectAction,
-    initialState,
-  );
+}: DeleteProjectFormFieldsProps): React.ReactNode => {
+  const router = useRouter();
+  const mutation = useDeleteProject();
+
+  const form = useForm<DeleteProjectFormValues>({
+    resolver: effectTsResolver(makeDeleteProjectFormSchema(projectName)),
+    defaultValues: { confirmation: '' },
+  });
+
+  const onSubmit = (): void => {
+    mutation.mutate(projectId, {
+      onSuccess: () => router.push('/dashboard'),
+    });
+  };
 
   return (
     <section className="space-y-3 rounded-md border border-red-200 p-4">
@@ -33,26 +65,32 @@ export const DeleteProjectForm = ({
         <span className="font-mono font-semibold">{projectName}</span> to
         confirm.
       </p>
-      <form action={action} className="space-y-3">
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="expectedName" value={projectName} />
-        <input
-          type="text"
-          name="confirmation"
-          value={confirmation}
-          onChange={(e) => setConfirmation(e.target.value)}
-          placeholder={projectName}
-          className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400"
-        />
-        <button
-          type="submit"
-          disabled={isPending || confirmation !== projectName}
-          className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-        >
-          {isPending ? 'Deleting…' : 'Delete project'}
-        </button>
-        {state.error && <p className="text-sm text-red-700">{state.error}</p>}
-      </form>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+          <FormField
+            control={form.control}
+            name="confirmation"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input placeholder={projectName} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            variant="destructive"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? 'Deleting…' : 'Delete project'}
+          </Button>
+          {mutation.isError && (
+            <p className="text-sm text-red-700">{mutation.error.message}</p>
+          )}
+        </form>
+      </Form>
     </section>
   );
 };

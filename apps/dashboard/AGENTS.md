@@ -16,9 +16,25 @@ Before writing, refactoring, or reviewing any code here, read:
 ## Data Rules
 
 - **Client components use TanStack Query** (`useQuery` / `useMutation`) to call the Next.js API routes at `/api/...`. Never fetch from client components directly to `apps/api` or `apps/bff`.
-- **Next.js API routes do nothing except authenticate and proxy.** A route handler reads the Better Auth session cookie, uses `@repo/bff` to mint an RS256 JWT, then forwards to `apps/api`. No business logic, no Prisma.
-- **No server actions for data.** Legacy server actions from earlier slices must be migrated to TanStack Query + API routes. New code must never introduce server actions for data fetching or mutation.
-- **No direct Prisma access.** Never import `@repo/prisma` in this app.
+- **Next.js API routes do nothing except authenticate and proxy.** The single catch-all handler at `src/app/api/[...path]/route.ts` reads the Better Auth session cookie, uses `@repo/bff` to mint an RS256 JWT, then forwards to `apps/api`. No business logic. Adding a new `apps/api` resource never requires a new Next.js route file — it proxies automatically once the resource exists server-side and a `src/queries/<resource>.ts` hook calls `/api/<path>`.
+- **No server actions for data.** All business-data reads and writes (projects, environments, members, users, flags, ...) go through TanStack Query + the catch-all proxy. Never introduce a server action (`'use server'`, `useActionState`) for data fetching or mutation.
+- **No direct Prisma access for business data.** Never import `@repo/prisma` to read or write projects, environments, members, users, flags, or any other domain data.
+
+### The one sanctioned Prisma exception: session -> JWT exchange
+
+A small, fixed set of files exist purely to resolve the Better Auth session cookie into the identity claims baked into the JWT — this **is** the "authorize the user, then exchange session id for a JWT" mechanism, not business-data access, so it is allowed to import `@repo/prisma`:
+
+- `src/lib/auth.ts` — Better Auth server config (`prismaAdapter`).
+- `src/lib/session.ts` — `getSession()`, wraps `auth.api.getSession(...)`.
+- `src/lib/guards.ts` — `requireSession()` / `requireOwner()` / `requireProjectAccess()`. Used by server components purely to gate rendering (redirect to `/login`, `forbidden()`) and to read `projectRole` for conditional UI (`canManage`) — never to fetch data that gets rendered.
+- `src/app/api/[...path]/route.ts` — mints the RS256 JWT (via `@repo/auth/jwt`) from the resolved session, with `MeJwtClaims` (no `projectId`) for non-project-scoped paths like `/projects` and `/users`, or `ProjectJwtClaims` (looked up via `ProjectMember`) for `/projects/:projectId/...` paths.
+- `src/app/(public)/setup/**`, `src/app/(public)/register/page.tsx`, `src/app/(public)/login/page.tsx` — the pre-auth bootstrap flow (checking whether any user exists yet, creating the first OWNER + first project). This runs before any session/JWT exists, so it cannot go through the normal proxy; treat it as a narrow, separate exception from ordinary business-data CRUD, not a precedent to extend elsewhere.
+
+Every other file that needs project/environment/member/user/flag data must go through `src/queries/<resource>.ts` + `apps/api`, even inside pages and layouts that are otherwise server components — see the pattern below.
+
+### Server pages that need business data
+
+Server components (`page.tsx`, `layout.tsx`) still call `guards.ts` to gate access, but never fetch business data themselves. Instead they render a `'use client'` child that calls the relevant `useX()` query hook, so the data flows through the same TanStack Query + `apps/api` path as everything else. See `AppSidebar.tsx` (calls `useProjects()` itself instead of receiving projects as a prop from `layout.tsx`) and `ProjectHeader.tsx` / `DeleteProjectForm.tsx` (call `useProject(projectId)` instead of receiving `project` as a prop from `page.tsx`).
 
 ## Form Conventions
 
@@ -100,6 +116,8 @@ const RenameForm = ({ projectId, flagId, currentName }: Props) => {
 - This does not apply to instant-mutation controls that save on every change without a submit step (toggles, inline selects, blur-to-save number inputs) — those are not "forms" in this sense and stay as plain controlled inputs wired directly to a mutation.
 
 ## Query Conventions
+
+Existing resource files: `src/queries/flags.ts`, `projects.ts`, `environments.ts`, `members.ts`, `users.ts`. Add a new one per resource rather than growing an existing file across domains.
 
 Colocate query key factories, fetcher functions, and mutation hooks in `src/queries/<resource>.ts`:
 

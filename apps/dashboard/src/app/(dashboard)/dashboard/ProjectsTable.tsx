@@ -7,7 +7,7 @@ import Link from 'next/link';
 type ProjectRow = {
   id: string;
   name: string;
-  createdAt: Date;
+  createdAt: string;
 };
 
 const columns: ColumnDef<ProjectRow>[] = [
@@ -32,7 +32,7 @@ const columns: ColumnDef<ProjectRow>[] = [
           year: 'numeric',
           month: 'short',
           day: 'numeric',
-        }).format(row.original.createdAt)}
+        }).format(new Date(row.original.createdAt))}
       </span>
     ),
   },

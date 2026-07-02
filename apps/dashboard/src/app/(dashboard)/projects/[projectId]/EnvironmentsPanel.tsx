@@ -1,39 +1,51 @@
 'use client';
 
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { DataTable } from '@repo/ui/components/data-table';
+import { Button } from '@repo/ui/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from '@repo/ui/components/ui/form';
+import { Input } from '@repo/ui/components/ui/input';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useActionState, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 import {
-  createEnvironmentAction,
-  deleteEnvironmentAction,
-  type EnvironmentActionState,
-  rotateApiKeyAction,
-} from './environment-actions';
-
-type Environment = {
-  id: string;
-  name: string;
-  apiKeyId: string;
-};
+  useCreateEnvironment,
+  useDeleteEnvironment,
+  useRotateApiKey,
+} from '../../../../queries/environments';
+import { useProject, type Environment } from '../../../../queries/projects';
+import {
+  CreateEnvironmentFormSchema,
+  makeDeleteEnvironmentFormSchema,
+  type CreateEnvironmentFormValues,
+  type DeleteEnvironmentFormValues,
+} from '../../../../schemas/environments';
 
 type Props = {
   projectId: string;
   canManage: boolean;
-  environments: Environment[];
 };
 
-const initialState: EnvironmentActionState = {};
+type RevealedKey = {
+  fullKey: string;
+  label: string;
+};
 
 export const EnvironmentsPanel = ({
   projectId,
   canManage,
-  environments,
 }: Props): React.ReactNode => {
-  const [createState, createAction, isCreating] = useActionState(
-    createEnvironmentAction,
-    initialState,
-  );
+  const { data: project } = useProject(projectId);
+  const environments = project?.environments ?? [];
+  const createMutation = useCreateEnvironment(projectId);
+  const [revealedKey, setRevealedKey] = useState<RevealedKey | null>(null);
 
   const columns: ColumnDef<Environment>[] = useMemo(
     () => [
@@ -57,6 +69,7 @@ export const EnvironmentsPanel = ({
             environment={row.original}
             projectId={projectId}
             canManage={canManage}
+            onReveal={setRevealedKey}
           />
         ),
       },
@@ -64,17 +77,31 @@ export const EnvironmentsPanel = ({
     [projectId, canManage],
   );
 
+  const form = useForm<CreateEnvironmentFormValues>({
+    resolver: effectTsResolver(CreateEnvironmentFormSchema),
+    defaultValues: { name: '' },
+  });
+
+  const onSubmit = (values: CreateEnvironmentFormValues): void => {
+    createMutation.mutate(values, {
+      onSuccess: (data) => {
+        form.reset();
+        setRevealedKey({
+          fullKey: data.fullKey,
+          label: 'New environment created',
+        });
+      },
+    });
+  };
+
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
         Environments
       </h2>
 
-      {createState.fullKey && (
-        <ApiKeyReveal
-          fullKey={createState.fullKey}
-          label="New environment created"
-        />
+      {revealedKey && (
+        <ApiKeyReveal fullKey={revealedKey.fullKey} label={revealedKey.label} />
       )}
 
       <DataTable
@@ -84,26 +111,33 @@ export const EnvironmentsPanel = ({
       />
 
       {canManage && (
-        <form action={createAction} className="flex items-center gap-2">
-          <input type="hidden" name="projectId" value={projectId} />
-          <input
-            type="text"
-            name="name"
-            required
-            placeholder="New environment name"
-            className="flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
-          />
-          <button
-            type="submit"
-            disabled={isCreating}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex items-start gap-2"
           >
-            {isCreating ? 'Creating…' : 'Add environment'}
-          </button>
-          {createState.error && (
-            <p className="text-sm text-red-700">{createState.error}</p>
-          )}
-        </form>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormControl>
+                    <Input placeholder="New environment name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Add environment'}
+            </Button>
+            {createMutation.isError && (
+              <p className="text-sm text-red-700">
+                {createMutation.error.message}
+              </p>
+            )}
+          </form>
+        </Form>
       )}
     </section>
   );
@@ -113,18 +147,17 @@ type EnvironmentActionsProps = {
   environment: Environment;
   projectId: string;
   canManage: boolean;
+  onReveal: (payload: RevealedKey) => void;
 };
 
 const EnvironmentActions = ({
   environment,
   projectId,
   canManage,
+  onReveal,
 }: EnvironmentActionsProps): React.ReactNode => {
-  const [rotateState, rotateAction, isRotating] = useActionState(
-    rotateApiKeyAction,
-    initialState,
-  );
   const [showDelete, setShowDelete] = useState(false);
+  const rotateMutation = useRotateApiKey(projectId);
 
   if (!canManage) {
     return null;
@@ -133,32 +166,34 @@ const EnvironmentActions = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3">
-        <form action={rotateAction}>
-          <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="environmentId" value={environment.id} />
-          <button
-            type="submit"
-            disabled={isRotating}
-            className="text-xs text-gray-600 hover:underline disabled:opacity-50"
-          >
-            {isRotating ? 'Rotating…' : 'Rotate key'}
-          </button>
-        </form>
-        <button
+        <Button
           type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs text-gray-600"
+          disabled={rotateMutation.isPending}
+          onClick={() =>
+            rotateMutation.mutate(environment.id, {
+              onSuccess: (data) =>
+                onReveal({ fullKey: data.fullKey, label: 'API key rotated' }),
+            })
+          }
+        >
+          {rotateMutation.isPending ? 'Rotating…' : 'Rotate key'}
+        </Button>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs text-red-600"
           onClick={() => setShowDelete((v) => !v)}
-          className="text-xs text-red-600 hover:underline"
         >
           Delete
-        </button>
+        </Button>
       </div>
 
-      {rotateState.error && (
-        <p className="text-sm text-red-700">{rotateState.error}</p>
-      )}
-
-      {rotateState.fullKey && (
-        <ApiKeyReveal fullKey={rotateState.fullKey} label="API key rotated" />
+      {rotateMutation.isError && (
+        <p className="text-sm text-red-700">{rotateMutation.error.message}</p>
       )}
 
       {showDelete && (
@@ -186,11 +221,18 @@ const DeleteEnvironmentForm = ({
   environmentName,
   onCancel,
 }: DeleteEnvironmentFormProps): React.ReactNode => {
-  const [confirmation, setConfirmation] = useState('');
-  const [state, action, isPending] = useActionState(
-    deleteEnvironmentAction,
-    initialState,
-  );
+  const mutation = useDeleteEnvironment(projectId);
+
+  const form = useForm<DeleteEnvironmentFormValues>({
+    resolver: effectTsResolver(
+      makeDeleteEnvironmentFormSchema(environmentName),
+    ),
+    defaultValues: { confirmation: '' },
+  });
+
+  const onSubmit = (): void => {
+    mutation.mutate(environmentId, { onSuccess: onCancel });
+  };
 
   return (
     <div className="space-y-2 rounded-md border border-red-200 bg-red-50 p-3">
@@ -198,34 +240,43 @@ const DeleteEnvironmentForm = ({
         Type <span className="font-mono font-semibold">{environmentName}</span>{' '}
         to confirm deletion. All flag states will be permanently removed.
       </p>
-      <form action={action} className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="environmentId" value={environmentId} />
-        <input type="hidden" name="expectedName" value={environmentName} />
-        <input
-          type="text"
-          name="confirmation"
-          value={confirmation}
-          onChange={(e) => setConfirmation(e.target.value)}
-          placeholder={environmentName}
-          className="rounded-md border px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-red-400"
-        />
-        <button
-          type="submit"
-          disabled={isPending || confirmation !== environmentName}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-wrap items-center gap-2"
         >
-          {isPending ? 'Deleting…' : 'Delete'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs text-gray-500 hover:underline"
-        >
-          Cancel
-        </button>
-      </form>
-      {state.error && <p className="text-xs text-red-700">{state.error}</p>}
+          <FormField
+            control={form.control}
+            name="confirmation"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    placeholder={environmentName}
+                    className="text-xs"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            variant="destructive"
+            size="sm"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        </form>
+      </Form>
+      {mutation.isError && (
+        <p className="text-xs text-red-700">{mutation.error.message}</p>
+      )}
     </div>
   );
 };

@@ -1,5 +1,4 @@
 import { SYSTEM_ROLE } from '@repo/auth/roles';
-import { prisma } from '@repo/prisma';
 import { Separator } from '@repo/ui/components/ui/separator';
 import {
   SidebarInset,
@@ -8,7 +7,7 @@ import {
 } from '@repo/ui/components/ui/sidebar';
 
 import { requireSession } from '../../lib/guards';
-import { AppSidebar, type SidebarProject } from './AppSidebar';
+import { AppSidebar } from './AppSidebar';
 import { LogoutButton } from './LogoutButton';
 import { Providers } from './providers';
 
@@ -20,37 +19,10 @@ export default async function DashboardLayout({
   const user = await requireSession();
   const isOwner = user.role === SYSTEM_ROLE.OWNER;
 
-  const projects = isOwner
-    ? await prisma.project.findMany({
-        orderBy: { createdAt: 'asc' },
-        include: {
-          environments: {
-            orderBy: { createdAt: 'asc' },
-            select: { id: true, name: true },
-          },
-        },
-      })
-    : await prisma.project.findMany({
-        where: { members: { some: { userId: user.id } } },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          environments: {
-            orderBy: { createdAt: 'asc' },
-            select: { id: true, name: true },
-          },
-        },
-      });
-
-  const sidebarProjects: SidebarProject[] = projects.map((project) => ({
-    id: project.id,
-    name: project.name,
-    environments: project.environments,
-  }));
-
   return (
     <Providers>
       <SidebarProvider>
-        <AppSidebar projects={sidebarProjects} isOwner={isOwner} />
+        <AppSidebar isOwner={isOwner} />
         <SidebarInset>
           <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
             <div className="flex items-center gap-2">

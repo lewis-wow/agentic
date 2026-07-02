@@ -27,3 +27,15 @@ export type {
 export { AuditLogEntrySchema, AuditLogPageSchema } from './schemas/auditLog.js';
 
 export type { AuditLogEntry, AuditLogPage } from './schemas/auditLog.js';
+
+export {
+  AddMemberRequestSchema,
+  CreateEnvironmentRequestSchema,
+  CreateProjectRequestSchema,
+} from './schemas/projects.js';
+
+export type {
+  AddMemberRequest,
+  CreateEnvironmentRequest,
+  CreateProjectRequest,
+} from './schemas/projects.js';

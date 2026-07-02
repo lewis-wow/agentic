@@ -1,12 +1,11 @@
 import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
-import { prisma } from '@repo/prisma';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 
 import { requireProjectAccess } from '../../../../lib/guards';
 import { DeleteProjectForm } from './DeleteProjectForm';
 import { EnvironmentsPanel } from './EnvironmentsPanel';
 import { MembersPanel } from './MembersPanel';
+import { ProjectHeader } from './ProjectHeader';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,41 +19,13 @@ export default async function ProjectPage({
   const { projectId } = await params;
   const { user, projectRole } = await requireProjectAccess(projectId);
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      environments: { orderBy: { createdAt: 'asc' } },
-      members: {
-        include: { user: { select: { id: true, name: true, email: true } } },
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  });
-
-  if (!project) {
-    notFound();
-  }
-
-  const owner = await prisma.user.findFirst({
-    where: { role: 'OWNER' },
-    select: { id: true, name: true, email: true },
-  });
-
   const isOwner = user.role === SYSTEM_ROLE.OWNER;
   const canManage =
     projectRole === PROJECT_ROLE.OWNER || projectRole === PROJECT_ROLE.ADMIN;
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        <Link href="/dashboard" className="text-sm text-gray-500 underline">
-          ← Projects
-        </Link>
-        <h1 className="text-xl font-semibold">{project.name}</h1>
-        <p className="text-sm text-gray-500">
-          Your access: <span className="font-medium">{projectRole}</span>
-        </p>
-      </div>
+      <ProjectHeader projectId={projectId} projectRole={projectRole} />
 
       <div className="flex items-center justify-between rounded-md border px-4 py-3">
         <div>
@@ -71,30 +42,11 @@ export default async function ProjectPage({
         </Link>
       </div>
 
-      <EnvironmentsPanel
-        projectId={project.id}
-        canManage={canManage}
-        environments={project.environments.map((e) => ({
-          id: e.id,
-          name: e.name,
-          apiKeyId: e.apiKeyId,
-        }))}
-      />
+      <EnvironmentsPanel projectId={projectId} canManage={canManage} />
 
-      <MembersPanel
-        projectId={project.id}
-        canManage={canManage}
-        owner={owner}
-        members={project.members.map((member) => ({
-          id: member.id,
-          role: member.role,
-          user: member.user,
-        }))}
-      />
+      <MembersPanel projectId={projectId} canManage={canManage} />
 
-      {isOwner && (
-        <DeleteProjectForm projectId={project.id} projectName={project.name} />
-      )}
+      {isOwner && <DeleteProjectForm projectId={projectId} />}
     </div>
   );
 }

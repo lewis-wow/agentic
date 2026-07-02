@@ -1,4 +1,4 @@
-import type { ProjectJwtClaims } from '@repo/auth';
+import type { AuthJwtClaims } from '@repo/auth';
 import { decodeBase64Pem, signRs256 } from '@repo/auth/jwt';
 import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
 import { forwardWithJwt, resolveSessionUser, SESSION_COOKIE } from '@repo/bff';
@@ -8,6 +8,12 @@ import { cookies } from 'next/headers';
 import { JWT_TTL_SECONDS } from '../../../consts';
 import { env } from '../../../env';
 
+/**
+ * Session-cookie -> RS256 JWT exchange (the dashboard's BFF layer). Every
+ * request that reaches apps/api goes through here: the session cookie proves
+ * who the user is, and the freshly minted JWT tells apps/api what they're
+ * allowed to do. apps/api never sees the session or touches this database.
+ */
 const handler = async (
   request: Request,
   { params }: { params: Promise<{ path: string[] }> },
@@ -25,14 +31,22 @@ const handler = async (
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const projectId = path[0] === 'projects' ? path[1] : undefined;
+  const projectId =
+    path[0] === 'projects' && path.length > 1 ? path[1] : undefined;
+
+  let claims: AuthJwtClaims;
+
   if (!projectId) {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
-
-  let claims: ProjectJwtClaims;
-
-  if (user.role === SYSTEM_ROLE.OWNER) {
+    // Non-project-scoped request (e.g. /projects list+create, /users, /me).
+    // apps/api decides per-route whether the systemRole is sufficient.
+    claims = {
+      userId: user.id,
+      systemRole:
+        user.role === SYSTEM_ROLE.OWNER
+          ? SYSTEM_ROLE.OWNER
+          : SYSTEM_ROLE.MEMBER,
+    };
+  } else if (user.role === SYSTEM_ROLE.OWNER) {
     claims = {
       userId: user.id,
       systemRole: SYSTEM_ROLE.OWNER,

@@ -7,8 +7,12 @@ import {
   createJwtVerifyMiddleware,
 } from './auth/middleware.js';
 import { env } from './env.js';
+import { environmentsRouter } from './routes/environments.js';
 import { flagsRouter } from './routes/flags.js';
+import { membersRouter } from './routes/members.js';
+import { projectsRouter } from './routes/projects.js';
 import { sdkRouter } from './routes/sdk.js';
+import { usersRouter } from './routes/users.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -20,13 +24,20 @@ app.get('/', (c) => c.json({ status: 'ok' }));
 
 const jwtAuth = createJwtVerifyMiddleware({ publicKeyPem });
 
+app.use('/projects', jwtAuth);
+app.use('/projects/:projectId', jwtAuth);
 app.use('/projects/:projectId/*', jwtAuth);
+app.use('/users', jwtAuth);
 app.use('/me', jwtAuth);
 app.use('/v1/*', jwtAuth);
 
 app.get('/me', (c) => c.json({ auth: c.get('auth') }));
 
+app.route('/projects', projectsRouter);
 app.route('/projects/:projectId/flags', flagsRouter);
+app.route('/projects/:projectId/environments', environmentsRouter);
+app.route('/projects/:projectId/members', membersRouter);
+app.route('/users', usersRouter);
 app.route('/v1', sdkRouter);
 
 serve({ fetch: app.fetch, port: env.API_PORT });
