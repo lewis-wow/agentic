@@ -1,6 +1,7 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { TablePagination } from '@repo/ui/components/TablePagination';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -71,7 +72,7 @@ import {
   ShieldOff,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { ApiKeyReveal } from '../../../../components/ApiKeyReveal';
@@ -100,21 +101,25 @@ export const ApiKeysPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: apiKeys = [], isPending } = useApiKeys(projectId);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<ApiKeyListItem | null>(null);
   const [deleting, setDeleting] = useState<ApiKeyListItem | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return apiKeys;
-    return apiKeys.filter(
-      (key) =>
-        key.name.toLowerCase().includes(q) ||
-        key.environmentName.toLowerCase().includes(q),
-    );
-  }, [apiKeys, query]);
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const {
+    data: apiKeys,
+    isPending,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = useApiKeys(projectId, debouncedQuery);
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,22 +180,22 @@ export const ApiKeysPanel = ({
             </Table>
           </CardContent>
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : !apiKeys || apiKeys.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <KeyRound />
             </EmptyMedia>
             <EmptyTitle>
-              {apiKeys.length === 0 ? 'No API keys' : 'No API keys found'}
+              {debouncedQuery ? 'No API keys found' : 'No API keys'}
             </EmptyTitle>
             <EmptyDescription>
-              {apiKeys.length === 0
-                ? 'Create an API key to authenticate SDK clients.'
-                : 'No API keys match your search.'}
+              {debouncedQuery
+                ? 'No API keys match your search.'
+                : 'Create an API key to authenticate SDK clients.'}
             </EmptyDescription>
           </EmptyHeader>
-          {apiKeys.length === 0 && canManage && (
+          {!debouncedQuery && canManage && (
             <CreateApiKeyDialog
               projectId={projectId}
               onCreated={setRevealedKey}
@@ -198,34 +203,42 @@ export const ApiKeysPanel = ({
           )}
         </Empty>
       ) : (
-        <Card className="py-0">
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Environment</TableHead>
-                  <TableHead>Key</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canManage && <TableHead className="w-12 text-right" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((key) => (
-                  <ApiKeyRow
-                    key={key.id}
-                    projectId={projectId}
-                    apiKey={key}
-                    canManage={canManage}
-                    onRotated={setRevealedKey}
-                    onRevoke={setRevoking}
-                    onDelete={setDeleting}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <>
+          <Card className="py-0">
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Environment</TableHead>
+                    <TableHead>Key</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canManage && <TableHead className="w-12 text-right" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {apiKeys.map((key) => (
+                    <ApiKeyRow
+                      key={key.id}
+                      projectId={projectId}
+                      apiKey={key}
+                      canManage={canManage}
+                      onRotated={setRevealedKey}
+                      onRevoke={setRevoking}
+                      onDelete={setDeleting}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {revoking && (

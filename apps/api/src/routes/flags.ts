@@ -446,6 +446,8 @@ flagsRouter.delete('/:flagId', async (c) => {
   return new Response(null, { status: 204 });
 });
 
+const FLAG_STATUS_VALUES = ['active', 'inactive', 'archived'] as const;
+
 flagsRouter.get('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
@@ -455,33 +457,59 @@ flagsRouter.get('/', async (c) => {
   if (!environmentId) {
     return new EnvironmentIdRequired().toResponse();
   }
-  const includeArchived = c.req.query('includeArchived') === 'true';
 
-  const flagsWithStates = await prisma.flag.findMany({
-    where: { projectId: claims.projectId },
-    include: {
-      states: {
-        where: { environmentId },
-        select: { status: true, type: true, rollout: true },
-      },
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
+
+  const search = c.req.query('search')?.trim() ?? '';
+  const statusParam = c.req.query('status') ?? 'all';
+  const status = FLAG_STATUS_VALUES.find((s) => s === statusParam);
+
+  const where = {
+    projectId: claims.projectId,
+    states: {
+      some: { environmentId, ...(status ? { status } : {}) },
     },
-    orderBy: { createdAt: 'asc' },
-  });
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { key: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
 
-  const flags = flagsWithStates
-    .filter((flag) => includeArchived || flag.states[0]?.status !== 'archived')
-    .map((flag) => ({
-      id: flag.id,
-      key: flag.key,
-      name: flag.name,
-      status: flag.states[0]?.status ?? 'inactive',
-      type: flag.states[0]?.type ?? 'boolean',
-      rollout: flag.states[0]?.rollout ?? 0,
-      createdAt: flag.createdAt,
-      updatedAt: flag.updatedAt,
-    }));
+  const [flagsWithStates, total] = await Promise.all([
+    prisma.flag.findMany({
+      where,
+      include: {
+        states: {
+          where: { environmentId },
+          select: { status: true, type: true, rollout: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      skip,
+      take,
+    }),
+    prisma.flag.count({ where }),
+  ]);
 
-  return c.json({ flags });
+  const flags = flagsWithStates.map((flag) => ({
+    id: flag.id,
+    key: flag.key,
+    name: flag.name,
+    status: flag.states[0]?.status ?? 'inactive',
+    type: flag.states[0]?.type ?? 'boolean',
+    rollout: flag.states[0]?.rollout ?? 0,
+    createdAt: flag.createdAt,
+    updatedAt: flag.updatedAt,
+  }));
+
+  return c.json({ flags, total, page, limit });
 });
 
 flagsRouter.post('/', async (c) => {

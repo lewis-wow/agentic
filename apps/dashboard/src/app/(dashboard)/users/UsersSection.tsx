@@ -1,26 +1,31 @@
 'use client';
 
+import { TablePagination } from '@repo/ui/components/TablePagination';
 import { Input } from '@repo/ui/components/ui/input';
 import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PersonTableSkeleton } from '../../../components/PersonTableSkeleton';
 import { useUsers } from '../../../queries/users';
 import { UsersTable } from './UsersTable';
 
 export const UsersSection = (): React.ReactNode => {
-  const { data: users = [], isPending } = useUsers();
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter(
-      (user) =>
-        user.name.toLowerCase().includes(q) ||
-        user.email.toLowerCase().includes(q),
-    );
-  }, [users, query]);
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const {
+    data: users,
+    isPending,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = useUsers(debouncedQuery);
 
   return (
     <div className="flex flex-col gap-4">
@@ -42,7 +47,18 @@ export const UsersSection = (): React.ReactNode => {
       {isPending ? (
         <PersonTableSkeleton rows={4} />
       ) : (
-        <UsersTable users={filtered} hasUsers={users.length > 0} />
+        <>
+          <UsersTable
+            users={users ?? []}
+            hasQuery={debouncedQuery.length > 0}
+          />
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

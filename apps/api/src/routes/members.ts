@@ -2,6 +2,7 @@ import { AddMemberRequestSchema } from '@repo/api';
 import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
+import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
 import { Hono } from 'hono';
@@ -44,12 +45,35 @@ membersRouter.get('/', async (c) => {
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
 
-  const [members, owner] = await Promise.all([
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
+
+  const search = c.req.query('search')?.trim() ?? '';
+  const where = {
+    projectId: claims.projectId,
+    ...(search
+      ? {
+          user: {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' as const } },
+              { email: { contains: search, mode: 'insensitive' as const } },
+            ],
+          },
+        }
+      : {}),
+  };
+
+  const [members, total, owner] = await Promise.all([
     prisma.projectMember.findMany({
-      where: { projectId: claims.projectId },
+      where,
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: 'asc' },
+      skip,
+      take,
     }),
+    prisma.projectMember.count({ where }),
     prisma.user.findFirst({
       where: { role: SYSTEM_ROLE.OWNER },
       select: { id: true, name: true, email: true },
@@ -59,6 +83,9 @@ membersRouter.get('/', async (c) => {
   return c.json({
     owner,
     members: members.map((m) => ({ id: m.id, role: m.role, user: m.user })),
+    total,
+    page,
+    limit,
   });
 });
 

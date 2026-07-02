@@ -14,6 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@repo/ui/components/ui/sidebar';
+import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import {
   FlagIcon,
   FolderKanban,
@@ -41,7 +42,7 @@ export const AppSidebar = ({
   userRole,
 }: Props): React.ReactNode => {
   const pathname = usePathname();
-  const { data: projects = [] } = useProjects();
+  const { data: projects = [], isPending } = useProjects();
 
   return (
     <Sidebar>
@@ -99,28 +100,41 @@ export const AppSidebar = ({
             />
           )}
           <SidebarMenu>
-            {projects.map((project) => (
-              <SidebarMenuItem key={project.id}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === `/projects/${project.id}`}
-                >
-                  <Link
-                    href={`/projects/${project.id}`}
-                    className="font-medium"
-                  >
-                    <FolderKanban />
-                    <span>{project.name}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-            {projects.length === 0 && (
-              <SidebarMenuItem>
-                <span className="px-2 text-sm text-sidebar-foreground/60">
-                  No projects yet.
-                </span>
-              </SidebarMenuItem>
+            {isPending ? (
+              <>
+                <SidebarMenuItem>
+                  <Skeleton className="h-8 w-full" />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Skeleton className="h-8 w-full" />
+                </SidebarMenuItem>
+              </>
+            ) : (
+              <>
+                {projects.map((project) => (
+                  <SidebarMenuItem key={project.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === `/projects/${project.id}`}
+                    >
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className="font-medium"
+                      >
+                        <FolderKanban />
+                        <span>{project.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                {projects.length === 0 && (
+                  <SidebarMenuItem>
+                    <span className="px-2 text-sm text-sidebar-foreground/60">
+                      No projects yet.
+                    </span>
+                  </SidebarMenuItem>
+                )}
+              </>
             )}
           </SidebarMenu>
         </SidebarGroup>
@@ -153,9 +167,13 @@ export const AppSidebar = ({
           </div>
           <LogoutButton />
         </div>
-        <p className="px-2 pb-1 text-[11px] text-sidebar-foreground/50">
-          {projects.length} project{projects.length === 1 ? '' : 's'}
-        </p>
+        <div className="px-2 pb-1 text-[11px] text-sidebar-foreground/50">
+          {isPending ? (
+            <Skeleton className="h-3 w-16" />
+          ) : (
+            `${projects.length} project${projects.length === 1 ? '' : 's'}`
+          )}
+        </div>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

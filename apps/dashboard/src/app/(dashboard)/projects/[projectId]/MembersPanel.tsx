@@ -2,6 +2,7 @@
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { MEMBERSHIP_ROLE } from '@repo/auth/roles';
+import { TablePagination } from '@repo/ui/components/TablePagination';
 import { Avatar, AvatarFallback } from '@repo/ui/components/ui/avatar';
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Button } from '@repo/ui/components/ui/button';
@@ -44,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from '@repo/ui/components/ui/table';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { Plus, Search, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -52,6 +53,7 @@ import { PersonTableSkeleton } from '../../../../components/PersonTableSkeleton'
 import {
   useAddableUsers,
   useAddMember,
+  useMembers,
   useRemoveMember,
   type AddableUser,
 } from '../../../../queries/members';
@@ -79,31 +81,46 @@ export const MembersPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: project, isPending } = useProject(projectId);
+  const { data: project } = useProject(projectId);
   const removeMutation = useRemoveMember(projectId);
 
-  const rows = project
-    ? [
-        ...(project.owner
-          ? [
-              {
-                key: `owner-${project.owner.id}`,
-                memberId: null as string | null,
-                name: project.owner.name,
-                email: project.owner.email,
-                role: 'owner',
-              },
-            ]
-          : []),
-        ...project.members.map((member) => ({
-          key: member.id,
-          memberId: member.id,
-          name: member.user.name,
-          email: member.user.email,
-          role: member.role,
-        })),
-      ]
-    : [];
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const {
+    data: members,
+    isPending,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = useMembers(projectId, debouncedQuery);
+
+  const rows = [
+    ...(project?.owner && !debouncedQuery
+      ? [
+          {
+            key: `owner-${project.owner.id}`,
+            memberId: null as string | null,
+            name: project.owner.name,
+            email: project.owner.email,
+            role: 'owner',
+          },
+        ]
+      : []),
+    ...(members ?? []).map((member) => ({
+      key: member.id,
+      memberId: member.id,
+      name: member.user.name,
+      email: member.user.email,
+      role: member.role,
+    })),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,6 +134,21 @@ export const MembersPanel = ({
         {canManage && <AddMemberDialog projectId={projectId} />}
       </div>
 
+      <div className="relative w-full max-w-sm">
+        <Search
+          className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          type="search"
+          placeholder="Search members..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+          aria-label="Search members"
+        />
+      </div>
+
       {isPending ? (
         <PersonTableSkeleton rows={2} showActions />
       ) : rows.length === 0 ? (
@@ -125,63 +157,77 @@ export const MembersPanel = ({
             <EmptyMedia variant="icon">
               <Users />
             </EmptyMedia>
-            <EmptyTitle>No members yet</EmptyTitle>
+            <EmptyTitle>
+              {debouncedQuery ? 'No members found' : 'No members yet'}
+            </EmptyTitle>
             <EmptyDescription>
-              Add a member to give them access to this project.
+              {debouncedQuery
+                ? 'No members match your search.'
+                : 'Add a member to give them access to this project.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card className="py-0">
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="w-12 text-right" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback>{initials(row.name)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{row.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {row.email}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{row.role}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManage && row.memberId && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground hover:text-destructive"
-                          disabled={removeMutation.isPending}
-                          onClick={() => removeMutation.mutate(row.memberId!)}
-                        >
-                          <Trash2 />
-                          <span className="sr-only">Remove member</span>
-                        </Button>
-                      )}
-                    </TableCell>
+        <>
+          <Card className="py-0">
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="w-12 text-right" />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="size-8">
+                            <AvatarFallback>
+                              {initials(row.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{row.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {row.email}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{row.role}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {canManage && row.memberId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive"
+                            disabled={removeMutation.isPending}
+                            onClick={() => removeMutation.mutate(row.memberId!)}
+                          >
+                            <Trash2 />
+                            <span className="sr-only">Remove member</span>
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {removeMutation.isError && (

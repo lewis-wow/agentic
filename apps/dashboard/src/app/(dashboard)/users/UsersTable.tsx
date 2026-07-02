@@ -29,7 +29,7 @@ type UserRow = {
 
 type Props = {
   users: UserRow[];
-  hasUsers: boolean;
+  hasQuery: boolean;
 };
 
 const initials = (name: string): string =>
@@ -41,7 +41,7 @@ const initials = (name: string): string =>
     .join('')
     .toUpperCase();
 
-export const UsersTable = ({ users, hasUsers }: Props): React.ReactNode => {
+export const UsersTable = ({ users, hasQuery }: Props): React.ReactNode => {
   if (users.length === 0) {
     return (
       <Empty className="rounded-lg border">
@@ -50,10 +50,10 @@ export const UsersTable = ({ users, hasUsers }: Props): React.ReactNode => {
             <Users />
           </EmptyMedia>
           <EmptyTitle>
-            {hasUsers ? 'No users found' : 'No users yet'}
+            {hasQuery ? 'No users found' : 'No users yet'}
           </EmptyTitle>
           <EmptyDescription>
-            {hasUsers
+            {hasQuery
               ? 'No users match your search.'
               : 'Registered users will appear here.'}
           </EmptyDescription>

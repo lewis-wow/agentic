@@ -1,5 +1,6 @@
 'use client';
 
+import { TablePagination } from '@repo/ui/components/TablePagination';
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Button } from '@repo/ui/components/ui/button';
 import { Card, CardContent } from '@repo/ui/components/ui/card';
@@ -22,7 +23,6 @@ import {
   TableRow,
 } from '@repo/ui/components/ui/table';
 import { MoreHorizontal, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
 export type FlagTableStatus = 'active' | 'inactive' | 'archived';
 
@@ -43,10 +43,17 @@ export type FlagTableProps = {
   onArchiveToggle: (flag: FlagTableRow) => void;
   onDelete: (flag: FlagTableRow) => void;
   isToggling?: (flag: FlagTableRow) => boolean;
+  /** Search input value, controlled by the parent (queries the server). */
+  search: string;
+  onSearchChange: (value: string) => void;
   /** Extra filter controls rendered directly next to the search input. */
   filters?: React.ReactNode;
   /** Renders skeleton rows instead of `flags` while the flag list is loading. */
   loading?: boolean;
+  page: number;
+  totalPages: number;
+  total: number;
+  onPageChange: (page: number) => void;
 };
 
 const FLAG_ROW_SKELETON_COUNT = 4;
@@ -94,21 +101,15 @@ export const FlagTable = ({
   onArchiveToggle,
   onDelete,
   isToggling,
+  search,
+  onSearchChange,
   filters,
   loading = false,
+  page,
+  totalPages,
+  total,
+  onPageChange,
 }: FlagTableProps): React.ReactNode => {
-  const [query, setQuery] = useState('');
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return flags;
-    return flags.filter(
-      (flag) =>
-        flag.name.toLowerCase().includes(q) ||
-        flag.key.toLowerCase().includes(q),
-    );
-  }, [flags, query]);
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -120,8 +121,8 @@ export const FlagTable = ({
           <Input
             type="search"
             placeholder="Search flags..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
             aria-label="Search feature flags"
           />
@@ -150,7 +151,7 @@ export const FlagTable = ({
                   <FlagRowSkeleton key={i} />
                 ))}
               {!loading &&
-                filtered.map((flag) => (
+                flags.map((flag) => (
                   <TableRow key={flag.id}>
                     <TableCell>
                       <span className="font-medium">{flag.name}</span>
@@ -223,7 +224,7 @@ export const FlagTable = ({
                     </TableCell>
                   </TableRow>
                 ))}
-              {!loading && filtered.length === 0 && (
+              {!loading && flags.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -237,6 +238,15 @@ export const FlagTable = ({
           </Table>
         </CardContent>
       </Card>
+
+      {!loading && (
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={onPageChange}
+        />
+      )}
     </div>
   );
 };

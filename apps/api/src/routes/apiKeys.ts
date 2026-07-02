@@ -3,6 +3,7 @@ import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { generateApiKey } from '@repo/auth/api-key';
 import { PROJECT_ROLE } from '@repo/auth/roles';
+import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
 import { Hono } from 'hono';
@@ -45,11 +46,38 @@ apiKeysRouter.get('/', async (c) => {
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
 
-  const apiKeys = await prisma.apiKey.findMany({
-    where: { environment: { projectId: claims.projectId } },
-    include: { environment: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' },
-  });
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
+
+  const search = c.req.query('search')?.trim() ?? '';
+  const where = {
+    environment: { projectId: claims.projectId },
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            {
+              environment: {
+                name: { contains: search, mode: 'insensitive' as const },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [apiKeys, total] = await Promise.all([
+    prisma.apiKey.findMany({
+      where,
+      include: { environment: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    }),
+    prisma.apiKey.count({ where }),
+  ]);
 
   return c.json({
     apiKeys: apiKeys.map((key) => ({
@@ -61,6 +89,9 @@ apiKeysRouter.get('/', async (c) => {
       revokedAt: key.revokedAt,
       createdAt: key.createdAt,
     })),
+    total,
+    page,
+    limit,
   });
 });
 

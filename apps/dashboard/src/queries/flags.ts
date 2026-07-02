@@ -58,8 +58,18 @@ export type Environment = {
 
 export const flagKeys = {
   all: (projectId: string) => ['projects', projectId, 'flags'] as const,
-  byEnv: (projectId: string, environmentId: string) =>
-    ['projects', projectId, 'flags', { environmentId }] as const,
+  byEnv: (
+    projectId: string,
+    environmentId: string,
+    search: string,
+    status: FlagStatus | 'all',
+  ) =>
+    [
+      'projects',
+      projectId,
+      'flags',
+      { environmentId, search, status },
+    ] as const,
   detail: (projectId: string, flagId: string) =>
     ['projects', projectId, 'flags', flagId] as const,
   environments: (projectId: string) =>
@@ -79,17 +89,45 @@ export const useEnvironments = (projectId: string) =>
     },
   });
 
-export const useFlags = (projectId: string, environmentId: string | null) =>
-  useQuery({
-    queryKey: flagKeys.byEnv(projectId, environmentId ?? ''),
-    queryFn: async (): Promise<FlagListItem[]> => {
+const FLAGS_LIMIT = 10;
+
+export const useFlags = (
+  projectId: string,
+  environmentId: string | null,
+  search = '',
+  status: FlagStatus | 'all' = 'all',
+) =>
+  usePaginatedQuery<FlagListItem>({
+    queryKey: [
+      ...flagKeys.byEnv(projectId, environmentId ?? '', search, status),
+    ],
+    queryFn: async (page): Promise<PagedResponse<FlagListItem>> => {
+      const params = new URLSearchParams({
+        environmentId: environmentId ?? '',
+        status,
+        page: String(page),
+        limit: String(FLAGS_LIMIT),
+      });
+      if (search) params.set('search', search);
+
       const res = await fetch(
-        `/api/projects/${projectId}/flags?environmentId=${environmentId}&includeArchived=true`,
+        `/api/projects/${projectId}/flags?${params.toString()}`,
       );
       if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flags: FlagListItem[] };
-      return data.flags;
+      const data = (await res.json()) as {
+        flags: FlagListItem[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      return {
+        items: data.flags,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+      };
     },
+    limit: FLAGS_LIMIT,
     enabled: !!environmentId,
   });
 
@@ -141,7 +179,12 @@ export const useToggleFlag = (projectId: string) => {
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: flagKeys.byEnv(projectId, variables.environmentId),
+        queryKey: [
+          'projects',
+          projectId,
+          'flags',
+          { environmentId: variables.environmentId },
+        ],
       });
       void queryClient.invalidateQueries({
         queryKey: flagKeys.detail(projectId, variables.flagId),

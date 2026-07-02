@@ -20,6 +20,7 @@ vi.mock('@repo/prisma', () => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -210,7 +211,7 @@ describe('POST /projects/:projectId/flags', () => {
 // GET / — list flags
 // ---------------------------------------------------------------------------
 describe('GET /projects/:projectId/flags', () => {
-  it('returns flags for a given environmentId, excluding archived', async () => {
+  it('filters to a single status when status is given, excluding archived', async () => {
     mockPrisma.flag.findMany.mockResolvedValue([
       {
         id: 'flag-1',
@@ -221,19 +222,10 @@ describe('GET /projects/:projectId/flags', () => {
         updatedAt: new Date(),
         states: [{ status: 'active' }],
       },
-      {
-        id: 'flag-2',
-        key: 'archived-flag',
-        name: 'Archived Flag',
-        projectId: PROJECT_ID,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        states: [{ status: 'archived' }],
-      },
     ] as never);
 
     const res = await app.request(
-      `/projects/${PROJECT_ID}/flags?environmentId=env-1`,
+      `/projects/${PROJECT_ID}/flags?environmentId=env-1&status=active`,
       { headers: bearer(viewerToken(PROJECT_ID)) },
     );
 
@@ -243,7 +235,7 @@ describe('GET /projects/:projectId/flags', () => {
     expect(body.flags[0].key).toBe('active-flag');
   });
 
-  it('includes archived flags when includeArchived=true', async () => {
+  it('includes archived flags by default (status=all)', async () => {
     mockPrisma.flag.findMany.mockResolvedValue([
       {
         id: 'flag-1',
@@ -266,7 +258,7 @@ describe('GET /projects/:projectId/flags', () => {
     ] as never);
 
     const res = await app.request(
-      `/projects/${PROJECT_ID}/flags?environmentId=env-1&includeArchived=true`,
+      `/projects/${PROJECT_ID}/flags?environmentId=env-1`,
       { headers: bearer(viewerToken(PROJECT_ID)) },
     );
 

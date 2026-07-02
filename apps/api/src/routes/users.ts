@@ -1,7 +1,9 @@
 import type { AuthJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
+import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
+import type { Prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
@@ -22,10 +24,31 @@ usersRouter.get('/', async (c) => {
   const claims = requireOwnerClaims(auth);
   if (!claims) return new Forbidden().toResponse();
 
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
 
-  return c.json({ users });
+  const search = c.req.query('search')?.trim() ?? '';
+  const where: Prisma.UserWhereInput = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    : {};
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { createdAt: 'asc' },
+      skip,
+      take,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return c.json({ users, total, page, limit });
 });

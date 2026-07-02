@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@repo/ui/components/ui/select';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   useArchiveFlag,
@@ -58,28 +58,33 @@ export const FlagsClient = ({
     environmentId ??
     (environments && environments[0] ? environments[0].id : null);
 
-  const { data: flags, isPending: flagsLoading } = useFlags(
-    projectId,
-    currentEnvId,
-  );
+  const [statusFilter, setStatusFilter] = useState<FlagStatus | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const {
+    data: flags,
+    isPending: flagsLoading,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = useFlags(projectId, currentEnvId, debouncedQuery, statusFilter);
 
   const toggleMutation = useToggleFlag(projectId);
   const archiveMutation = useArchiveFlag(projectId);
   const unarchiveMutation = useUnarchiveFlag(projectId);
 
-  const [statusFilter, setStatusFilter] = useState<FlagStatus | 'all'>('all');
-
   const [editingFlag, setEditingFlag] = useState<FlagTableRow | null>(null);
   const [historyFlag, setHistoryFlag] = useState<FlagTableRow | null>(null);
   const [deletingFlag, setDeletingFlag] = useState<FlagTableRow | null>(null);
 
-  const statusFilteredFlags = useMemo(() => {
-    if (!flags) return [];
-    if (statusFilter === 'all') return flags;
-    return flags.filter((flag) => flag.status === statusFilter);
-  }, [flags, statusFilter]);
-
-  const rows: FlagTableRow[] = statusFilteredFlags.map((flag) => ({
+  const rows: FlagTableRow[] = (flags ?? []).map((flag) => ({
     id: flag.id,
     name: flag.name,
     key: flag.key,
@@ -133,6 +138,12 @@ export const FlagsClient = ({
           onViewHistory={() => {}}
           onArchiveToggle={() => {}}
           onDelete={() => {}}
+          search={query}
+          onSearchChange={setQuery}
+          page={1}
+          totalPages={0}
+          total={0}
+          onPageChange={() => {}}
           loading
         />
       </div>
@@ -166,6 +177,12 @@ export const FlagsClient = ({
           toggleMutation.isPending &&
           toggleMutation.variables?.flagId === row.id
         }
+        search={query}
+        onSearchChange={setQuery}
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
         filters={
           <>
             <Select

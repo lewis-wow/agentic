@@ -17,6 +17,7 @@ vi.mock('@repo/prisma', () => ({
     apiKey: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),

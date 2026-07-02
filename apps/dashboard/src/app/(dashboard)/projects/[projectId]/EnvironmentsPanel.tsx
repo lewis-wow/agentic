@@ -1,6 +1,7 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { TablePagination } from '@repo/ui/components/TablePagination';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -47,15 +48,16 @@ import {
   TableHeader,
   TableRow,
 } from '@repo/ui/components/ui/table';
-import { Layers, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Layers, Plus, Search, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import {
   useCreateEnvironment,
   useDeleteEnvironment,
+  useEnvironmentsList,
 } from '../../../../queries/environments';
-import { useProject, type Environment } from '../../../../queries/projects';
+import type { Environment } from '../../../../queries/projects';
 import {
   CreateEnvironmentFormSchema,
   makeDeleteEnvironmentFormSchema,
@@ -89,9 +91,23 @@ export const EnvironmentsPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
-  const { data: project, isPending } = useProject(projectId);
-  const environments = project?.environments ?? [];
   const [deleting, setDeleting] = useState<Environment | null>(null);
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const {
+    data: environments,
+    isPending,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = useEnvironmentsList(projectId, debouncedQuery);
 
   return (
     <div className="flex flex-col gap-4">
@@ -103,6 +119,21 @@ export const EnvironmentsPanel = ({
           </p>
         </div>
         {canManage && <CreateEnvironmentDialog projectId={projectId} />}
+      </div>
+
+      <div className="relative w-full max-w-sm">
+        <Search
+          className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          type="search"
+          placeholder="Search environments..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+          aria-label="Search environments"
+        />
       </div>
 
       {isPending ? (
@@ -122,52 +153,66 @@ export const EnvironmentsPanel = ({
             </Table>
           </CardContent>
         </Card>
-      ) : environments.length === 0 ? (
+      ) : !environments || environments.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Layers />
             </EmptyMedia>
-            <EmptyTitle>No environments</EmptyTitle>
+            <EmptyTitle>
+              {debouncedQuery ? 'No environments found' : 'No environments'}
+            </EmptyTitle>
             <EmptyDescription>
-              Add an environment to start rolling out flags.
+              {debouncedQuery
+                ? 'No environments match your search.'
+                : 'Add an environment to start rolling out flags.'}
             </EmptyDescription>
           </EmptyHeader>
-          {canManage && <CreateEnvironmentDialog projectId={projectId} />}
+          {canManage && !debouncedQuery && (
+            <CreateEnvironmentDialog projectId={projectId} />
+          )}
         </Empty>
       ) : (
-        <Card className="py-0">
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  {canManage && <TableHead className="w-12 text-right" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {environments.map((env) => (
-                  <TableRow key={env.id}>
-                    <TableCell className="font-medium">{env.name}</TableCell>
-                    {canManage && (
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeleting(env)}
-                        >
-                          <Trash2 />
-                          <span className="sr-only">Delete environment</span>
-                        </Button>
-                      </TableCell>
-                    )}
+        <>
+          <Card className="py-0">
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    {canManage && <TableHead className="w-12 text-right" />}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {environments.map((env) => (
+                    <TableRow key={env.id}>
+                      <TableCell className="font-medium">{env.name}</TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleting(env)}
+                          >
+                            <Trash2 />
+                            <span className="sr-only">Delete environment</span>
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {deleting && (

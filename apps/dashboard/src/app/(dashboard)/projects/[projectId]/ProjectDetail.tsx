@@ -55,11 +55,12 @@ export const ProjectDetail = ({
   const searchParams = useSearchParams();
   const environmentId = searchParams.get('environmentId');
   const firstEnvironmentId = project?.environments[0]?.id ?? null;
-  const { data: flags, isPending: flagsPending } = useFlags(
+  const { total: flagsTotal, isPending: flagsPending } = useFlags(
     projectId,
     environmentId ?? firstEnvironmentId,
   );
-  const { data: apiKeys, isPending: apiKeysPending } = useApiKeys(projectId);
+  const { total: apiKeysTotal, isPending: apiKeysPending } =
+    useApiKeys(projectId);
   const [deleting, setDeleting] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -119,7 +120,7 @@ export const ProjectDetail = ({
           {flagsPending ? (
             <Skeleton className="h-5 w-16 rounded-full" />
           ) : (
-            <Badge variant="secondary">{flags?.length ?? 0} flags</Badge>
+            <Badge variant="secondary">{flagsTotal} flags</Badge>
           )}
           {projectPending ? (
             <Skeleton className="h-5 w-28 rounded-full" />
@@ -129,7 +130,7 @@ export const ProjectDetail = ({
           {apiKeysPending ? (
             <Skeleton className="h-5 w-24 rounded-full" />
           ) : (
-            <Badge variant="secondary">{apiKeys?.length ?? 0} API keys</Badge>
+            <Badge variant="secondary">{apiKeysTotal} API keys</Badge>
           )}
         </div>
 

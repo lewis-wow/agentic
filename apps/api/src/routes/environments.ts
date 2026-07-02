@@ -2,6 +2,7 @@ import { CreateEnvironmentRequestSchema } from '@repo/api';
 import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { PROJECT_ROLE } from '@repo/auth/roles';
+import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
 import { Hono } from 'hono';
@@ -37,6 +38,38 @@ const parseBody = async (
 };
 
 export const environmentsRouter = new Hono<AppEnv>();
+
+environmentsRouter.get('/', async (c) => {
+  const auth = c.get('auth');
+  const claims = requireProjectClaims(auth);
+  if (!claims) return new Forbidden().toResponse();
+
+  const { page, limit } = parsePaginationParams(
+    Object.fromEntries(new URL(c.req.url).searchParams),
+  );
+  const { skip, take } = buildPrismaPage(page, limit);
+
+  const search = c.req.query('search')?.trim() ?? '';
+  const where = {
+    projectId: claims.projectId,
+    ...(search
+      ? { name: { contains: search, mode: 'insensitive' as const } }
+      : {}),
+  };
+
+  const [environments, total] = await Promise.all([
+    prisma.environment.findMany({
+      where,
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
+      skip,
+      take,
+    }),
+    prisma.environment.count({ where }),
+  ]);
+
+  return c.json({ environments, total, page, limit });
+});
 
 environmentsRouter.post('/', async (c) => {
   const auth = c.get('auth');

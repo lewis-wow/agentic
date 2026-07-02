@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export type ApiKeyListItem = {
   id: string;
@@ -12,17 +13,40 @@ export type ApiKeyListItem = {
 
 export const apiKeyKeys = {
   all: (projectId: string) => ['projects', projectId, 'api-keys'] as const,
+  list: (projectId: string, search: string) =>
+    [...apiKeyKeys.all(projectId), search] as const,
 } as const;
 
-export const useApiKeys = (projectId: string) =>
-  useQuery({
-    queryKey: apiKeyKeys.all(projectId),
-    queryFn: async (): Promise<ApiKeyListItem[]> => {
-      const res = await fetch(`/api/projects/${projectId}/api-keys`);
+const API_KEYS_LIMIT = 10;
+
+export const useApiKeys = (projectId: string, search = '') =>
+  usePaginatedQuery<ApiKeyListItem>({
+    queryKey: [...apiKeyKeys.list(projectId, search)],
+    queryFn: async (page): Promise<PagedResponse<ApiKeyListItem>> => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(API_KEYS_LIMIT),
+      });
+      if (search) params.set('search', search);
+
+      const res = await fetch(
+        `/api/projects/${projectId}/api-keys?${params.toString()}`,
+      );
       if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { apiKeys: ApiKeyListItem[] };
-      return data.apiKeys;
+      const data = (await res.json()) as {
+        apiKeys: ApiKeyListItem[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      return {
+        items: data.apiKeys,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+      };
     },
+    limit: API_KEYS_LIMIT,
   });
 
 type CreateApiKeyArgs = {

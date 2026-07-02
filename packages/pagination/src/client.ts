@@ -12,6 +12,7 @@ type UsePaginatedQueryOptions<T> = {
   queryKey: unknown[];
   queryFn: (page: number) => Promise<PagedResponse<T>>;
   limit?: number;
+  enabled?: boolean;
 };
 
 type UsePaginatedQueryResult<T> = {
@@ -21,6 +22,7 @@ type UsePaginatedQueryResult<T> = {
   isPending: boolean;
   error: Error | null;
   totalPages: number;
+  total: number;
 };
 
 export const usePaginatedQuery = <T>(
@@ -36,6 +38,7 @@ export const usePaginatedQuery = <T>(
   const { data, isPending, error } = useQuery({
     queryKey: [...options.queryKey, page],
     queryFn: () => options.queryFn(page),
+    enabled: options.enabled,
   });
 
   const totalPages =
@@ -52,5 +55,6 @@ export const usePaginatedQuery = <T>(
     isPending,
     error: error as Error | null,
     totalPages,
+    total: data?.total ?? 0,
   };
 };
