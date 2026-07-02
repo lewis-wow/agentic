@@ -4,16 +4,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export type FlagStatus = 'active' | 'inactive' | 'archived';
 
+export type FlagType = 'boolean' | 'percentage_rollout' | 'targeted';
+
 export type FlagListItem = {
   id: string;
   key: string;
   name: string;
   status: FlagStatus;
+  type: FlagType;
+  rollout: number;
   createdAt: string;
   updatedAt: string;
 };
-
-export type FlagType = 'boolean' | 'percentage_rollout' | 'targeted';
 
 export type TargetingRule = {
   attribute: string;
@@ -82,7 +84,7 @@ export const useFlags = (projectId: string, environmentId: string | null) =>
     queryKey: flagKeys.byEnv(projectId, environmentId ?? ''),
     queryFn: async (): Promise<FlagListItem[]> => {
       const res = await fetch(
-        `/api/projects/${projectId}/flags?environmentId=${environmentId}`,
+        `/api/projects/${projectId}/flags?environmentId=${environmentId}&includeArchived=true`,
       );
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as { flags: FlagListItem[] };
@@ -221,10 +223,10 @@ export const useRenameFlag = (projectId: string, flagId: string) => {
   });
 };
 
-export const useArchiveFlag = (projectId: string, flagId: string) => {
+export const useArchiveFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (): Promise<void> => {
+    mutationFn: async (flagId: string): Promise<void> => {
       const res = await fetch(
         `/api/projects/${projectId}/flags/${flagId}/archive`,
         { method: 'POST' },
@@ -237,10 +239,10 @@ export const useArchiveFlag = (projectId: string, flagId: string) => {
   });
 };
 
-export const useUnarchiveFlag = (projectId: string, flagId: string) => {
+export const useUnarchiveFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (): Promise<void> => {
+    mutationFn: async (flagId: string): Promise<void> => {
       const res = await fetch(
         `/api/projects/${projectId}/flags/${flagId}/unarchive`,
         { method: 'POST' },

@@ -20,6 +20,85 @@ Before writing, refactoring, or reviewing any code here, read:
 - **No server actions for data.** Legacy server actions from earlier slices must be migrated to TanStack Query + API routes. New code must never introduce server actions for data fetching or mutation.
 - **No direct Prisma access.** Never import `@repo/prisma` in this app.
 
+## Form Conventions
+
+Every form uses **react-hook-form** with the **Effect Schema resolver** (`effectTsResolver` from `@hookform/resolvers/effect-ts`). Never manage form fields with `useState` + manual `onChange`/`onSubmit` validation.
+
+Colocate form validation schemas in `src/schemas/<resource>.ts`, mirroring the `src/queries/<resource>.ts` convention:
+
+```ts
+// schemas/flags.ts
+import { Schema } from 'effect';
+
+export const RenameFlagFormSchema = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.minLength(1, { message: () => 'Name is required' }),
+  ),
+});
+export type RenameFlagFormValues = Schema.Schema.Type<
+  typeof RenameFlagFormSchema
+>;
+```
+
+Wire the schema up with `effectTsResolver` and render fields through the shared `Form` primitives from `@repo/ui/components/ui/form` (`Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage`) instead of raw `<input>` elements bound to local state:
+
+```tsx
+'use client';
+
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { Button } from '@repo/ui/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@repo/ui/components/ui/form';
+import { Input } from '@repo/ui/components/ui/input';
+import { useForm } from 'react-hook-form';
+
+import { useRenameFlag } from '../queries/flags';
+import {
+  RenameFlagFormSchema,
+  type RenameFlagFormValues,
+} from '../schemas/flags';
+
+const RenameForm = ({ projectId, flagId, currentName }: Props) => {
+  const mutation = useRenameFlag(projectId, flagId);
+  const form = useForm<RenameFlagFormValues>({
+    resolver: effectTsResolver(RenameFlagFormSchema),
+    defaultValues: { name: currentName },
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Save</Button>
+      </form>
+    </Form>
+  );
+};
+```
+
+- Dynamic lists of rows (e.g. targeting rules) use `useFieldArray`, never manual `useState<T[]>` array manipulation.
+- On successful mutation, call `form.reset()` (and close/reset any dialog state) instead of resetting individual `useState` fields.
+- Fields whose validity depends on external props (e.g. a delete-confirmation input that must match a name) build their schema with a factory function, e.g. `makeDeleteFlagFormSchema(flagName)`, and pass it straight to `effectTsResolver`.
+- This does not apply to instant-mutation controls that save on every change without a submit step (toggles, inline selects, blur-to-save number inputs) — those are not "forms" in this sense and stay as plain controlled inputs wired directly to a mutation.
+
 ## Query Conventions
 
 Colocate query key factories, fetcher functions, and mutation hooks in `src/queries/<resource>.ts`:

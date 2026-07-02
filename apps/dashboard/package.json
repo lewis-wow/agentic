@@ -12,17 +12,21 @@
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
-    "@repo/pagination": "workspace:*",
     "@repo/bff": "workspace:*",
+    "@repo/pagination": "workspace:*",
     "@repo/prisma": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/utils": "workspace:*",
+    "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-table": "^8.21.3",
     "better-auth": "^1.6.22",
     "effect": "^3.21.4",
+    "lucide-react": "^0.545.0",
     "next": "15.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-hook-form": "^7.66.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

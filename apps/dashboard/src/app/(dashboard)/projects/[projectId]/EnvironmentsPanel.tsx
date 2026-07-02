@@ -1,6 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { DataTable } from '@repo/ui/components/data-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { useActionState, useMemo, useState } from 'react';
 
 import {
   createEnvironmentAction,
@@ -33,6 +35,35 @@ export const EnvironmentsPanel = ({
     initialState,
   );
 
+  const columns: ColumnDef<Environment>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Environment',
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.original.name}</span>
+            <span className="font-mono text-xs text-gray-400">
+              ID: {row.original.apiKeyId}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => (
+          <EnvironmentActions
+            environment={row.original}
+            projectId={projectId}
+            canManage={canManage}
+          />
+        ),
+      },
+    ],
+    [projectId, canManage],
+  );
+
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -46,19 +77,11 @@ export const EnvironmentsPanel = ({
         />
       )}
 
-      <ul className="space-y-2">
-        {environments.map((env) => (
-          <EnvironmentRow
-            key={env.id}
-            environment={env}
-            projectId={projectId}
-            canManage={canManage}
-          />
-        ))}
-        {environments.length === 0 && (
-          <li className="text-sm text-gray-500">No environments yet.</li>
-        )}
-      </ul>
+      <DataTable
+        columns={columns}
+        data={environments}
+        emptyMessage="No environments yet."
+      />
 
       {canManage && (
         <form action={createAction} className="flex items-center gap-2">
@@ -86,58 +109,49 @@ export const EnvironmentsPanel = ({
   );
 };
 
-type EnvironmentRowProps = {
+type EnvironmentActionsProps = {
   environment: Environment;
   projectId: string;
   canManage: boolean;
 };
 
-const EnvironmentRow = ({
+const EnvironmentActions = ({
   environment,
   projectId,
   canManage,
-}: EnvironmentRowProps): React.ReactNode => {
+}: EnvironmentActionsProps): React.ReactNode => {
   const [rotateState, rotateAction, isRotating] = useActionState(
     rotateApiKeyAction,
     initialState,
   );
   const [showDelete, setShowDelete] = useState(false);
 
-  return (
-    <li className="space-y-2 rounded-md border px-4 py-3">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium">{environment.name}</span>
-        {canManage && (
-          <div className="flex items-center gap-3">
-            <form action={rotateAction}>
-              <input type="hidden" name="projectId" value={projectId} />
-              <input
-                type="hidden"
-                name="environmentId"
-                value={environment.id}
-              />
-              <button
-                type="submit"
-                disabled={isRotating}
-                className="text-xs text-gray-600 hover:underline disabled:opacity-50"
-              >
-                {isRotating ? 'Rotating…' : 'Rotate key'}
-              </button>
-            </form>
-            <button
-              type="button"
-              onClick={() => setShowDelete((v) => !v)}
-              className="text-xs text-red-600 hover:underline"
-            >
-              Delete
-            </button>
-          </div>
-        )}
-      </div>
+  if (!canManage) {
+    return null;
+  }
 
-      <p className="font-mono text-xs text-gray-400">
-        ID: {environment.apiKeyId}
-      </p>
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3">
+        <form action={rotateAction}>
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="environmentId" value={environment.id} />
+          <button
+            type="submit"
+            disabled={isRotating}
+            className="text-xs text-gray-600 hover:underline disabled:opacity-50"
+          >
+            {isRotating ? 'Rotating…' : 'Rotate key'}
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setShowDelete((v) => !v)}
+          className="text-xs text-red-600 hover:underline"
+        >
+          Delete
+        </button>
+      </div>
 
       {rotateState.error && (
         <p className="text-sm text-red-700">{rotateState.error}</p>
@@ -147,7 +161,7 @@ const EnvironmentRow = ({
         <ApiKeyReveal fullKey={rotateState.fullKey} label="API key rotated" />
       )}
 
-      {showDelete && canManage && (
+      {showDelete && (
         <DeleteEnvironmentForm
           projectId={projectId}
           environmentId={environment.id}
@@ -155,7 +169,7 @@ const EnvironmentRow = ({
           onCancel={() => setShowDelete(false)}
         />
       )}
-    </li>
+    </div>
   );
 };
 

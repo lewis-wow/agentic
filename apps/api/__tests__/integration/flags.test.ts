@@ -243,6 +243,42 @@ describe('GET /projects/:projectId/flags', () => {
     expect(body.flags[0].key).toBe('active-flag');
   });
 
+  it('includes archived flags when includeArchived=true', async () => {
+    mockPrisma.flag.findMany.mockResolvedValue([
+      {
+        id: 'flag-1',
+        key: 'active-flag',
+        name: 'Active Flag',
+        projectId: PROJECT_ID,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
+      },
+      {
+        id: 'flag-2',
+        key: 'archived-flag',
+        name: 'Archived Flag',
+        projectId: PROJECT_ID,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        states: [{ status: 'archived', type: 'boolean', rollout: 0 }],
+      },
+    ] as never);
+
+    const res = await app.request(
+      `/projects/${PROJECT_ID}/flags?environmentId=env-1&includeArchived=true`,
+      { headers: bearer(viewerToken(PROJECT_ID)) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.flags).toHaveLength(2);
+    expect(body.flags.map((f: { key: string }) => f.key)).toEqual([
+      'active-flag',
+      'archived-flag',
+    ]);
+  });
+
   it('returns 400 when environmentId is missing', async () => {
     const res = await app.request(`/projects/${PROJECT_ID}/flags`, {
       headers: bearer(viewerToken(PROJECT_ID)),

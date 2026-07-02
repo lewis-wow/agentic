@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
+    "dev": "dotenvx run -f .env.development -f ../../.env.development -- tsx watch src/index.ts",
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
@@ -22,6 +22,7 @@
     "hono": "^4.0.0"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.51.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@repo/vitest-config": "workspace:*",

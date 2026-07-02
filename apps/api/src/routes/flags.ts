@@ -455,25 +455,28 @@ flagsRouter.get('/', async (c) => {
   if (!environmentId) {
     return new EnvironmentIdRequired().toResponse();
   }
+  const includeArchived = c.req.query('includeArchived') === 'true';
 
   const flagsWithStates = await prisma.flag.findMany({
     where: { projectId: claims.projectId },
     include: {
       states: {
         where: { environmentId },
-        select: { status: true },
+        select: { status: true, type: true, rollout: true },
       },
     },
     orderBy: { createdAt: 'asc' },
   });
 
   const flags = flagsWithStates
-    .filter((flag) => flag.states[0]?.status !== 'archived')
+    .filter((flag) => includeArchived || flag.states[0]?.status !== 'archived')
     .map((flag) => ({
       id: flag.id,
       key: flag.key,
       name: flag.name,
       status: flag.states[0]?.status ?? 'inactive',
+      type: flag.states[0]?.type ?? 'boolean',
+      rollout: flag.states[0]?.rollout ?? 0,
       createdAt: flag.createdAt,
       updatedAt: flag.updatedAt,
     }));

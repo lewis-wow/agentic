@@ -1,7 +1,16 @@
 'use client';
 
 import { MEMBERSHIP_ROLE } from '@repo/auth/roles';
-import { useActionState, useEffect, useState, useTransition } from 'react';
+import { DataTable } from '@repo/ui/components/data-table';
+import { Badge } from '@repo/ui/components/ui/badge';
+import type { ColumnDef } from '@tanstack/react-table';
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
 
 import {
   type AddableUser,
@@ -26,6 +35,14 @@ type Props = {
   members: Member[];
 };
 
+type MemberRow = {
+  key: string;
+  memberId: string | null;
+  name: string;
+  email: string;
+  role: string;
+};
+
 const initialState: MemberActionState = {};
 
 export const MembersPanel = ({
@@ -40,58 +57,85 @@ export const MembersPanel = ({
     initialState,
   );
 
+  const rows: MemberRow[] = useMemo(
+    () => [
+      ...(owner
+        ? [
+            {
+              key: `owner-${owner.id}`,
+              memberId: null,
+              name: owner.name,
+              email: owner.email,
+              role: 'owner',
+            },
+          ]
+        : []),
+      ...members.map((member) => ({
+        key: member.id,
+        memberId: member.id,
+        name: member.user.name,
+        email: member.user.email,
+        role: member.role,
+      })),
+    ],
+    [owner, members],
+  );
+
+  const columns: ColumnDef<MemberRow>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Member',
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.original.name}</span>
+            <span className="text-xs text-gray-500">{row.original.email}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'role',
+        header: 'Role',
+        cell: ({ row }) => (
+          <Badge variant="secondary">{row.original.role}</Badge>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) =>
+          canManage && row.original.memberId ? (
+            <form action={removeAction}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input
+                type="hidden"
+                name="memberId"
+                value={row.original.memberId}
+              />
+              <button
+                type="submit"
+                className="text-xs text-red-600 hover:underline"
+              >
+                Remove
+              </button>
+            </form>
+          ) : null,
+      },
+    ],
+    [canManage, projectId, removeAction],
+  );
+
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
         Members
       </h2>
 
-      <ul className="space-y-2">
-        {owner && (
-          <li className="flex items-center justify-between rounded-md border px-4 py-3 text-sm">
-            <span>
-              {owner.name}{' '}
-              <span className="text-gray-500">&lt;{owner.email}&gt;</span>
-            </span>
-            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-              owner
-            </span>
-          </li>
-        )}
-
-        {members.map((member) => (
-          <li
-            key={member.id}
-            className="flex items-center justify-between rounded-md border px-4 py-3 text-sm"
-          >
-            <span>
-              {member.user.name}{' '}
-              <span className="text-gray-500">&lt;{member.user.email}&gt;</span>
-            </span>
-            <span className="flex items-center gap-3">
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-                {member.role}
-              </span>
-              {canManage && (
-                <form action={removeAction}>
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <input type="hidden" name="memberId" value={member.id} />
-                  <button
-                    type="submit"
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </form>
-              )}
-            </span>
-          </li>
-        ))}
-
-        {members.length === 0 && (
-          <li className="text-sm text-gray-500">No additional members yet.</li>
-        )}
-      </ul>
+      <DataTable
+        columns={columns}
+        data={rows}
+        emptyMessage="No additional members yet."
+      />
 
       {removeState.error && (
         <p className="text-sm text-red-700">{removeState.error}</p>

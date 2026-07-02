@@ -1,9 +1,9 @@
 import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
-import Link from 'next/link';
 
 import { requireSession } from '../../../lib/guards';
 import { CreateProjectForm } from './CreateProjectForm';
+import { ProjectsTable } from './ProjectsTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,26 +24,14 @@ export default async function DashboardPage(): Promise<React.ReactNode> {
         <h1 className="text-xl font-semibold">Projects</h1>
       </div>
 
-      {projects.length === 0 ? (
-        <p className="text-sm text-gray-500">
-          {isOwner
+      <ProjectsTable
+        projects={projects}
+        emptyMessage={
+          isOwner
             ? 'No projects yet. Create one below.'
-            : 'No projects yet. Ask an owner to grant you access.'}
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {projects.map((project) => (
-            <li key={project.id}>
-              <Link
-                href={`/projects/${project.id}`}
-                className="block rounded-md border px-4 py-3 text-sm hover:bg-gray-50"
-              >
-                {project.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+            : 'No projects yet. Ask an owner to grant you access.'
+        }
+      />
 
       {isOwner && <CreateProjectForm />}
     </div>
