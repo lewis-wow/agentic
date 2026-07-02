@@ -19,33 +19,33 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 
-import { useDeleteFlag } from '../../../../../queries/flags';
+import { useDeleteProject } from '../../../../queries/projects';
 import {
-  makeDeleteFlagFormSchema,
-  type DeleteFlagFormValues,
-} from '../../../../../schemas/flags';
+  makeDeleteProjectFormSchema,
+  type DeleteProjectFormValues,
+} from '../../../../schemas/projects';
 
 type Props = {
   projectId: string;
-  flagId: string;
-  flagName: string;
+  projectName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export const DeleteFlagDialog = ({
+export const DeleteProjectDialog = ({
   projectId,
-  flagId,
-  flagName,
+  projectName,
   open,
   onOpenChange,
 }: Props): React.ReactNode => {
-  const mutation = useDeleteFlag(projectId);
+  const router = useRouter();
+  const mutation = useDeleteProject();
 
-  const form = useForm<DeleteFlagFormValues>({
-    resolver: effectTsResolver(makeDeleteFlagFormSchema(flagName)),
+  const form = useForm<DeleteProjectFormValues>({
+    resolver: effectTsResolver(makeDeleteProjectFormSchema(projectName)),
     defaultValues: { confirmation: '' },
   });
 
@@ -55,8 +55,8 @@ export const DeleteFlagDialog = ({
   };
 
   const onSubmit = (): void => {
-    mutation.mutate(flagId, {
-      onSuccess: () => handleOpenChange(false),
+    mutation.mutate(projectId, {
+      onSuccess: () => router.push('/dashboard'),
     });
   };
 
@@ -66,12 +66,12 @@ export const DeleteFlagDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this flag?</AlertDialogTitle>
+              <AlertDialogTitle>Delete this project?</AlertDialogTitle>
               <AlertDialogDescription>
-                <code className="font-mono">{flagName}</code> will be
-                permanently removed from all environments. Type{' '}
+                <strong>{projectName}</strong> and all of its environments,
+                flags, and members will be permanently removed. Type{' '}
                 <span className="font-mono font-semibold text-foreground">
-                  {flagName}
+                  {projectName}
                 </span>{' '}
                 to confirm.
               </AlertDialogDescription>
@@ -83,7 +83,7 @@ export const DeleteFlagDialog = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input placeholder={flagName} {...field} />
+                      <Input placeholder={projectName} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,8 +1,41 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
-import { DataTable } from '@repo/ui/components/data-table';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@repo/ui/components/ui/alert-dialog';
 import { Button } from '@repo/ui/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@repo/ui/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@repo/ui/components/ui/dialog';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@repo/ui/components/ui/empty';
+import { Field, FieldGroup, FieldLabel } from '@repo/ui/components/ui/field';
 import {
   Form,
   FormControl,
@@ -11,14 +44,14 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
-import type { ColumnDef } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { Layers, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { ApiKeyReveal } from '../../../../components/ApiKeyReveal';
 import {
   useCreateEnvironment,
   useDeleteEnvironment,
-  useRotateApiKey,
 } from '../../../../queries/environments';
 import { useProject, type Environment } from '../../../../queries/projects';
 import {
@@ -33,289 +66,266 @@ type Props = {
   canManage: boolean;
 };
 
-type RevealedKey = {
-  fullKey: string;
-  label: string;
-};
-
 export const EnvironmentsPanel = ({
   projectId,
   canManage,
 }: Props): React.ReactNode => {
   const { data: project } = useProject(projectId);
   const environments = project?.environments ?? [];
-  const createMutation = useCreateEnvironment(projectId);
-  const [revealedKey, setRevealedKey] = useState<RevealedKey | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Environment | null>(null);
 
-  const columns: ColumnDef<Environment>[] = useMemo(
-    () => [
-      {
-        accessorKey: 'name',
-        header: 'Environment',
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium">{row.original.name}</span>
-            <span className="font-mono text-xs text-gray-400">
-              ID: {row.original.apiKeyId}
-            </span>
-          </div>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <EnvironmentActions
-            environment={row.original}
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium">Environments</h2>
+          <p className="text-sm text-muted-foreground">
+            Each environment maintains its own flag states and API key.
+          </p>
+        </div>
+        {canManage && (
+          <CreateEnvironmentDialog
             projectId={projectId}
-            canManage={canManage}
-            onReveal={setRevealedKey}
+            onCreated={setRevealedKey}
           />
-        ),
-      },
-    ],
-    [projectId, canManage],
-  );
-
-  const form = useForm<CreateEnvironmentFormValues>({
-    resolver: effectTsResolver(CreateEnvironmentFormSchema),
-    defaultValues: { name: '' },
-  });
-
-  const onSubmit = (values: CreateEnvironmentFormValues): void => {
-    createMutation.mutate(values, {
-      onSuccess: (data) => {
-        form.reset();
-        setRevealedKey({
-          fullKey: data.fullKey,
-          label: 'New environment created',
-        });
-      },
-    });
-  };
-
-  return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-        Environments
-      </h2>
-
-      {revealedKey && (
-        <ApiKeyReveal fullKey={revealedKey.fullKey} label={revealedKey.label} />
-      )}
-
-      <DataTable
-        columns={columns}
-        data={environments}
-        emptyMessage="No environments yet."
-      />
-
-      {canManage && (
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex items-start gap-2"
-          >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormControl>
-                    <Input placeholder="New environment name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating…' : 'Add environment'}
-            </Button>
-            {createMutation.isError && (
-              <p className="text-sm text-red-700">
-                {createMutation.error.message}
-              </p>
-            )}
-          </form>
-        </Form>
-      )}
-    </section>
-  );
-};
-
-type EnvironmentActionsProps = {
-  environment: Environment;
-  projectId: string;
-  canManage: boolean;
-  onReveal: (payload: RevealedKey) => void;
-};
-
-const EnvironmentActions = ({
-  environment,
-  projectId,
-  canManage,
-  onReveal,
-}: EnvironmentActionsProps): React.ReactNode => {
-  const [showDelete, setShowDelete] = useState(false);
-  const rotateMutation = useRotateApiKey(projectId);
-
-  if (!canManage) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="h-auto p-0 text-xs text-gray-600"
-          disabled={rotateMutation.isPending}
-          onClick={() =>
-            rotateMutation.mutate(environment.id, {
-              onSuccess: (data) =>
-                onReveal({ fullKey: data.fullKey, label: 'API key rotated' }),
-            })
-          }
-        >
-          {rotateMutation.isPending ? 'Rotating…' : 'Rotate key'}
-        </Button>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="h-auto p-0 text-xs text-red-600"
-          onClick={() => setShowDelete((v) => !v)}
-        >
-          Delete
-        </Button>
+        )}
       </div>
 
-      {rotateMutation.isError && (
-        <p className="text-sm text-red-700">{rotateMutation.error.message}</p>
+      {revealedKey && (
+        <ApiKeyReveal fullKey={revealedKey} label="New environment created" />
       )}
 
-      {showDelete && (
-        <DeleteEnvironmentForm
+      {environments.length === 0 ? (
+        <Empty className="rounded-lg border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Layers />
+            </EmptyMedia>
+            <EmptyTitle>No environments</EmptyTitle>
+            <EmptyDescription>
+              Add an environment to start rolling out flags.
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage && (
+            <CreateEnvironmentDialog
+              projectId={projectId}
+              onCreated={setRevealedKey}
+            />
+          )}
+        </Empty>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {environments.map((env) => (
+            <Card key={env.id}>
+              <CardHeader>
+                <CardTitle className="text-base">{env.name}</CardTitle>
+                <CardDescription>
+                  <code className="text-xs">{env.apiKeyId}</code>
+                </CardDescription>
+              </CardHeader>
+              {canManage && (
+                <CardContent className="flex items-center justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleting(env)}
+                  >
+                    <Trash2 />
+                    <span className="sr-only">Delete environment</span>
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {deleting && (
+        <DeleteEnvironmentDialog
           projectId={projectId}
-          environmentId={environment.id}
-          environmentName={environment.name}
-          onCancel={() => setShowDelete(false)}
+          environment={deleting}
+          open={!!deleting}
+          onOpenChange={(open) => !open && setDeleting(null)}
         />
       )}
     </div>
   );
 };
 
-type DeleteEnvironmentFormProps = {
+type CreateEnvironmentDialogProps = {
   projectId: string;
-  environmentId: string;
-  environmentName: string;
-  onCancel: () => void;
+  onCreated: (fullKey: string) => void;
 };
 
-const DeleteEnvironmentForm = ({
+const CreateEnvironmentDialog = ({
   projectId,
-  environmentId,
-  environmentName,
-  onCancel,
-}: DeleteEnvironmentFormProps): React.ReactNode => {
-  const mutation = useDeleteEnvironment(projectId);
+  onCreated,
+}: CreateEnvironmentDialogProps): React.ReactNode => {
+  const [open, setOpen] = useState(false);
+  const createMutation = useCreateEnvironment(projectId);
 
-  const form = useForm<DeleteEnvironmentFormValues>({
-    resolver: effectTsResolver(
-      makeDeleteEnvironmentFormSchema(environmentName),
-    ),
-    defaultValues: { confirmation: '' },
+  const form = useForm<CreateEnvironmentFormValues>({
+    resolver: effectTsResolver(CreateEnvironmentFormSchema),
+    defaultValues: { name: '' },
   });
 
-  const onSubmit = (): void => {
-    mutation.mutate(environmentId, { onSuccess: onCancel });
+  const handleOpenChange = (next: boolean): void => {
+    if (!next) form.reset();
+    setOpen(next);
   };
 
-  return (
-    <div className="space-y-2 rounded-md border border-red-200 bg-red-50 p-3">
-      <p className="text-xs text-gray-600">
-        Type <span className="font-mono font-semibold">{environmentName}</span>{' '}
-        to confirm deletion. All flag states will be permanently removed.
-      </p>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-wrap items-center gap-2"
-        >
-          <FormField
-            control={form.control}
-            name="confirmation"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    placeholder={environmentName}
-                    className="text-xs"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            variant="destructive"
-            size="sm"
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending ? 'Deleting…' : 'Delete'}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            Cancel
-          </Button>
-        </form>
-      </Form>
-      {mutation.isError && (
-        <p className="text-xs text-red-700">{mutation.error.message}</p>
-      )}
-    </div>
-  );
-};
-
-type ApiKeyRevealProps = {
-  fullKey: string;
-  label: string;
-};
-
-const ApiKeyReveal = ({
-  fullKey,
-  label,
-}: ApiKeyRevealProps): React.ReactNode => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (): void => {
-    void navigator.clipboard.writeText(fullKey).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const onSubmit = (values: CreateEnvironmentFormValues): void => {
+    createMutation.mutate(values, {
+      onSuccess: (data) => {
+        handleOpenChange(false);
+        onCreated(data.fullKey);
+      },
     });
   };
 
   return (
-    <div className="space-y-2 rounded-md border border-green-200 bg-green-50 p-3">
-      <p className="text-xs font-medium text-green-800">
-        {label} — copy your API key now. It won&apos;t be shown again.
-      </p>
-      <div className="flex items-center gap-2">
-        <pre className="flex-1 overflow-x-auto rounded bg-white px-3 py-2 font-mono text-xs text-gray-800">
-          {fullKey}
-        </pre>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="shrink-0 rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
-        >
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus />
+          New Environment
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <DialogHeader>
+              <DialogTitle>Create environment</DialogTitle>
+              <DialogDescription>
+                Existing flags will be added to this environment, disabled by
+                default.
+              </DialogDescription>
+            </DialogHeader>
+            <FieldGroup className="py-4">
+              <Field>
+                <FieldLabel htmlFor="env-name">Name</FieldLabel>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          id="env-name"
+                          placeholder="e.g. Staging"
+                          autoFocus
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" type="button">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Creating…' : 'Create'}
+              </Button>
+            </DialogFooter>
+            {createMutation.isError && (
+              <p className="mt-2 text-sm text-red-700">
+                {createMutation.error.message}
+              </p>
+            )}
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+type DeleteEnvironmentDialogProps = {
+  projectId: string;
+  environment: Environment;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+const DeleteEnvironmentDialog = ({
+  projectId,
+  environment,
+  open,
+  onOpenChange,
+}: DeleteEnvironmentDialogProps): React.ReactNode => {
+  const mutation = useDeleteEnvironment(projectId);
+
+  const form = useForm<DeleteEnvironmentFormValues>({
+    resolver: effectTsResolver(
+      makeDeleteEnvironmentFormSchema(environment.name),
+    ),
+    defaultValues: { confirmation: '' },
+  });
+
+  const handleOpenChange = (next: boolean): void => {
+    if (!next) form.reset();
+    onOpenChange(next);
+  };
+
+  const onSubmit = (): void => {
+    mutation.mutate(environment.id, {
+      onSuccess: () => handleOpenChange(false),
+    });
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
+      <AlertDialogContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete environment?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Deleting <strong>{environment.name}</strong> removes its flag
+                states and API key. Type{' '}
+                <span className="font-mono font-semibold text-foreground">
+                  {environment.name}
+                </span>{' '}
+                to confirm.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-2">
+              <FormField
+                control={form.control}
+                name="confirmation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder={environment.name} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {mutation.isError && (
+              <p className="text-sm text-red-700">{mutation.error.message}</p>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? 'Deleting…' : 'Delete'}
+              </Button>
+            </AlertDialogFooter>
+          </form>
+        </Form>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

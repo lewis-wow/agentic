@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '@repo/ui/components/ui/button';
+import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { authClient } from '../../lib/auth-client';
@@ -14,8 +16,14 @@ export const LogoutButton = (): React.ReactNode => {
   };
 
   return (
-    <button onClick={handleLogout} className="text-gray-500 hover:text-black">
-      Sign out
-    </button>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      onClick={() => void handleLogout()}
+      aria-label="Sign out"
+    >
+      <LogOut />
+    </Button>
   );
 };

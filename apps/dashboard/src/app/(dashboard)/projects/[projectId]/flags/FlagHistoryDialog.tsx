@@ -159,7 +159,7 @@ export const FlagHistoryDialog = ({
                   type="button"
                   onClick={() => setPage(page - 1)}
                   disabled={page <= 1}
-                  className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                  className="cursor-pointer rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Previous
                 </button>
@@ -170,7 +170,7 @@ export const FlagHistoryDialog = ({
                       type="button"
                       onClick={() => setPage(p)}
                       className={[
-                        'rounded border px-2 py-1 text-xs',
+                        'cursor-pointer rounded border px-2 py-1 text-xs',
                         p === page ? 'bg-black text-white' : 'hover:bg-gray-50',
                       ].join(' ')}
                     >
@@ -182,7 +182,7 @@ export const FlagHistoryDialog = ({
                   type="button"
                   onClick={() => setPage(page + 1)}
                   disabled={page >= totalPages}
-                  className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                  className="cursor-pointer rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next
                 </button>

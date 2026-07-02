@@ -1,33 +1,46 @@
 'use client';
 
+import { Badge } from '@repo/ui/components/ui/badge';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from '@repo/ui/components/ui/sidebar';
-import { FlagIcon, Users } from 'lucide-react';
+import {
+  FlagIcon,
+  FolderKanban,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 import { useProjects } from '../../queries/projects';
+import { CreateProjectDialog } from './CreateProjectDialog';
+import { LogoutButton } from './LogoutButton';
 
 type Props = {
   isOwner: boolean;
+  userEmail: string;
+  userRole: string;
 };
 
-export const AppSidebar = ({ isOwner }: Props): React.ReactNode => {
+export const AppSidebar = ({
+  isOwner,
+  userEmail,
+  userRole,
+}: Props): React.ReactNode => {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentEnvironmentId = searchParams.get('environmentId');
   const { data: projects = [] } = useProjects();
 
   return (
@@ -41,9 +54,9 @@ export const AppSidebar = ({ isOwner }: Props): React.ReactNode => {
                   <FlagIcon className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-medium">Feature Flags</span>
+                  <span className="font-medium">Flagship</span>
                   <span className="text-xs text-sidebar-foreground/70">
-                    Dashboard
+                    Feature Flags
                   </span>
                 </div>
               </Link>
@@ -53,46 +66,55 @@ export const AppSidebar = ({ isOwner }: Props): React.ReactNode => {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarMenu>
-            {projects.map((project) => {
-              const isProjectActive = pathname === `/projects/${project.id}`;
-              return (
-                <SidebarMenuItem key={project.id}>
-                  <SidebarMenuButton asChild isActive={isProjectActive}>
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="font-medium"
-                    >
-                      {project.name}
-                    </Link>
-                  </SidebarMenuButton>
-                  {project.environments.length > 0 && (
-                    <SidebarMenuSub>
-                      {project.environments.map((environment) => {
-                        const isEnvironmentActive =
-                          pathname === `/projects/${project.id}/flags` &&
-                          currentEnvironmentId === environment.id;
-                        return (
-                          <SidebarMenuSubItem key={environment.id}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isEnvironmentActive}
-                            >
-                              <Link
-                                href={`/projects/${project.id}/flags?environmentId=${environment.id}`}
-                              >
-                                {environment.name}
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        );
-                      })}
-                    </SidebarMenuSub>
-                  )}
-                </SidebarMenuItem>
-              );
-            })}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === '/dashboard'}>
+                <Link href="/dashboard">
+                  <LayoutDashboard />
+                  <span>Dashboard</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === '/settings'}>
+                <Link href="/settings">
+                  <Settings />
+                  <span>Settings</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Projects</SidebarGroupLabel>
+          {isOwner && (
+            <CreateProjectDialog
+              trigger={
+                <SidebarGroupAction title="New project">
+                  <Plus />
+                  <span className="sr-only">New project</span>
+                </SidebarGroupAction>
+              }
+            />
+          )}
+          <SidebarMenu>
+            {projects.map((project) => (
+              <SidebarMenuItem key={project.id}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === `/projects/${project.id}`}
+                >
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="font-medium"
+                  >
+                    <FolderKanban />
+                    <span>{project.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
             {projects.length === 0 && (
               <SidebarMenuItem>
                 <span className="px-2 text-sm text-sidebar-foreground/60">
@@ -119,6 +141,22 @@ export const AppSidebar = ({ isOwner }: Props): React.ReactNode => {
           </SidebarGroup>
         )}
       </SidebarContent>
+      <SidebarFooter>
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate text-sidebar-foreground">
+              {userEmail}
+            </span>
+            <Badge variant="secondary" className="w-fit text-[10px]">
+              {userRole}
+            </Badge>
+          </div>
+          <LogoutButton />
+        </div>
+        <p className="px-2 pb-1 text-[11px] text-sidebar-foreground/50">
+          {projects.length} project{projects.length === 1 ? '' : 's'}
+        </p>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
