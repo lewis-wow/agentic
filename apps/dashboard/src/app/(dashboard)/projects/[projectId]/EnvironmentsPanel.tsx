@@ -14,7 +14,6 @@ import { Button } from '@repo/ui/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/ui/card';
@@ -49,7 +48,6 @@ import { Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { ApiKeyReveal } from '../../../../components/ApiKeyReveal';
 import {
   useCreateEnvironment,
   useDeleteEnvironment,
@@ -85,7 +83,6 @@ export const EnvironmentsPanel = ({
 }: Props): React.ReactNode => {
   const { data: project, isPending } = useProject(projectId);
   const environments = project?.environments ?? [];
-  const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Environment | null>(null);
 
   return (
@@ -94,20 +91,11 @@ export const EnvironmentsPanel = ({
         <div>
           <h2 className="text-lg font-medium">Environments</h2>
           <p className="text-sm text-muted-foreground">
-            Each environment maintains its own flag states and API key.
+            Each environment maintains its own flag states and API keys.
           </p>
         </div>
-        {canManage && (
-          <CreateEnvironmentDialog
-            projectId={projectId}
-            onCreated={setRevealedKey}
-          />
-        )}
+        {canManage && <CreateEnvironmentDialog projectId={projectId} />}
       </div>
-
-      {revealedKey && (
-        <ApiKeyReveal fullKey={revealedKey} label="New environment created" />
-      )}
 
       {isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,12 +113,7 @@ export const EnvironmentsPanel = ({
               Add an environment to start rolling out flags.
             </EmptyDescription>
           </EmptyHeader>
-          {canManage && (
-            <CreateEnvironmentDialog
-              projectId={projectId}
-              onCreated={setRevealedKey}
-            />
-          )}
+          {canManage && <CreateEnvironmentDialog projectId={projectId} />}
         </Empty>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -138,9 +121,6 @@ export const EnvironmentsPanel = ({
             <Card key={env.id}>
               <CardHeader>
                 <CardTitle className="text-base">{env.name}</CardTitle>
-                <CardDescription>
-                  <code className="text-xs">{env.apiKeyId}</code>
-                </CardDescription>
               </CardHeader>
               {canManage && (
                 <CardContent className="flex items-center justify-end">
@@ -174,12 +154,10 @@ export const EnvironmentsPanel = ({
 
 type CreateEnvironmentDialogProps = {
   projectId: string;
-  onCreated: (fullKey: string) => void;
 };
 
 const CreateEnvironmentDialog = ({
   projectId,
-  onCreated,
 }: CreateEnvironmentDialogProps): React.ReactNode => {
   const [open, setOpen] = useState(false);
   const createMutation = useCreateEnvironment(projectId);
@@ -196,10 +174,7 @@ const CreateEnvironmentDialog = ({
 
   const onSubmit = (values: CreateEnvironmentFormValues): void => {
     createMutation.mutate(values, {
-      onSuccess: (data) => {
-        handleOpenChange(false);
-        onCreated(data.fullKey);
-      },
+      onSuccess: () => handleOpenChange(false),
     });
   };
 
@@ -307,7 +282,7 @@ const DeleteEnvironmentDialog = ({
               <AlertDialogTitle>Delete environment?</AlertDialogTitle>
               <AlertDialogDescription>
                 Deleting <strong>{environment.name}</strong> removes its flag
-                states and API key. Type{' '}
+                states and API keys. Type{' '}
                 <span className="font-mono font-semibold text-foreground">
                   {environment.name}
                 </span>{' '}

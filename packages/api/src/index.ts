@@ -30,12 +30,14 @@ export type { AuditLogEntry, AuditLogPage } from './schemas/auditLog.js';
 
 export {
   AddMemberRequestSchema,
+  CreateApiKeyRequestSchema,
   CreateEnvironmentRequestSchema,
   CreateProjectRequestSchema,
 } from './schemas/projects.js';
 
 export type {
   AddMemberRequest,
+  CreateApiKeyRequest,
   CreateEnvironmentRequest,
   CreateProjectRequest,
 } from './schemas/projects.js';

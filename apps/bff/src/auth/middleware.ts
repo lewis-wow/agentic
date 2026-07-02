@@ -3,7 +3,7 @@ import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
 import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
 import { resolveSessionUser, SESSION_COOKIE } from '@repo/bff';
-import type { Environment, ProjectMember } from '@repo/prisma';
+import type { ProjectMember } from '@repo/prisma';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
@@ -17,7 +17,14 @@ type MembershipLookup = (
   userId: string,
   projectId: string,
 ) => Promise<ProjectMember | null>;
-type EnvironmentLookup = (apiKeyId: string) => Promise<Environment | null>;
+
+export type ApiKeyLookupResult = {
+  apiKeyHash: string;
+  revokedAt: Date | null;
+  environmentId: string;
+  environment: { projectId: string };
+};
+type ApiKeyLookup = (apiKeyId: string) => Promise<ApiKeyLookupResult | null>;
 
 type SessionMiddlewareOptions = {
   findSession: SessionLookup;
@@ -30,7 +37,7 @@ type ProjectMiddlewareOptions = SessionMiddlewareOptions & {
 };
 
 type SdkMiddlewareOptions = {
-  findEnvironment: EnvironmentLookup;
+  findApiKey: ApiKeyLookup;
   privateKeyPem: string;
   /** Injected in tests to replace the module-level cache. */
   cache?: LRUCache<string, string>;
@@ -167,6 +174,11 @@ const parseApiKeyId = (fullKey: string): string | undefined => {
  * SDK-scoped JWT. Verifies the secret against the stored bcrypt hash.
  * Caches verified `apiKeyId → environmentId` for 60 s to skip bcrypt on
  * subsequent requests.
+ *
+ * `findApiKey` is called on every request regardless of cache state (it's
+ * a cheap indexed lookup), which also means a revoked key is rejected
+ * immediately — there's no window where a cached key keeps working after
+ * being revoked, since revocation is only ever checked against live data.
  */
 export const createSdkAuthMiddleware = (options: SdkMiddlewareOptions) => {
   const cache = options.cache ?? defaultSdkCache;
@@ -186,42 +198,28 @@ export const createSdkAuthMiddleware = (options: SdkMiddlewareOptions) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const cachedEnvironmentId = cache.get(apiKeyId);
+    const apiKey = await options.findApiKey(apiKeyId);
+    if (!apiKey || apiKey.revokedAt !== null) {
+      cache.delete(apiKeyId);
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
 
-    let environmentId: string;
-    let projectId: string;
+    const isCached = cache.get(apiKeyId) === apiKey.environmentId;
 
-    if (cachedEnvironmentId) {
-      // Cache hit — skip DB lookup and bcrypt.
-      const environment = await options.findEnvironment(apiKeyId);
-      if (!environment) {
-        cache.delete(apiKeyId);
-        return c.json({ error: 'Unauthorized' }, 401);
-      }
-      environmentId = cachedEnvironmentId;
-      projectId = environment.projectId;
-    } else {
-      const environment = await options.findEnvironment(apiKeyId);
-      if (!environment) {
-        return c.json({ error: 'Unauthorized' }, 401);
-      }
-
+    if (!isCached) {
       const valid = await verifyApiKey({
         fullKey,
-        apiKeyHash: environment.apiKeyHash,
+        apiKeyHash: apiKey.apiKeyHash,
       });
       if (!valid) {
         return c.json({ error: 'Unauthorized' }, 401);
       }
-
-      cache.set(apiKeyId, environment.id);
-      environmentId = environment.id;
-      projectId = environment.projectId;
+      cache.set(apiKeyId, apiKey.environmentId);
     }
 
     const claims: SdkJwtClaims = {
-      projectId,
-      environmentId,
+      projectId: apiKey.environment.projectId,
+      environmentId: apiKey.environmentId,
       projectRole: PROJECT_ROLE.SDK_CLIENT,
     };
 

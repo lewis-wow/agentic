@@ -72,13 +72,23 @@ export const setupAction = async (
         create: [
           {
             name: 'development',
-            apiKeyId: devKey.apiKeyId,
-            apiKeyHash: devKey.apiKeyHash,
+            apiKeys: {
+              create: {
+                name: 'Default',
+                apiKeyId: devKey.apiKeyId,
+                apiKeyHash: devKey.apiKeyHash,
+              },
+            },
           },
           {
             name: 'production',
-            apiKeyId: prodKey.apiKeyId,
-            apiKeyHash: prodKey.apiKeyHash,
+            apiKeys: {
+              create: {
+                name: 'Default',
+                apiKeyId: prodKey.apiKeyId,
+                apiKeyHash: prodKey.apiKeyHash,
+              },
+            },
           },
         ],
       },

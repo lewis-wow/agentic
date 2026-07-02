@@ -37,8 +37,16 @@ const meAuth = createMeAuthMiddleware({
 });
 
 const sdkAuth = createSdkAuthMiddleware({
-  findEnvironment: (apiKeyId) =>
-    prisma.environment.findUnique({ where: { apiKeyId } }),
+  findApiKey: (apiKeyId) =>
+    prisma.apiKey.findUnique({
+      where: { apiKeyId },
+      select: {
+        apiKeyHash: true,
+        revokedAt: true,
+        environmentId: true,
+        environment: { select: { projectId: true } },
+      },
+    }),
   privateKeyPem,
 });
 

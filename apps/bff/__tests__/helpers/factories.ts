@@ -1,7 +1,10 @@
 import type { Environment, ProjectMember, Session, User } from '@repo/prisma';
 import { generateKeyPairSync } from 'node:crypto';
 
-import type { SessionWithUser } from '../../src/auth/middleware.js';
+import type {
+  ApiKeyLookupResult,
+  SessionWithUser,
+} from '../../src/auth/middleware.js';
 
 export const generateTestKeys = (): {
   privateKey: string;
@@ -61,10 +64,18 @@ export const makeEnvironment = (
 ): Environment => ({
   id: 'env-1',
   name: 'development',
-  apiKeyId: 'deadbeef00000000deadbeef00000000',
-  apiKeyHash: '$2a$10$placeholder',
   projectId: 'project-1',
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...overrides,
+});
+
+export const makeApiKey = (
+  overrides: Partial<ApiKeyLookupResult> = {},
+): ApiKeyLookupResult => ({
+  apiKeyHash: '$2a$10$placeholder',
+  revokedAt: null,
+  environmentId: 'env-1',
+  environment: { projectId: 'project-1' },
   ...overrides,
 });

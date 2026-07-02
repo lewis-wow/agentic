@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 export type Environment = {
   id: string;
   name: string;
-  apiKeyId: string;
 };
 
 export type ProjectListItem = {

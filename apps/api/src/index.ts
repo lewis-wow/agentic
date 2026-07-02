@@ -7,6 +7,7 @@ import {
   createJwtVerifyMiddleware,
 } from './auth/middleware.js';
 import { env } from './env.js';
+import { apiKeysRouter } from './routes/apiKeys.js';
 import { environmentsRouter } from './routes/environments.js';
 import { flagsRouter } from './routes/flags.js';
 import { membersRouter } from './routes/members.js';
@@ -37,6 +38,7 @@ app.route('/projects', projectsRouter);
 app.route('/projects/:projectId/flags', flagsRouter);
 app.route('/projects/:projectId/environments', environmentsRouter);
 app.route('/projects/:projectId/members', membersRouter);
+app.route('/projects/:projectId/api-keys', apiKeysRouter);
 app.route('/users', usersRouter);
 app.route('/v1', sdkRouter);
 

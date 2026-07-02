@@ -116,7 +116,6 @@ projectsRouter.get('/:projectId', async (c) => {
       environments: project.environments.map((e) => ({
         id: e.id,
         name: e.name,
-        apiKeyId: e.apiKeyId,
       })),
       members: project.members.map((m) => ({
         id: m.id,

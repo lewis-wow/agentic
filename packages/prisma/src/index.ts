@@ -12,4 +12,5 @@ export type {
   Flag,
   FlagState,
   ProjectMember,
+  ApiKey,
 } from '@prisma/client';

@@ -1,7 +1,6 @@
 import { CreateEnvironmentRequestSchema } from '@repo/api';
 import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
-import { generateApiKey } from '@repo/auth/api-key';
 import { PROJECT_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
@@ -61,26 +60,12 @@ environmentsRouter.post('/', async (c) => {
   });
   if (existing) return new EnvironmentNameConflict().toResponse();
 
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
-
   const environment = await prisma.environment.create({
-    data: {
-      name: trimmedName,
-      projectId: claims.projectId,
-      apiKeyId,
-      apiKeyHash,
-    },
+    data: { name: trimmedName, projectId: claims.projectId },
   });
 
   return c.json(
-    {
-      environment: {
-        id: environment.id,
-        name: environment.name,
-        apiKeyId: environment.apiKeyId,
-      },
-      fullKey,
-    },
+    { environment: { id: environment.id, name: environment.name } },
     201,
   );
 });
@@ -99,27 +84,4 @@ environmentsRouter.delete('/:environmentId', async (c) => {
   if (result.count === 0) return new EnvironmentNotFound().toResponse();
 
   return new Response(null, { status: 204 });
-});
-
-environmentsRouter.post('/:environmentId/rotate-key', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
-
-  const { environmentId } = c.req.param();
-
-  const existing = await prisma.environment.findUnique({
-    where: { id: environmentId, projectId: claims.projectId },
-  });
-  if (!existing) return new EnvironmentNotFound().toResponse();
-
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
-
-  await prisma.environment.update({
-    where: { id: environmentId },
-    data: { apiKeyId, apiKeyHash },
-  });
-
-  return c.json({ fullKey });
 });

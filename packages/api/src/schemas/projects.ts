@@ -28,3 +28,12 @@ export const AddMemberRequestSchema = Schema.Struct({
 export type AddMemberRequest = Schema.Schema.Type<
   typeof AddMemberRequestSchema
 >;
+
+export const CreateApiKeyRequestSchema = Schema.Struct({
+  name: NonBlankName,
+  environmentId: Schema.String.pipe(Schema.minLength(1)),
+});
+
+export type CreateApiKeyRequest = Schema.Schema.Type<
+  typeof CreateApiKeyRequestSchema
+>;

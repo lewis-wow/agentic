@@ -8,19 +8,19 @@ import {
   type AuthVariables,
   createSdkAuthMiddleware,
 } from '../../src/auth/middleware.js';
-import { generateTestKeys, makeEnvironment } from '../helpers/factories.js';
+import { generateTestKeys, makeApiKey } from '../helpers/factories.js';
 
 const { privateKey, publicKey } = generateTestKeys();
 
 const buildApp = (
-  findEnvironment: ReturnType<typeof vi.fn>,
+  findApiKey: ReturnType<typeof vi.fn>,
   cache?: LRUCache<string, string>,
 ): Hono<{ Variables: AuthVariables }> => {
   const app = new Hono<{ Variables: AuthVariables }>();
   app.use(
     '/v1/*',
     createSdkAuthMiddleware({
-      findEnvironment,
+      findApiKey,
       privateKeyPem: privateKey,
       cache,
     }),
@@ -34,14 +34,13 @@ const buildApp = (
 describe('sdk auth middleware', () => {
   it('mints an sdk-client JWT for a valid api key', async () => {
     const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
-    const environment = makeEnvironment({
-      id: 'env-9',
-      projectId: 'project-9',
-      apiKeyId,
+    const apiKey = makeApiKey({
       apiKeyHash,
+      environmentId: 'env-9',
+      environment: { projectId: 'project-9' },
     });
-    const findEnvironment = vi.fn().mockResolvedValue(environment);
-    const app = buildApp(findEnvironment);
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
+    const app = buildApp(findApiKey);
 
     const res = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
@@ -54,7 +53,7 @@ describe('sdk auth middleware', () => {
       environmentId: 'env-9',
       projectRole: 'sdk-client',
     });
-    expect(findEnvironment).toHaveBeenCalledWith(apiKeyId);
+    expect(findApiKey).toHaveBeenCalledWith(apiKeyId);
 
     const verified = verifyRs256({ token: body.jwt, publicKeyPem: publicKey });
     expect(verified.projectRole).toBe('sdk-client');
@@ -62,10 +61,10 @@ describe('sdk auth middleware', () => {
   });
 
   it('returns 401 for a tampered secret', async () => {
-    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
-    const environment = makeEnvironment({ apiKeyId, apiKeyHash });
-    const findEnvironment = vi.fn().mockResolvedValue(environment);
-    const app = buildApp(findEnvironment);
+    const { fullKey, apiKeyHash } = await generateApiKey();
+    const apiKey = makeApiKey({ apiKeyHash });
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
+    const app = buildApp(findApiKey);
 
     const tampered = fullKey.slice(0, -4) + 'aaaa';
     const res = await app.request('/v1/flags', {
@@ -77,8 +76,8 @@ describe('sdk auth middleware', () => {
 
   it('returns 401 for an unknown apiKeyId', async () => {
     const { fullKey } = await generateApiKey();
-    const findEnvironment = vi.fn().mockResolvedValue(null);
-    const app = buildApp(findEnvironment);
+    const findApiKey = vi.fn().mockResolvedValue(null);
+    const app = buildApp(findApiKey);
 
     const res = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
@@ -87,39 +86,79 @@ describe('sdk auth middleware', () => {
     expect(res.status).toBe(401);
   });
 
+  it('returns 401 for a revoked api key, even with a valid secret', async () => {
+    const { fullKey, apiKeyHash } = await generateApiKey();
+    const apiKey = makeApiKey({ apiKeyHash, revokedAt: new Date() });
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
+    const app = buildApp(findApiKey);
+
+    const res = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${fullKey}` },
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects immediately once revoked, even if a prior request cached the key', async () => {
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+    const cache = new LRUCache<string, string>({ max: 10, ttl: 60_000 });
+    const findApiKey = vi
+      .fn()
+      .mockResolvedValueOnce(makeApiKey({ apiKeyHash, environmentId: 'env-1' }))
+      .mockResolvedValueOnce(
+        makeApiKey({
+          apiKeyHash,
+          environmentId: 'env-1',
+          revokedAt: new Date(),
+        }),
+      );
+    const app = buildApp(findApiKey, cache);
+
+    const res1 = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${fullKey}` },
+    });
+    expect(res1.status).toBe(200);
+    expect(cache.get(apiKeyId)).toBe('env-1');
+
+    const res2 = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${fullKey}` },
+    });
+    expect(res2.status).toBe(401);
+    expect(cache.get(apiKeyId)).toBeUndefined();
+  });
+
   it('returns 401 when no Authorization header is provided', async () => {
-    const findEnvironment = vi.fn();
-    const app = buildApp(findEnvironment);
+    const findApiKey = vi.fn();
+    const app = buildApp(findApiKey);
 
     const res = await app.request('/v1/flags');
 
     expect(res.status).toBe(401);
-    expect(findEnvironment).not.toHaveBeenCalled();
+    expect(findApiKey).not.toHaveBeenCalled();
   });
 
   it('returns 401 for a key without the env_ prefix', async () => {
-    const findEnvironment = vi.fn();
-    const app = buildApp(findEnvironment);
+    const findApiKey = vi.fn();
+    const app = buildApp(findApiKey);
 
     const res = await app.request('/v1/flags', {
       headers: { Authorization: 'Bearer plainoldkey' },
     });
 
     expect(res.status).toBe(401);
-    expect(findEnvironment).not.toHaveBeenCalled();
+    expect(findApiKey).not.toHaveBeenCalled();
   });
 
   it('uses the LRU cache on the second request, skipping bcrypt', async () => {
     const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
-    const environment = makeEnvironment({
-      id: 'env-cached',
-      projectId: 'project-cached',
-      apiKeyId,
+    const apiKey = makeApiKey({
       apiKeyHash,
+      environmentId: 'env-cached',
+      environment: { projectId: 'project-cached' },
     });
-    const findEnvironment = vi.fn().mockResolvedValue(environment);
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
     const cache = new LRUCache<string, string>({ max: 10, ttl: 60_000 });
-    const app = buildApp(findEnvironment, cache);
+    const app = buildApp(findApiKey, cache);
 
     // First request: cache miss → bcrypt.compare runs, result cached.
     const res1 = await app.request('/v1/flags', {
@@ -127,13 +166,13 @@ describe('sdk auth middleware', () => {
     });
     expect(res1.status).toBe(200);
 
-    // Second request: cache hit → findEnvironment called again for projectId but
-    // no bcrypt; cache now holds environmentId.
+    // Second request: cache hit → findApiKey called again (to catch
+    // revocation) but no bcrypt; cache still holds environmentId.
     const res2 = await app.request('/v1/flags', {
       headers: { Authorization: `Bearer ${fullKey}` },
     });
     expect(res2.status).toBe(200);
-    expect(findEnvironment).toHaveBeenCalledTimes(2);
+    expect(findApiKey).toHaveBeenCalledTimes(2);
     expect(cache.get(apiKeyId)).toBe('env-cached');
   });
 });
