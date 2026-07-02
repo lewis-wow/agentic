@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@repo/ui/components/ui/button';
+import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -31,11 +32,12 @@ export const ApiKeyReveal = ({ fullKey, label }: Props): React.ReactNode => {
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="icon"
         className="shrink-0 border-green-300 bg-white text-green-800 hover:bg-green-100"
         onClick={handleCopy}
       >
-        {copied ? 'Copied!' : 'Copy'}
+        {copied ? <Check /> : <Copy />}
+        <span className="sr-only">{copied ? 'Copied' : 'Copy API key'}</span>
       </Button>
     </div>
   );
