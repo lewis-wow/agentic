@@ -11,12 +11,7 @@ import {
   AlertDialogTitle,
 } from '@repo/ui/components/ui/alert-dialog';
 import { Button } from '@repo/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/ui/card';
+import { Card, CardContent } from '@repo/ui/components/ui/card';
 import {
   Dialog,
   DialogClose,
@@ -44,6 +39,14 @@ import {
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
 import { Skeleton } from '@repo/ui/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@repo/ui/components/ui/table';
 import { Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -65,16 +68,21 @@ type Props = {
   canManage: boolean;
 };
 
-const EnvironmentCardSkeleton = (): React.ReactNode => (
-  <Card>
-    <CardHeader>
-      <Skeleton className="h-5 w-24" />
-      <Skeleton className="h-4 w-32" />
-    </CardHeader>
-    <CardContent className="flex items-center justify-end">
-      <Skeleton className="size-8 rounded-md" />
-    </CardContent>
-  </Card>
+const EnvironmentRowSkeleton = ({
+  canManage,
+}: {
+  canManage: boolean;
+}): React.ReactNode => (
+  <TableRow>
+    <TableCell>
+      <Skeleton className="h-4 w-24" />
+    </TableCell>
+    {canManage && (
+      <TableCell className="text-right">
+        <Skeleton className="ml-auto size-8 rounded-md" />
+      </TableCell>
+    )}
+  </TableRow>
 );
 
 export const EnvironmentsPanel = ({
@@ -98,10 +106,22 @@ export const EnvironmentsPanel = ({
       </div>
 
       {isPending ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <EnvironmentCardSkeleton />
-          <EnvironmentCardSkeleton />
-        </div>
+        <Card className="py-0">
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  {canManage && <TableHead className="w-12 text-right" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <EnvironmentRowSkeleton canManage={canManage} />
+                <EnvironmentRowSkeleton canManage={canManage} />
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : environments.length === 0 ? (
         <Empty className="rounded-lg border">
           <EmptyHeader>
@@ -116,28 +136,38 @@ export const EnvironmentsPanel = ({
           {canManage && <CreateEnvironmentDialog projectId={projectId} />}
         </Empty>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {environments.map((env) => (
-            <Card key={env.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{env.name}</CardTitle>
-              </CardHeader>
-              {canManage && (
-                <CardContent className="flex items-center justify-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => setDeleting(env)}
-                  >
-                    <Trash2 />
-                    <span className="sr-only">Delete environment</span>
-                  </Button>
-                </CardContent>
-              )}
-            </Card>
-          ))}
-        </div>
+        <Card className="py-0">
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  {canManage && <TableHead className="w-12 text-right" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {environments.map((env) => (
+                  <TableRow key={env.id}>
+                    <TableCell className="font-medium">{env.name}</TableCell>
+                    {canManage && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeleting(env)}
+                        >
+                          <Trash2 />
+                          <span className="sr-only">Delete environment</span>
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {deleting && (
