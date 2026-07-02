@@ -211,9 +211,9 @@ const CreateEnvironmentDialog = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button size="sm">
           <Plus />
-          New Environment
+          New environment
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

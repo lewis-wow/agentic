@@ -118,12 +118,20 @@ export const ApiKeysPanel = ({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-lg font-medium">API Keys</h2>
-        <p className="text-sm text-muted-foreground">
-          Keys authenticate SDKs against a specific environment. Full keys are
-          shown once, at creation or rotation.
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium">API Keys</h2>
+          <p className="text-sm text-muted-foreground">
+            Keys authenticate SDKs against a specific environment. Full keys are
+            shown once, at creation or rotation.
+          </p>
+        </div>
+        {canManage && (
+          <CreateApiKeyDialog
+            projectId={projectId}
+            onCreated={setRevealedKey}
+          />
+        )}
       </div>
 
       {revealedKey && (
@@ -145,14 +153,6 @@ export const ApiKeysPanel = ({
             aria-label="Search API keys"
           />
         </div>
-        {canManage && (
-          <div className="ml-auto flex items-center gap-2">
-            <CreateApiKeyDialog
-              projectId={projectId}
-              onCreated={setRevealedKey}
-            />
-          </div>
-        )}
       </div>
 
       {isPending ? (
@@ -310,9 +310,9 @@ const CreateApiKeyDialog = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button disabled={environments.length === 0}>
+        <Button size="sm" disabled={environments.length === 0}>
           <Plus />
-          New API Key
+          New API key
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

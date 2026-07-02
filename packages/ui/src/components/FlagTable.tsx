@@ -2,6 +2,7 @@
 
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Button } from '@repo/ui/components/ui/button';
+import { Card, CardContent } from '@repo/ui/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,8 +45,6 @@ export type FlagTableProps = {
   isToggling?: (flag: FlagTableRow) => boolean;
   /** Extra filter controls rendered directly next to the search input. */
   filters?: React.ReactNode;
-  /** Actions (e.g. a "Create flag" button) rendered on the right of the toolbar. */
-  actions?: React.ReactNode;
   /** Renders skeleton rows instead of `flags` while the flag list is loading. */
   loading?: boolean;
 };
@@ -96,7 +95,6 @@ export const FlagTable = ({
   onDelete,
   isToggling,
   filters,
-  actions,
   loading = false,
 }: FlagTableProps): React.ReactNode => {
   const [query, setQuery] = useState('');
@@ -129,113 +127,116 @@ export const FlagTable = ({
             aria-label="Search feature flags"
           />
         </div>
-        {actions && (
-          <div className="ml-auto flex items-center gap-2">{actions}</div>
-        )}
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Flag</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Rollout</TableHead>
-              <TableHead className="text-center">Toggle</TableHead>
-              <TableHead className="w-12 text-right sr-only">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading &&
-              Array.from({ length: FLAG_ROW_SKELETON_COUNT }).map((_, i) => (
-                <FlagRowSkeleton key={i} />
-              ))}
-            {!loading &&
-              filtered.map((flag) => (
-                <TableRow key={flag.id}>
-                  <TableCell>
-                    <span className="font-medium">{flag.name}</span>
-                  </TableCell>
-                  <TableCell>
-                    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
-                      {flag.key}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[flag.status]}>
-                      {flag.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {flag.rollout}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-center">
-                      <Switch
-                        checked={flag.status === 'active'}
-                        onCheckedChange={() => onToggle(flag)}
-                        disabled={
-                          !canManage ||
-                          flag.status === 'archived' ||
-                          (isToggling?.(flag) ?? false)
-                        }
-                        aria-label={`Toggle ${flag.name}`}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem onClick={() => onEdit(flag)}>
-                            Edit flag
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onViewHistory(flag)}>
-                            View history
-                          </DropdownMenuItem>
-                          {canManage && (
-                            <DropdownMenuItem
-                              onClick={() => onArchiveToggle(flag)}
-                            >
-                              {flag.status === 'archived'
-                                ? 'Unarchive'
-                                : 'Archive'}
+      <Card className="py-0">
+        <CardContent className="px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Flag</TableHead>
+                <TableHead>Key</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Rollout</TableHead>
+                <TableHead className="text-center">Toggle</TableHead>
+                <TableHead className="w-12 text-right sr-only">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading &&
+                Array.from({ length: FLAG_ROW_SKELETON_COUNT }).map((_, i) => (
+                  <FlagRowSkeleton key={i} />
+                ))}
+              {!loading &&
+                filtered.map((flag) => (
+                  <TableRow key={flag.id}>
+                    <TableCell>
+                      <span className="font-medium">{flag.name}</span>
+                    </TableCell>
+                    <TableCell>
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+                        {flag.key}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[flag.status]}>
+                        {flag.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {flag.rollout}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center">
+                        <Switch
+                          checked={flag.status === 'active'}
+                          onCheckedChange={() => onToggle(flag)}
+                          disabled={
+                            !canManage ||
+                            flag.status === 'archived' ||
+                            (isToggling?.(flag) ?? false)
+                          }
+                          aria-label={`Toggle ${flag.name}`}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => onEdit(flag)}>
+                              Edit flag
                             </DropdownMenuItem>
-                          )}
-                          {canManage && (
                             <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => onDelete(flag)}
+                              onClick={() => onViewHistory(flag)}
                             >
-                              Delete
+                              View history
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            {canManage && (
+                              <DropdownMenuItem
+                                onClick={() => onArchiveToggle(flag)}
+                              >
+                                {flag.status === 'archived'
+                                  ? 'Unarchive'
+                                  : 'Archive'}
+                              </DropdownMenuItem>
+                            )}
+                            {canManage && (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => onDelete(flag)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              {!loading && filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    No flags match your search.
                   </TableCell>
                 </TableRow>
-              ))}
-            {!loading && filtered.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No flags match your search.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };

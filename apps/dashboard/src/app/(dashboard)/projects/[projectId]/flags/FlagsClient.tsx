@@ -109,31 +109,50 @@ export const FlagsClient = ({
     router.push(`${pathname}?environmentId=${nextEnvironmentId}`);
   };
 
+  const header = (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-lg font-medium">Flags</h2>
+        <p className="text-sm text-muted-foreground">
+          Feature flags for this project, scoped to the selected environment.
+        </p>
+      </div>
+      {canManage && currentEnvId && <CreateFlagDialog projectId={projectId} />}
+    </div>
+  );
+
   if (envsLoading) {
     return (
-      <FlagTable
-        flags={[]}
-        canManage={canManage}
-        onToggle={() => {}}
-        onEdit={() => {}}
-        onViewHistory={() => {}}
-        onArchiveToggle={() => {}}
-        onDelete={() => {}}
-        loading
-      />
+      <div className="flex flex-col gap-4">
+        {header}
+        <FlagTable
+          flags={[]}
+          canManage={canManage}
+          onToggle={() => {}}
+          onEdit={() => {}}
+          onViewHistory={() => {}}
+          onArchiveToggle={() => {}}
+          onDelete={() => {}}
+          loading
+        />
+      </div>
     );
   }
 
   if (!environments || environments.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No environments found. Create one in the Environments tab first.
-      </p>
+      <div className="flex flex-col gap-4">
+        {header}
+        <p className="text-sm text-muted-foreground">
+          No environments found. Create one in the Environments tab first.
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
+      {header}
       <FlagTable
         flags={rows}
         canManage={canManage}
@@ -187,11 +206,6 @@ export const FlagsClient = ({
               </Select>
             )}
           </>
-        }
-        actions={
-          canManage && currentEnvId ? (
-            <CreateFlagDialog projectId={projectId} />
-          ) : null
         }
       />
 

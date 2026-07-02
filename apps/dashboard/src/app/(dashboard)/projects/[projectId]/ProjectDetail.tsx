@@ -26,6 +26,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { useApiKeys } from '../../../../queries/apiKeys';
 import { useFlags } from '../../../../queries/flags';
 import { useProject } from '../../../../queries/projects';
 import { SiteHeader } from '../../SiteHeader';
@@ -56,6 +57,7 @@ export const ProjectDetail = ({
     projectId,
     environmentId ?? firstEnvironmentId,
   );
+  const { data: apiKeys, isPending: apiKeysPending } = useApiKeys(projectId);
   const [deleting, setDeleting] = useState(false);
 
   const environmentCount = project?.environments.length ?? 0;
@@ -115,10 +117,10 @@ export const ProjectDetail = ({
           ) : (
             <Badge variant="secondary">{environmentCount} environments</Badge>
           )}
-          {projectPending ? (
+          {apiKeysPending ? (
             <Skeleton className="h-5 w-24 rounded-full" />
           ) : (
-            <Badge variant="secondary">{environmentCount} API keys</Badge>
+            <Badge variant="secondary">{apiKeys?.length ?? 0} API keys</Badge>
           )}
         </div>
 
