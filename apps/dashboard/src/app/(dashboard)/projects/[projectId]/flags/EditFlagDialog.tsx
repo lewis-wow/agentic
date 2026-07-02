@@ -410,14 +410,18 @@ const RuleBuilderSection = ({
   });
 
   const onSubmit = (values: RulesFormValues): void => {
-    mutation.mutate({
-      flagId,
-      environmentId: state.environmentId,
-      rules: values.rules.map(toTargetingRule),
-    });
+    mutation.mutate(
+      {
+        flagId,
+        environmentId: state.environmentId,
+        rules: values.rules.map(toTargetingRule),
+      },
+      { onSuccess: () => form.reset(values) },
+    );
   };
 
   const busy = mutation.isPending;
+  const isDirty = form.formState.isDirty;
 
   return (
     <section className="space-y-3">
@@ -545,7 +549,7 @@ const RuleBuilderSection = ({
             >
               Add rule
             </Button>
-            <Button type="submit" size="sm" disabled={busy}>
+            <Button type="submit" size="sm" disabled={busy || !isDirty}>
               {busy ? 'Saving…' : 'Save rules'}
             </Button>
           </div>
