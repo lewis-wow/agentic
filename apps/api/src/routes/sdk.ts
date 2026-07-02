@@ -37,14 +37,18 @@ sdkRouter.get('/flags/stream', async (c) => {
   if (!isSdkClaims(auth)) return new Forbidden().toResponse();
 
   return streamSSE(c, async (stream) => {
-    await stream.write('retry: 1000\n\n');
-
     const lastEventIdHeader = c.req.header('Last-Event-ID');
     const lastEventId = lastEventIdHeader
       ? parseInt(lastEventIdHeader, 10)
       : NaN;
 
-    // Subscribe-first: buffer live events that arrive during any async work
+    // Subscribe-first: register the listener before writing a single byte.
+    // A concurrently-running reader can observe bytes we've written before
+    // our own `await stream.write(...)` continuation resumes, so any event
+    // emitted in that window would otherwise never reach `handler` (the
+    // ring buffer is only consulted on replay, i.e. when Last-Event-ID is
+    // set — a fresh connect has no other safety net). Registering first
+    // closes that window entirely.
     const buffered: FlagStreamEvent[] = [];
     let buffering = true;
 
@@ -90,6 +94,8 @@ sdkRouter.get('/flags/stream', async (c) => {
     };
 
     try {
+      await stream.write('retry: 1000\n\n');
+
       // Replay path: valid Last-Event-ID that exists in the ring buffer
       if (!isNaN(lastEventId)) {
         const ringBuffer = getRingBuffer(auth.projectId);
