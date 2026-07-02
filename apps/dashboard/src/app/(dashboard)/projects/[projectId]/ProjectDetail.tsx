@@ -20,6 +20,7 @@ import {
   KeyRound,
   Layers,
   MoreHorizontal,
+  Pencil,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { ApiKeysPanel } from './ApiKeysPanel';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { EnvironmentsPanel } from './EnvironmentsPanel';
 import { MembersPanel } from './MembersPanel';
+import { RenameProjectDialog } from './RenameProjectDialog';
 import { FlagsClient } from './flags/FlagsClient';
 
 type Props = {
@@ -59,6 +61,7 @@ export const ProjectDetail = ({
   );
   const { data: apiKeys, isPending: apiKeysPending } = useApiKeys(projectId);
   const [deleting, setDeleting] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   const environmentCount = project?.environments.length ?? 0;
 
@@ -85,7 +88,7 @@ export const ProjectDetail = ({
             </p>
           </div>
 
-          {isOwner && (
+          {canManage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
@@ -94,13 +97,19 @@ export const ProjectDetail = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setDeleting(true)}
-                >
-                  <Trash2 />
-                  Delete project
+                <DropdownMenuItem onClick={() => setRenaming(true)}>
+                  <Pencil />
+                  Rename project
                 </DropdownMenuItem>
+                {isOwner && (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleting(true)}
+                  >
+                    <Trash2 />
+                    Delete project
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -162,12 +171,20 @@ export const ProjectDetail = ({
         </Tabs>
 
         {project && (
-          <DeleteProjectDialog
-            projectId={projectId}
-            projectName={project.name}
-            open={deleting}
-            onOpenChange={setDeleting}
-          />
+          <>
+            <RenameProjectDialog
+              projectId={projectId}
+              projectName={project.name}
+              open={renaming}
+              onOpenChange={setRenaming}
+            />
+            <DeleteProjectDialog
+              projectId={projectId}
+              projectName={project.name}
+              open={deleting}
+              onOpenChange={setDeleting}
+            />
+          </>
         )}
       </div>
     </>

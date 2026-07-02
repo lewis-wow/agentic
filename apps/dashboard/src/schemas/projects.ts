@@ -10,6 +10,16 @@ export type CreateProjectFormValues = Schema.Schema.Type<
   typeof CreateProjectFormSchema
 >;
 
+export const RenameProjectFormSchema = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.minLength(1, { message: () => 'Name is required' }),
+  ),
+});
+
+export type RenameProjectFormValues = Schema.Schema.Type<
+  typeof RenameProjectFormSchema
+>;
+
 export const makeDeleteProjectFormSchema = (
   projectName: string,
 ): Schema.Schema<{ confirmation: string }> =>

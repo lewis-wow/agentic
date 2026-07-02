@@ -81,6 +81,32 @@ export const useProject = (projectId: string) =>
     },
   });
 
+type RenameProjectArgs = {
+  name: string;
+};
+
+export const useRenameProject = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: RenameProjectArgs): Promise<ProjectDetail> => {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as { project: ProjectDetail };
+      return data.project;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(projectId),
+      });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all() });
+    },
+  });
+};
+
 export const useDeleteProject = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -33,6 +33,7 @@ export {
   CreateApiKeyRequestSchema,
   CreateEnvironmentRequestSchema,
   CreateProjectRequestSchema,
+  RenameProjectRequestSchema,
 } from './schemas/projects.js';
 
 export type {
@@ -40,4 +41,5 @@ export type {
   CreateApiKeyRequest,
   CreateEnvironmentRequest,
   CreateProjectRequest,
+  RenameProjectRequest,
 } from './schemas/projects.js';

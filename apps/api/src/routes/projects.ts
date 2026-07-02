@@ -1,4 +1,7 @@
-import { CreateProjectRequestSchema } from '@repo/api';
+import {
+  CreateProjectRequestSchema,
+  RenameProjectRequestSchema,
+} from '@repo/api';
 import type { AuthJwtClaims, MeJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
@@ -27,6 +30,10 @@ const requireProjectClaims = (auth: AuthJwtClaims): ProjectJwtClaims | null => {
   if (isSdkClaims(auth)) return null;
   return auth as ProjectJwtClaims;
 };
+
+const canManage = (claims: ProjectJwtClaims): boolean =>
+  claims.projectRole === PROJECT_ROLE.OWNER ||
+  claims.projectRole === PROJECT_ROLE.ADMIN;
 
 const parseBody = async (
   request: Request,
@@ -125,6 +132,31 @@ projectsRouter.get('/:projectId', async (c) => {
       owner,
     },
   });
+});
+
+projectsRouter.patch('/:projectId', async (c) => {
+  const auth = c.get('auth');
+  const claims = requireProjectClaims(auth);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManage(claims)) return new Forbidden().toResponse();
+
+  const body = await parseBody(c.req.raw);
+  const decoded = Schema.decodeUnknownEither(RenameProjectRequestSchema)(body);
+  if (Either.isLeft(decoded)) {
+    return new ProjectNameRequired().toResponse();
+  }
+
+  const existing = await prisma.project.findUnique({
+    where: { id: claims.projectId },
+  });
+  if (!existing) return new ProjectNotFound().toResponse();
+
+  const project = await prisma.project.update({
+    where: { id: claims.projectId },
+    data: { name: decoded.right.name.trim() },
+  });
+
+  return c.json({ project });
 });
 
 projectsRouter.delete('/:projectId', async (c) => {

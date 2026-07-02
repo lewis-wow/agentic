@@ -12,6 +12,14 @@ export type CreateProjectRequest = Schema.Schema.Type<
   typeof CreateProjectRequestSchema
 >;
 
+export const RenameProjectRequestSchema = Schema.Struct({
+  name: NonBlankName,
+});
+
+export type RenameProjectRequest = Schema.Schema.Type<
+  typeof RenameProjectRequestSchema
+>;
+
 export const CreateEnvironmentRequestSchema = Schema.Struct({
   name: NonBlankName,
 });
