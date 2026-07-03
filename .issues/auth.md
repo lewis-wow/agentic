@@ -2,40 +2,41 @@
 
 All issues stem from the following grilling session decisions. Read this preamble before implementing any slice.
 
+> **2026-07-03 update:** Authentication was pivoted from `better-auth` (email + password) to **Trusted Proxy Authentication** — the operator deploys `apps/dashboard`/`apps/bff` behind a reverse proxy (oauth2-proxy, Authelia, Pomerium, or similar) that authenticates the user and asserts their identity via a header. This platform has no built-in login of its own. Issues 2, 3, 4, and 5 below are rewritten to match; Issue 1 (minus the now-removed `Account`/`Session`/`Verification` models) and Issue 6 (SDK API keys) are unaffected. See `.plans/PRD.md` Section 8.1 for the product-level description.
+
 ## Shared Design Decisions
 
 ### Role model
 
-- `User.role` is a **system-level** field with values `OWNER | MEMBER`. There is exactly one `OWNER` per installation, created during the setup wizard. All other users are `MEMBER`.
+- `User.role` is a **system-level** field with values `OWNER | MEMBER`. There is exactly one `OWNER` per installation, assigned to the email named by `TRUSTED_PROXY_OWNER_EMAIL` the first time it's seen. All other users are `MEMBER`.
 - Project-level access (`admin | viewer`) is tracked in a `ProjectMember` join table — NOT on `User`.
 - The `OWNER` **bypasses** all `ProjectMember` lookups. They have implicit full access to every project.
 
 ### JWT contract (BFF → `apps/api`)
 
-- JWTs are **project-scoped**, RS256-signed, minted per-request by the BFF.
+- JWTs are **project-scoped**, RS256-signed, minted per-request by `apps/bff`.
 - **Owner path:** `{ userId, systemRole: 'OWNER', projectId, projectRole: 'owner' }`
 - **Member path:** `{ userId, systemRole: 'MEMBER', projectId, projectRole: 'admin' | 'viewer' }`
 - **SDK path (environment API key):** `{ projectId, environmentId, projectRole: 'sdk-client' }` — no `userId`
-- BFF holds `AUTH_PRIVATE_KEY` (base64 PEM RS256 private key); `apps/api` holds `AUTH_PUBLIC_KEY` (base64 PEM RS256 public key).
+- `apps/bff` holds `AUTH_PRIVATE_KEY` (base64 PEM RS256 private key); `apps/api` holds `AUTH_PUBLIC_KEY` (base64 PEM RS256 public key).
 - `apps/api` trusts JWT claims entirely — zero auth DB dependency.
 
-### BFF session validation
+### Trusted Proxy Authentication
 
-- BFF validates sessions by reading `@repo/prisma` directly (no HTTP call to the dashboard, no `better-auth` in BFF).
-- Looks up `Session` table by token, checks `expiresAt`, fetches `User`.
-- Route shape: `app.use('/projects/:projectId/*', authMiddleware)` — project ID comes from the URL path.
-- Non-project-scoped endpoints (e.g. `/me`) get a JWT with just `{ userId, systemRole }`.
-
-### Dashboard auth
-
-- `better-auth` (already in `apps/dashboard/package.json`) uses the Prisma adapter pointing at `@repo/prisma`.
-- **Middleware:** cookie-presence check only (Edge-compatible). Real session validation happens in the root layout via `getSession()`.
-- **First-boot detection:** `User.count() === 0` in middleware → redirect to `/setup`. Once a user exists, `/setup` redirects away.
+- Authentication is delegated entirely to an operator-supplied reverse proxy in front of the stack. This app never validates a password, session cookie, or OAuth token itself.
+- The proxy asserts identity via an **Identity Header** carrying the user's email. Its _name_ is operator-configured (`TRUSTED_PROXY_IDENTITY_HEADER`, default `X-Forwarded-Email`), since oauth2-proxy, Authelia, and Pomerium each default to a different header name. Only email is read — no display name, no group claim.
+- A **Trusted Proxy Secret** (fixed header name `X-Trusted-Proxy-Secret`, value from `TRUSTED_PROXY_SECRET`) must also be present and match, compared with a timing-safe check. This is defense-in-depth against a client reaching the app directly and forging the Identity Header — it does not replace network isolation, which the operator is still responsible for.
+- Scoped to plain-header proxies (oauth2-proxy, Authelia, Pomerium). Signature-verifying proxies (Cloudflare Access, GCP IAP, AWS ALB) are out of scope for v1 — see `.plans/PRD.md` Section 15.
+- On a valid secret + email: upsert `User` by email. The `update` clause is **empty** — an existing user's role is never overwritten by a repeat request. On insert, `role` is `OWNER` if the email matches `TRUSTED_PROXY_OWNER_EMAIL`, otherwise `MEMBER`.
+- `apps/bff` is the component that performs this validation and mints the JWT — see Issue 2. `apps/dashboard`'s catch-all route no longer does its own credential exchange; it forwards the original request (headers intact) to `apps/bff` — see Issue 5.
+- `apps/dashboard`'s server-rendered pages (`guards.ts`) independently perform the same header resolution locally for page-level redirect/forbidden decisions — see Issue 4. This is a UX-level gate; the actual security boundary is `apps/api` only ever trusting JWTs minted by `apps/bff`.
+- Health checks: both `apps/dashboard` and `apps/bff` expose a narrow, unauthenticated liveness route (no flag/user data) that bypasses the trusted-proxy check, since orchestrators typically probe the container directly rather than through the external reverse proxy.
+- Local dev: `pnpm dev` runs alongside a small header-injecting proxy script so developers get a working identity without deploying a real oauth2-proxy/Authelia/Pomerium locally. This lives entirely in dev tooling — the app's own code path always requires real headers, in dev and production alike.
 
 ### Setup wizard
 
-- Creates: one `User` (role `OWNER`) + one `Project` + two `Environment` records (`development`, `production` with generated `apiKey`s).
-- Self-registration is open (no invite flow). Non-owner users register normally; they see nothing until an owner/admin grants them a `ProjectMember` row.
+- Creates: first `Project` + two `Environment` records (`development`, `production` with generated `apiKey`s), once the designated owner email has been seen at least once (which JIT-provisions their `User` row as `OWNER`).
+- No credentials are collected — identity is already resolved via the trusted proxy. The only input is the first project's name.
 
 ### Environment API keys
 
@@ -47,11 +48,11 @@ All issues stem from the following grilling session decisions. Read this preambl
 
 ### What to build
 
-Extend the Prisma schema in `packages/prisma` to support the auth role model. No application logic — schema and migration only.
+Extend the Prisma schema in `packages/prisma` to support the auth role model, and remove the models that only existed for `better-auth`. Schema and migration only — no application logic.
 
 Changes:
 
-- Fix `User.role` to use `OWNER` as the system-level owner value. The default should be `'MEMBER'`. Values are `'OWNER' | 'MEMBER'` (store as plain strings, not a Prisma enum, so `better-auth` can manage the field freely).
+- Fix `User.role` to use `OWNER` as the system-level owner value. The default should be `'MEMBER'`. Values are `'OWNER' | 'MEMBER'` (store as plain strings, not a Prisma enum).
 - Add `ProjectMember` model:
   - `id String @id @default(cuid())`
   - `userId String` + relation to `User`
@@ -61,12 +62,14 @@ Changes:
   - `createdAt / updatedAt`
 - Add `members ProjectMember[]` to `Project`.
 - Add `projectMembers ProjectMember[]` to `User`.
+- **Remove** the `Account`, `Session`, and `Verification` models entirely, and their relations on `User` — nothing reads them once `better-auth` is gone.
 - Generate and apply a new Prisma migration.
 
 ### Acceptance criteria
 
 - [ ] `ProjectMember` model exists in schema with `@@unique([userId, projectId])` and cascade delete on project removal
 - [ ] `User.role` default is `'MEMBER'`; field accepts `'OWNER'` and `'MEMBER'`
+- [ ] `Account`, `Session`, `Verification` models and their `User` relations are removed
 - [ ] Migration file generated and applies cleanly against a fresh database
 - [ ] `pnpm check-types` passes across all packages
 - [ ] `pnpm lint` passes
@@ -77,81 +80,86 @@ None — can start immediately.
 
 ---
 
-## Issue 2 — `better-auth` wiring + login/logout
+## Issue 2 — `apps/bff` Trusted Proxy Authentication → project-scoped RS256 JWT
 
 ### What to build
 
-Wire `better-auth` into `apps/dashboard` with email/password authentication backed by the shared Prisma DB. Deliver a working `/login` page and logout action. No route protection yet (that is Issue 4).
+Replace `apps/bff`'s session-cookie-based `createProjectAuthMiddleware`/`createMeAuthMiddleware` with Trusted-Proxy-header-based equivalents. This is the trust bridge between the operator's reverse proxy and `apps/api`.
 
-`better-auth` is already present in `apps/dashboard/package.json`. Configure it with:
+**`packages/bff`** — add a pure primitive:
 
-- The **Prisma adapter** pointing at `@repo/prisma`'s client
-- Email/password provider only — no OAuth, no magic links
-- Session stored in the `Session` table (already in schema)
+```ts
+export type ResolveTrustedProxyUserArgs = {
+  secret: string | undefined;
+  email: string | undefined;
+  expectedSecret: string;
+  designatedOwnerEmail: string;
+  upsertUser: (args: { email: string; role: SystemRole }) => Promise<User>;
+};
 
-Deliverables:
+export const resolveTrustedProxyUser = async (
+  args: ResolveTrustedProxyUserArgs,
+): Promise<User | null> => { ... };
+```
 
-- `better-auth` server instance (e.g. `src/lib/auth.ts`) — this is the single source of truth for session management
-- `better-auth` API route handler at `app/api/auth/[...all]/route.ts`
-- `/login` page: email + password form, server action that calls `better-auth`'s sign-in, redirects to `/dashboard` on success, shows error on failure
-- Logout server action: calls `better-auth`'s sign-out, clears session cookie, redirects to `/login`
-- `BETTER_AUTH_SECRET` and `DATABASE_URL` added to `apps/dashboard/.env.development`
+- Timing-safe secret comparison (`node:crypto`'s `timingSafeEqual`), not `===`.
+- Returns `null` (without calling `upsertUser`) when the secret is missing/mismatched, or when `email` is missing.
+- Calls `upsertUser` with `role: OWNER` when `email === designatedOwnerEmail`, else `role: MEMBER`.
 
-No registration UI is needed on the login page — the setup wizard (Issue 3) handles the first user. Subsequent users self-register; build a `/register` page with name/email/password that calls `better-auth`'s sign-up.
+**`apps/bff/src/auth/middleware.ts`** — new middlewares, same route shape as today:
+
+- `createTrustedProxyProjectAuthMiddleware` — reads the Identity Header + Trusted Proxy Secret header, calls `resolveTrustedProxyUser` (with `upsertUser` implemented via `prisma.user.upsert({ where: { email }, create: { email, name: email, role }, update: {} })`), then resolves project role exactly as today: `OWNER` bypasses `ProjectMember`; otherwise look up `ProjectMember` for `:projectId` (404/403 on no membership). Mints `ProjectJwtClaims`.
+- `createTrustedProxyMeAuthMiddleware` — same identity resolution, mints `MeJwtClaims` only (no project lookup).
+- Missing/invalid secret or missing email → 401, and `upsertUser`/Prisma are never touched.
+
+**`apps/bff/src/env.ts`** — add:
+
+- `TRUSTED_PROXY_SECRET: Schema.String`
+- `TRUSTED_PROXY_IDENTITY_HEADER: Schema.optionalWith(Schema.String, { default: () => 'X-Forwarded-Email' })`
+- `TRUSTED_PROXY_OWNER_EMAIL: Schema.String`
+
+**`apps/bff/src/index.ts`** — wire the new middlewares onto the same routes (`/projects/:projectId/*`, `/me`); everything else (SDK `/v1/*` auth) is untouched.
 
 ### Acceptance criteria
 
-- [ ] Visiting `/login` shows an email/password form
-- [ ] Valid credentials set a session cookie and redirect to `/dashboard`
-- [ ] Invalid credentials show an error message without crashing
-- [ ] Logout clears the session cookie and redirects to `/login`
-- [ ] `/register` page allows new users to create an account (they will have no project access until granted by an owner/admin — that is Issue 4)
+- [ ] Valid secret + Identity Header for an unseen email matching `TRUSTED_PROXY_OWNER_EMAIL` → JWT with `{ systemRole: 'OWNER', projectRole: 'owner' }`, no `ProjectMember` lookup
+- [ ] Valid secret + Identity Header for a `MEMBER` with `ProjectMember(admin)` → JWT with `projectRole: 'admin'`
+- [ ] Valid secret + Identity Header, no `ProjectMember` row → 403
+- [ ] Missing or mismatched secret → 401, `upsertUser`/Prisma never called
+- [ ] Missing Identity Header → 401
+- [ ] A second request for an already-existing user never changes their stored role, even if their email matches `TRUSTED_PROXY_OWNER_EMAIL` and their current role is `MEMBER`
 - [ ] `pnpm check-types`, `pnpm lint` pass
+- [ ] Unit tests for `resolveTrustedProxyUser`; integration tests for the `apps/bff` middleware behaviors above
 
 ### Blocked by
 
-- Issue 1 (schema must have `User`, `Session`, `Account`, `Verification` tables)
+- Issue 1 (schema must have `User`, `ProjectMember`)
 
 ---
 
-## Issue 3 — First-boot setup wizard
+## Issue 3 — First-boot setup
 
 ### What to build
 
-Deliver the first-boot experience: detect an empty database and route to a setup wizard that creates the owner account, first project, and default environments.
+Replace the password-based setup wizard with a project-only bootstrap, since owner identity is already resolved via the trusted proxy the moment they're seen.
 
-**First-boot detection (in `middleware.ts`):**
-
-- On every request, check `User.count()` via `@repo/prisma` — if `0`, redirect to `/setup`
-- If a user exists and the request is for `/setup`, redirect to `/dashboard`
-- This check must run in Node.js middleware (not Edge), because it uses Prisma. Configure `middleware.ts` with `export const config = { runtime: 'nodejs' }` (or use a route-level approach if Next.js 15 requires it)
-
-**Wizard UI at `/setup`:**
-
-- Single form collecting: owner full name, email, password, and project name
-- On submit, a server action:
-  1. Re-checks `User.count() === 0` (guard against race conditions)
-  2. Creates `User` via `better-auth`'s sign-up, then sets `user.role = 'OWNER'`
-  3. Creates `Project` with the given name
-  4. Creates two `Environment` records: `{ name: 'development' }` and `{ name: 'production' }` — `apiKey` is auto-generated by the `@default(cuid())` on the field
-  5. Signs the owner in (session cookie)
-  6. Redirects to `/dashboard`
-
-If `User.count() > 0` when the action runs, return a validation error — do not create a second owner.
+- Delete the Edge `middleware.ts` cookie-presence check entirely — there's no cookie to check for, and every route needs the same (Node-runtime, DB-backed) trusted-proxy resolution that only `guards.ts` can do. Public/private path branching no longer applies.
+- `/setup` page: a single field, project name. Guarded so it's only reachable by the resolved user whose email matches `TRUSTED_PROXY_OWNER_EMAIL` **and** `Project.count() === 0`. Anyone else hitting `/setup` on a fresh install sees a "waiting for the owner to finish setup" state, not the form.
+- Submitting the form creates one `Project` and two `Environment` records (`development`, `production`; `apiKey` auto-generated by `@default(cuid())`).
+- Revisiting `/setup` after a project already exists redirects to `/dashboard`.
 
 ### Acceptance criteria
 
-- [ ] Fresh database: any route redirects to `/setup`
-- [ ] `/setup` form with name, email, password, project name fields
-- [ ] Submitting the form creates exactly one `User` (role `OWNER`), one `Project`, and two `Environment` records (`development`, `production`)
-- [ ] After wizard completes, user is signed in and redirected to `/dashboard`
+- [ ] Fresh database, owner email visits any route → redirected to `/setup`
+- [ ] Fresh database, non-owner email visits `/setup` → sees a waiting state, not the form
+- [ ] Submitting `/setup` creates exactly one `Project` and two `Environment` records
 - [ ] Revisiting `/setup` after completion redirects to `/dashboard`
 - [ ] Submitting the wizard twice returns an error, no duplicate records
 - [ ] `pnpm check-types`, `pnpm lint` pass
 
 ### Blocked by
 
-- Issue 2 (`better-auth` must be configured before sign-up/sign-in calls work)
+- Issue 2 (trusted-proxy user resolution must exist for `guards.ts` to use)
 
 ---
 
@@ -159,114 +167,51 @@ If `User.count() > 0` when the action runs, return a validation error — do not
 
 ### What to build
 
-Protect all dashboard routes and deliver the UI for granting project access to registered users.
+Protect all dashboard routes using the trusted-proxy identity instead of a Better Auth session, and deliver the UI for granting project access.
 
-**Middleware (`middleware.ts`) — extend Issue 3's middleware:**
+**`guards.ts`:**
 
-- If no `better-auth` session cookie is present on a protected route → redirect to `/login`
-- Public routes (no auth required): `/login`, `/register`, `/setup`, `/api/auth/*`
+- `requireSession()` (kept as the name other guards call) resolves identity by reading the Identity Header + Trusted Proxy Secret header via `headers()` (`next/headers`) and calling `@repo/bff`'s `resolveTrustedProxyUser`, with `upsertUser` backed by `prisma.user.upsert` (same empty-update-clause pattern as Issue 2's `apps/bff` implementation — duplicated here deliberately, since `apps/dashboard` needs this for server-rendered page gating independent of the `apps/bff` data-path proxy).
+- On resolution failure → call Next.js's `unauthorized()` (not `redirect('/login')` — there is no login page). Add the matching `app/unauthorized.tsx` boundary.
+- `requireOwner()` / `requireProjectAccess()` are structurally unchanged — same role-gating logic, just fed by the new identity resolution.
 
-**Root layout guard:**
-
-- In the dashboard root layout (server component), call `better-auth`'s `getSession()` to validate the session against the DB
-- If session is missing or expired → redirect to `/login`
-- Attach the session user to the render context (e.g. via a server-side context helper)
-
-**Role-gating:**
-
-- Owner (`user.role === 'OWNER'`): full access to all routes
-- Non-owners on owner-only pages (e.g. system settings, user management): 403 or redirect
-- Project-level route guard (e.g. `/projects/[projectId]`): check `ProjectMember` for the current user + project. No membership → 403.
-
-**Project membership UI:**
-
-- Owner and project admins can open a "Members" panel on a project
-- Shows list of current `ProjectMember` rows with their role
-- Search/select from existing `User` records (users who have self-registered) to add as `admin` or `viewer`
-- Remove member action (deletes `ProjectMember` row)
-- Owner is always shown as implicit member (no `ProjectMember` row required)
+**Members UI:** unchanged from the original design — owner/admin can list, add (search existing `User`s), and remove `ProjectMember` rows.
 
 ### Acceptance criteria
 
-- [ ] Unauthenticated request to any `/dashboard` route redirects to `/login`
-- [ ] Expired/invalid session cookie is caught by layout guard and redirects to `/login`
+- [ ] Request with missing/invalid trusted-proxy headers hitting a guarded page → Next.js `unauthorized()` boundary, not a redirect loop
 - [ ] Owner can access all routes
-- [ ] Non-owner accessing an owner-only route receives 403
+- [ ] Non-owner accessing an owner-only route receives 403 (`forbidden()`)
 - [ ] Non-owner with no `ProjectMember` row for a project receives 403 on that project's routes
 - [ ] Non-owner with `ProjectMember` (admin or viewer) can access the project
-- [ ] Owner can add a registered user to a project with a chosen role
-- [ ] Owner/admin can remove a member from a project
+- [ ] Owner can add a registered user to a project with a chosen role; owner/admin can remove a member
 - [ ] `pnpm check-types`, `pnpm lint` pass
 
 ### Blocked by
 
-- Issue 2 (`better-auth` session required)
-- Issue 3 (setup wizard must exist so there is always an owner)
+- Issue 2 (trusted-proxy resolution primitive)
+- Issue 3 (setup must exist so there is always an owner)
 
 ---
 
-## Issue 5 — BFF session → project-scoped RS256 JWT (+ API verification)
+## Issue 5 — Dashboard catch-all route forwards to `apps/bff`
 
 ### What to build
 
-Implement the auth middleware in `apps/bff` that translates a validated session cookie into a short-lived RS256 project-scoped JWT, and implement the corresponding JWT verification middleware in `apps/api`. This is the trust bridge between the frontend and backend microservice.
+`apps/dashboard`'s catch-all route (`app/api/[...path]/route.ts`) stops doing its own credential exchange. It becomes a pure forward of the original request — method, path, query string, body, and **all original headers** (including whatever the reverse proxy set) — to `apps/bff`, which performs the actual Trusted Proxy Authentication (Issue 2) and forwards on to `apps/api`.
 
-**BFF middleware (Hono, `apps/bff`):**
-
-Apply to: `app.use('/projects/:projectId/*', authMiddleware)`
-
-Steps:
-
-1. Extract session token from the `Cookie` header (same cookie name `better-auth` sets)
-2. Look up `Session` via `@repo/prisma`: find by token, check `expiresAt > now()`. If missing or expired → 401.
-3. Fetch `User` from the session. If not found → 401.
-4. Extract `:projectId` from the URL path.
-5. **Owner path:** if `user.role === 'OWNER'`, mint JWT with `{ userId, systemRole: 'OWNER', projectId, projectRole: 'owner' }`.
-6. **Member path:** look up `ProjectMember` where `userId = user.id AND projectId = :projectId`. If not found → 403. Mint JWT with `{ userId, systemRole: 'MEMBER', projectId, projectRole: <member.role> }`.
-7. Sign the JWT with RS256 using `AUTH_PRIVATE_KEY` (base64-encoded PEM, loaded from env).
-8. Forward the request to `apps/api` with the JWT in the `Authorization: Bearer <token>` header.
-
-JWT should have a short `exp` (e.g. 60 seconds — it covers a single proxied request).
-
-**Non-project routes (e.g. `/me`):** separate middleware that mints `{ userId, systemRole }` only, no project lookup.
-
-**`apps/api` JWT middleware (Hono):**
-
-- Verify the RS256 JWT using `AUTH_PUBLIC_KEY` (base64-encoded PEM from env)
-- Invalid/expired JWT → 401
-- Inject verified claims into Hono context (`c.set('auth', claims)`) for downstream route handlers
-- Add `AUTH_PUBLIC_KEY` to `apps/api` env schema
-
-**Environment variables:**
-
-- `apps/bff`: `AUTH_PRIVATE_KEY` (base64 PEM RS256 private key)
-- `apps/api`: `AUTH_PUBLIC_KEY` (base64 PEM RS256 public key)
-- Add both to their respective `env.ts` schemas using `createEnv` from `@repo/utils`
-
-**Tests (`apps/bff/__tests__/integration/`):**
-
-- Valid session + owner → JWT with `projectRole: 'owner'`, no `ProjectMember` lookup needed
-- Valid session + member with `admin` role → JWT with `projectRole: 'admin'`
-- Valid session + no `ProjectMember` row → 403
-- Missing session cookie → 401
-- Expired session → 401
-- JWT verify unit test: valid claims round-trip, expired token rejected, tampered signature rejected
+- New env var: `apps/dashboard`'s `BFF_URL` (default `http://localhost:3002`), replacing the route's direct calls into `@repo/bff`'s (now-removed) session/JWT helpers.
+- Update `apps/dashboard/AGENTS.md`'s description of the catch-all route: it forwards to `apps/bff`, not directly to `apps/api`; it does no authentication of its own.
 
 ### Acceptance criteria
 
-- [ ] Owner session cookie → JWT with `{ userId, systemRole: 'OWNER', projectId, projectRole: 'owner' }`
-- [ ] Member session cookie + `ProjectMember(admin)` → JWT with `projectRole: 'admin'`
-- [ ] Member session cookie + no membership → 403
-- [ ] Missing or expired session cookie → 401
-- [ ] `apps/api` rejects requests with missing/invalid/expired JWT with 401
-- [ ] `apps/api` injects verified claims into Hono context
-- [ ] `AUTH_PRIVATE_KEY` in BFF env schema; `AUTH_PUBLIC_KEY` in API env schema
-- [ ] Integration tests pass (`pnpm test:integration`)
+- [ ] A proxied request from the dashboard, made with valid trusted-proxy headers on the original browser request, reaches `apps/api` with correct claims end-to-end
+- [ ] Query string and request body are preserved through the forward
 - [ ] `pnpm check-types`, `pnpm lint` pass
 
 ### Blocked by
 
-- Issue 1 (schema needed for `Session`, `User`, `ProjectMember` DB reads)
+- Issue 2 (`apps/bff` must be able to receive and authenticate these forwarded requests)
 
 ---
 
@@ -276,11 +221,11 @@ JWT should have a short `exp` (e.g. 60 seconds — it covers a single proxied re
 
 Extend the BFF to accept `Environment.apiKey` values (used by SDK clients for flag evaluation) and translate them into an SDK-scoped JWT that `apps/api` can verify.
 
-This is a separate auth path from the session path (Issue 5) but uses the same RS256 signing infrastructure.
+This is a separate auth path from the Trusted Proxy path (Issues 2–5) but uses the same RS256 signing infrastructure. Unaffected by the Trusted Proxy Authentication pivot.
 
 **BFF middleware — SDK key path:**
 
-- Accept the API key via `Authorization: Bearer <apiKey>` header (or `X-API-Key: <apiKey>` — pick one and document it)
+- Accept the API key via `Authorization: Bearer <apiKey>` header
 - Look up `Environment` via `@repo/prisma` where `apiKey = <key>`
 - If not found → 401
 - Mint JWT: `{ projectId: env.projectId, environmentId: env.id, projectRole: 'sdk-client' }` — no `userId`
@@ -289,7 +234,7 @@ This is a separate auth path from the session path (Issue 5) but uses the same R
 
 **`apps/api` side:**
 
-- Already verifies RS256 JWTs (from Issue 5). The `sdk-client` projectRole is a new value — downstream route handlers can check `c.get('auth').projectRole === 'sdk-client'` to gate SDK-only endpoints.
+- Already verifies RS256 JWTs (from Issue 2). The `sdk-client` projectRole is a distinct value — downstream route handlers can check `c.get('auth').projectRole === 'sdk-client'` to gate SDK-only endpoints.
 
 **Route scope:**
 
@@ -312,4 +257,4 @@ This is a separate auth path from the session path (Issue 5) but uses the same R
 
 ### Blocked by
 
-- Issue 5 (RS256 signing infrastructure and `apps/api` JWT verification must exist first)
+- Issue 2 (RS256 signing infrastructure and `apps/api` JWT verification must exist first)

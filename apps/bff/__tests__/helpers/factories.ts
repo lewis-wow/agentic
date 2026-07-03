@@ -1,10 +1,7 @@
-import type { Environment, ProjectMember, Session, User } from '@repo/prisma';
+import type { Environment, ProjectMember, User } from '@repo/prisma';
 import { generateKeyPairSync } from 'node:crypto';
 
-import type {
-  ApiKeyLookupResult,
-  SessionWithUser,
-} from '../../src/auth/middleware.js';
+import type { ApiKeyLookupResult } from '../../src/auth/middleware.js';
 
 export const generateTestKeys = (): {
   privateKey: string;
@@ -29,23 +26,6 @@ export const makeUser = (overrides: Partial<User> = {}): User => ({
   updatedAt: new Date(),
   ...overrides,
 });
-
-export const makeSession = (
-  overrides: Partial<SessionWithUser> = {},
-): SessionWithUser => {
-  const user = overrides.user ?? makeUser();
-  const base: Session = {
-    id: 'session-1',
-    token: 'token-123',
-    expiresAt: new Date(Date.now() + 60_000),
-    ipAddress: null,
-    userAgent: null,
-    userId: user.id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  return { ...base, ...overrides, user };
-};
 
 export const makeMembership = (
   overrides: Partial<ProjectMember> = {},

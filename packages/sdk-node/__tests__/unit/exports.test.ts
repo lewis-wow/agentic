@@ -5,7 +5,7 @@ import {
   ConnectFailed,
   SdkClient,
   createClient,
-} from '../../src/index.js';
+} from '../../src/index';
 
 describe('sdk-node re-exports', () => {
   it('exports createClient as a function', () => {

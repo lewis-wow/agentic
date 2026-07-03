@@ -5,7 +5,7 @@ import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import { redirect } from 'next/navigation';
 
-import { auth } from '../../../lib/auth';
+import { resolveAuthedUser } from '../../../lib/guards';
 
 export type SetupActionState = {
   error?: string;
@@ -15,50 +15,22 @@ export const setupAction = async (
   _prev: SetupActionState,
   formData: FormData,
 ): Promise<SetupActionState> => {
-  const name = formData.get('name');
-  const email = formData.get('email');
-  const password = formData.get('password');
   const projectName = formData.get('projectName');
 
-  if (
-    typeof name !== 'string' ||
-    typeof email !== 'string' ||
-    typeof password !== 'string' ||
-    typeof projectName !== 'string' ||
-    !name.trim() ||
-    !email.trim() ||
-    !password.trim() ||
-    !projectName.trim()
-  ) {
-    return { error: 'All fields are required.' };
+  if (typeof projectName !== 'string' || !projectName.trim()) {
+    return { error: 'Project name is required.' };
   }
 
-  // Guard against a second owner being created via a race or replay.
-  const existingUsers = await prisma.user.count();
-  if (existingUsers > 0) {
-    return { error: 'Setup has already been completed. Please log in.' };
+  const user = await resolveAuthedUser();
+  if (!user || user.role !== SYSTEM_ROLE.OWNER) {
+    return { error: 'Only the installation owner can complete setup.' };
   }
 
-  // Sign-up creates the user (defaults to MEMBER) and an active session cookie
-  // via the nextCookies plugin — this signs the owner in.
-  const result = await auth.api.signUpEmail({
-    body: {
-      name: name.trim(),
-      email: email.trim(),
-      password,
-    },
-  });
-
-  if (!result?.user) {
-    return { error: 'Failed to create account. Please try again.' };
+  // Guard against a second first-project being created via a race or replay.
+  const existingProjects = await prisma.project.count();
+  if (existingProjects > 0) {
+    return { error: 'Setup has already been completed.' };
   }
-
-  // Promote the first user to the system OWNER role (role is never trusted
-  // from client input, so it is set server-side here).
-  await prisma.user.update({
-    where: { id: result.user.id },
-    data: { role: SYSTEM_ROLE.OWNER },
-  });
 
   const [devKey, prodKey] = await Promise.all([
     generateApiKey(),

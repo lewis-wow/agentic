@@ -6,6 +6,8 @@
   "exports": {
     "./base.json": "./base.json",
     "./node.json": "./node.json",
+    "./nodenext.json": "./nodenext.json",
+    "./node-nodenext.json": "./node-nodenext.json",
     "./nextjs.json": "./nextjs.json",
     "./react-library.json": "./react-library.json"
   }

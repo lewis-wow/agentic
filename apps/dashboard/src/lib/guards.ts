@@ -5,11 +5,14 @@ import {
   SYSTEM_ROLE,
   type SystemRole,
 } from '@repo/auth/roles';
+import { resolveTrustedProxyUser } from '@repo/bff';
 import { prisma } from '@repo/prisma';
-import { forbidden, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { forbidden, unauthorized } from 'next/navigation';
+import { cache } from 'react';
 
-import { type Session } from './auth';
-import { getSession } from './session';
+import { TRUSTED_PROXY_SECRET_HEADER } from '../consts';
+import { env } from '../env';
 
 export type AuthedUser = {
   id: string;
@@ -18,22 +21,57 @@ export type AuthedUser = {
   role: SystemRole;
 };
 
-const toAuthedUser = (session: Session): AuthedUser => ({
-  id: session.user.id,
-  email: session.user.email,
-  name: session.user.name,
-  role: (session.user.role as SystemRole | undefined) ?? SYSTEM_ROLE.MEMBER,
+const upsertUser = ({ email, role }: { email: string; role: SystemRole }) =>
+  prisma.user.upsert({
+    where: { email },
+    create: { email, name: email, role },
+    update: {},
+  });
+
+/**
+ * Resolves the current request's identity via Trusted Proxy Authentication —
+ * the Trusted Proxy Secret + Identity Header set by the operator's reverse
+ * proxy (oauth2-proxy, Authelia, Pomerium, ...). Returns `null` when either
+ * header is missing or the secret doesn't match; does not redirect or throw,
+ * so callers can decide what to render (e.g. `/setup` shows a different state
+ * than a normal guarded page).
+ *
+ * Wrapped in `cache()` because both a layout and its page can independently
+ * call `requireSession()` for the same request. Without dedup, two concurrent
+ * calls for a brand-new email both race to `upsertUser`, and the loser gets a
+ * unique-constraint error instead of the winner's row (upsert is not immune
+ * to this under concurrent execution). Caching collapses them into one call.
+ */
+export const resolveAuthedUser = cache(async (): Promise<AuthedUser | null> => {
+  const requestHeaders = await headers();
+
+  const user = await resolveTrustedProxyUser({
+    secret: requestHeaders.get(TRUSTED_PROXY_SECRET_HEADER) ?? undefined,
+    email: requestHeaders.get(env.TRUSTED_PROXY_IDENTITY_HEADER) ?? undefined,
+    expectedSecret: env.TRUSTED_PROXY_SECRET,
+    designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
+    upsertUser,
+  });
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as SystemRole,
+  };
 });
 
-/** Validate the session against the DB; redirect to /login when absent/expired. */
+/** Validate the trusted-proxy identity; renders the `unauthorized()` boundary when absent/invalid. */
 export const requireSession = async (): Promise<AuthedUser> => {
-  const session = await getSession();
+  const user = await resolveAuthedUser();
 
-  if (!session) {
-    redirect('/login');
+  if (!user) {
+    unauthorized();
   }
 
-  return toAuthedUser(session);
+  return user;
 };
 
 /** Gate an owner-only route. Non-owners receive a 403. */

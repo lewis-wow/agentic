@@ -1,14 +1,15 @@
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
+import type { SystemRole } from '@repo/auth/roles';
 import { forwardWithJwt } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
 import {
   type AuthVariables,
-  createMeAuthMiddleware,
-  createProjectAuthMiddleware,
   createSdkAuthMiddleware,
+  createTrustedProxyMeAuthMiddleware,
+  createTrustedProxyProjectAuthMiddleware,
 } from './auth/middleware.js';
 import { env } from './env.js';
 
@@ -19,22 +20,30 @@ const privateKeyPem = decodeBase64Pem(env.AUTH_PRIVATE_KEY);
 const app = new Hono<AppEnv>();
 
 app.get('/', (c) => c.json({ status: 'ok' }));
+app.get('/health', (c) => c.json({ status: 'ok' }));
 
-const projectAuth = createProjectAuthMiddleware({
-  findSession: (token) =>
-    prisma.session.findUnique({ where: { token }, include: { user: true } }),
+const trustedProxyOptions = {
+  privateKeyPem,
+  expectedSecret: env.TRUSTED_PROXY_SECRET,
+  designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
+  identityHeaderName: env.TRUSTED_PROXY_IDENTITY_HEADER,
+  upsertUser: ({ email, role }: { email: string; role: SystemRole }) =>
+    prisma.user.upsert({
+      where: { email },
+      create: { email, name: email, role },
+      update: {},
+    }),
+};
+
+const projectAuth = createTrustedProxyProjectAuthMiddleware({
+  ...trustedProxyOptions,
   findMembership: (userId, projectId) =>
     prisma.projectMember.findUnique({
       where: { userId_projectId: { userId, projectId } },
     }),
-  privateKeyPem,
 });
 
-const meAuth = createMeAuthMiddleware({
-  findSession: (token) =>
-    prisma.session.findUnique({ where: { token }, include: { user: true } }),
-  privateKeyPem,
-});
+const meAuth = createTrustedProxyMeAuthMiddleware(trustedProxyOptions);
 
 const sdkAuth = createSdkAuthMiddleware({
   findApiKey: (apiKeyId) =>

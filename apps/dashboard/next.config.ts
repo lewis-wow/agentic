@@ -15,8 +15,10 @@ const nextConfig: NextConfig = {
     // Enables forbidden() / unauthorized() interrupts used by the route guards.
     authInterrupts: true,
   },
-  // `next build` still runs on webpack, so this stays for barrel files
-  // (e.g. `./flags.js` re-exports) that only have a `.ts`/`.tsx` source.
+  // Needed for `.js`-specifier imports that resolve to sibling `.ts`/`.tsx`
+  // source (the NodeNext convention used across apps/api, apps/bff, and the
+  // shared packages/* they consume, e.g. `export { prisma } from './client.js'`
+  // resolving to `./client.ts`). Webpack doesn't do this by default.
   webpack: (config) => {
     config.resolve.extensionAlias = {
       '.js': ['.js', '.ts', '.tsx'],
@@ -24,9 +26,15 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  // Turbopack (used by `next dev`) resolves `.js` specifiers to `.ts`/`.tsx`
-  // sources natively, but this key must be present so Next.js knows Turbopack
-  // has been configured and stops warning about the webpack config above.
+  // `dev` intentionally does NOT use `--turbopack`: verified empirically that
+  // Turbopack does not implement the `.js` -> `.ts` extension aliasing above
+  // (no equivalent to webpack's `resolve.extensionAlias` exists in Turbopack's
+  // config surface as of Next 15.5.4) and fails with "Module not found" on
+  // every such import, e.g. `packages/prisma/src/index.ts`'s `from
+  // './client.js'`. `next build` already ran on webpack regardless, so this
+  // only affects local dev — slower HMR, but actually resolves modules
+  // correctly. Re-verify this if upgrading Next.js; Turbopack's resolver has
+  // been actively evolving.
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },

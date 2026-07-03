@@ -1,23 +1,25 @@
 import { verifyRs256 } from '@repo/auth/jwt';
+import type { SystemRole } from '@repo/auth/roles';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   type AuthVariables,
-  createProjectAuthMiddleware,
-  SESSION_COOKIE,
+  createTrustedProxyProjectAuthMiddleware,
 } from '../../src/auth/middleware.js';
 import {
   generateTestKeys,
   makeMembership,
-  makeSession,
   makeUser,
 } from '../helpers/factories.js';
 
 const { privateKey, publicKey } = generateTestKeys();
 
+const EXPECTED_SECRET = 'trusted-proxy-secret';
+const OWNER_EMAIL = 'owner@example.com';
+
 type AppDeps = {
-  findSession: ReturnType<typeof vi.fn>;
+  upsertUser: ReturnType<typeof vi.fn>;
   findMembership: ReturnType<typeof vi.fn>;
 };
 
@@ -25,10 +27,13 @@ const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
   const app = new Hono<{ Variables: AuthVariables }>();
   app.use(
     '/projects/:projectId/*',
-    createProjectAuthMiddleware({
-      findSession: deps.findSession,
+    createTrustedProxyProjectAuthMiddleware({
+      upsertUser: deps.upsertUser,
       findMembership: deps.findMembership,
       privateKeyPem: privateKey,
+      expectedSecret: EXPECTED_SECRET,
+      designatedOwnerEmail: OWNER_EMAIL,
+      identityHeaderName: 'X-Forwarded-Email',
     }),
   );
   app.get('/projects/:projectId/flags', (c) =>
@@ -37,22 +42,23 @@ const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
   return app;
 };
 
-const cookieHeader = (token: string): Record<string, string> => ({
-  Cookie: `${SESSION_COOKIE}=${token}`,
+const trustedHeaders = (email: string): Record<string, string> => ({
+  'X-Trusted-Proxy-Secret': EXPECTED_SECRET,
+  'X-Forwarded-Email': email,
 });
 
-describe('project auth middleware', () => {
+describe('trusted proxy project auth middleware', () => {
   it('mints an owner JWT without a membership lookup', async () => {
-    const findSession = vi
+    const upsertUser = vi
       .fn()
       .mockResolvedValue(
-        makeSession({ user: makeUser({ id: 'owner-1', role: 'OWNER' }) }),
+        makeUser({ id: 'owner-1', email: OWNER_EMAIL, role: 'OWNER' }),
       );
     const findMembership = vi.fn();
-    const app = buildApp({ findSession, findMembership });
+    const app = buildApp({ upsertUser, findMembership });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: cookieHeader('token-123.signature'),
+      headers: trustedHeaders(OWNER_EMAIL),
     });
 
     expect(res.status).toBe(200);
@@ -63,28 +69,32 @@ describe('project auth middleware', () => {
       projectId: 'project-1',
       projectRole: 'owner',
     });
+    expect(upsertUser).toHaveBeenCalledWith({
+      email: OWNER_EMAIL,
+      role: 'OWNER' satisfies SystemRole,
+    });
     // Owner bypasses ProjectMember entirely.
     expect(findMembership).not.toHaveBeenCalled();
-    // Signature was stripped from the cookie before lookup.
-    expect(findSession).toHaveBeenCalledWith('token-123');
 
     const verified = verifyRs256({ token: body.jwt, publicKeyPem: publicKey });
     expect(verified.projectRole).toBe('owner');
   });
 
   it('mints an admin JWT for a member with the admin role', async () => {
-    const findSession = vi
-      .fn()
-      .mockResolvedValue(
-        makeSession({ user: makeUser({ id: 'member-1', role: 'MEMBER' }) }),
-      );
+    const upsertUser = vi.fn().mockResolvedValue(
+      makeUser({
+        id: 'member-1',
+        email: 'member@example.com',
+        role: 'MEMBER',
+      }),
+    );
     const findMembership = vi
       .fn()
       .mockResolvedValue(makeMembership({ userId: 'member-1', role: 'admin' }));
-    const app = buildApp({ findSession, findMembership });
+    const app = buildApp({ upsertUser, findMembership });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: cookieHeader('token-123'),
+      headers: trustedHeaders('member@example.com'),
     });
 
     expect(res.status).toBe(200);
@@ -99,55 +109,60 @@ describe('project auth middleware', () => {
   });
 
   it('returns 403 for a member with no ProjectMember row', async () => {
-    const findSession = vi
+    const upsertUser = vi
       .fn()
-      .mockResolvedValue(makeSession({ user: makeUser({ role: 'MEMBER' }) }));
+      .mockResolvedValue(
+        makeUser({ email: 'member@example.com', role: 'MEMBER' }),
+      );
     const findMembership = vi.fn().mockResolvedValue(null);
-    const app = buildApp({ findSession, findMembership });
+    const app = buildApp({ upsertUser, findMembership });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: cookieHeader('token-123'),
+      headers: trustedHeaders('member@example.com'),
     });
 
     expect(res.status).toBe(403);
   });
 
-  it('returns 401 when the session cookie is missing', async () => {
-    const findSession = vi.fn();
+  it('returns 401 when the trusted proxy secret is missing', async () => {
+    const upsertUser = vi.fn();
     const findMembership = vi.fn();
-    const app = buildApp({ findSession, findMembership });
-
-    const res = await app.request('/projects/project-1/flags');
-
-    expect(res.status).toBe(401);
-    expect(findSession).not.toHaveBeenCalled();
-  });
-
-  it('returns 401 for an expired session', async () => {
-    const findSession = vi
-      .fn()
-      .mockResolvedValue(
-        makeSession({ expiresAt: new Date(Date.now() - 1_000) }),
-      );
-    const findMembership = vi.fn();
-    const app = buildApp({ findSession, findMembership });
+    const app = buildApp({ upsertUser, findMembership });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: cookieHeader('token-123'),
+      headers: { 'X-Forwarded-Email': 'member@example.com' },
     });
 
     expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
   });
 
-  it('returns 401 for an unknown session token', async () => {
-    const findSession = vi.fn().mockResolvedValue(null);
+  it('returns 401 when the trusted proxy secret does not match', async () => {
+    const upsertUser = vi.fn();
     const findMembership = vi.fn();
-    const app = buildApp({ findSession, findMembership });
+    const app = buildApp({ upsertUser, findMembership });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: cookieHeader('token-123'),
+      headers: {
+        'X-Trusted-Proxy-Secret': 'wrong-secret',
+        'X-Forwarded-Email': 'member@example.com',
+      },
     });
 
     expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the identity header is missing', async () => {
+    const upsertUser = vi.fn();
+    const findMembership = vi.fn();
+    const app = buildApp({ upsertUser, findMembership });
+
+    const res = await app.request('/projects/project-1/flags', {
+      headers: { 'X-Trusted-Proxy-Secret': EXPECTED_SECRET },
+    });
+
+    expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
   });
 });

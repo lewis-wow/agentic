@@ -2,8 +2,8 @@ export {
   parsePaginationParams,
   buildPrismaPage,
   buildPageMeta,
-} from './server';
+} from './server.js';
 
-export type { PagedResponse } from './client';
+export type { PagedResponse } from './client.js';
 
-export { usePaginatedQuery } from './client';
+export { usePaginatedQuery } from './client.js';

@@ -22,7 +22,7 @@ A self-hosted feature flag platform for small-to-mid engineering teams (5–50 d
 
 ## 3. Non-Goals (v1)
 
-- OAuth / SSO / SAML authentication.
+- Built-in username/password login — authentication is delegated entirely to an operator-supplied reverse proxy (see Section 8.1).
 - A/B testing or multivariate (n-variant) flags.
 - Webhook or Slack notifications on flag changes.
 - Helm charts or bare-metal install guides.
@@ -158,7 +158,11 @@ SDK uses last-known-good cache. If SSE drops, it retries with exponential backof
 
 ### 8.1 Authentication
 
-Powered by **better-auth** (email + password). On first boot, a setup wizard creates the **owner** account.
+**Trusted Proxy Authentication**: the operator deploys `apps/dashboard` behind a reverse proxy that handles authentication (oauth2-proxy, Authelia, Pomerium, or similar) — this platform has no built-in login of its own. The proxy asserts the authenticated user's email via a header (its name is operator-configurable, since different proxies default to different header names); a shared secret header, also operator-configured, guards against a client reaching the app directly and forging that header. `apps/bff` is the component that validates both headers and mints the short-lived RS256 JWT that `apps/api` trusts — see `.issues/auth.md` for the full design.
+
+Authentication and authorization are a hard split: the proxy only ever answers "who is this." Role/membership data (`owner` / `admin` / `viewer`) is entirely owned by this platform's own database regardless of which proxy is in front of it — a reverse proxy is never the source of project-level permissions.
+
+On first boot, the email named by the `TRUSTED_PROXY_OWNER_EMAIL` env var becomes the **owner** the first time it's seen; a setup step then collects just the first project's name (no credentials — identity is already resolved via the proxy).
 
 Roles:
 | Role | Capabilities |
@@ -167,7 +171,7 @@ Roles:
 | `admin` | Create/edit/delete flags, manage members, manage environments |
 | `viewer` | Read-only access to flags and audit log |
 
-Member invite flow: admin enters email → invite link sent → recipient sets password.
+Member invite flow: an owner/admin grants an existing (already proxy-authenticated) user a `ProjectMember` role — there is no email invite or password to set.
 
 ### 8.2 Key Screens
 
@@ -334,8 +338,21 @@ return false
 
 ```
 DATABASE_URL=postgresql://...
-BETTER_AUTH_SECRET=...
+BFF_URL=http://bff:3002
+TRUSTED_PROXY_SECRET=...
+TRUSTED_PROXY_IDENTITY_HEADER=X-Forwarded-Email
+TRUSTED_PROXY_OWNER_EMAIL=...
 NEXT_PUBLIC_API_URL=http://api:3001
+```
+
+### `apps/bff`
+
+```
+DATABASE_URL=postgresql://...
+AUTH_PRIVATE_KEY=...
+TRUSTED_PROXY_SECRET=...
+TRUSTED_PROXY_IDENTITY_HEADER=X-Forwarded-Email
+TRUSTED_PROXY_OWNER_EMAIL=...
 ```
 
 ### `apps/api`
@@ -360,13 +377,13 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 - Update `turbo.json`, `pnpm-workspace.yaml`, `docker-compose.yml` to include all new apps/packages
 - All CI checks pass (`format:check`, `lint`, `check-types`, `test`)
 
-### Slice 2 — Auth: setup wizard + email/password login
+### Slice 2 — Auth: Trusted Proxy Authentication + setup wizard
 
 **Blocked by:** Slice 1
 
-- Wire **better-auth** (email + password) into `apps/dashboard`
-- First-boot setup wizard: create `owner` account + first project if no users exist
-- Login / logout flow
+- `apps/bff` validates the Trusted Proxy Secret + identity headers and mints a project-scoped RS256 JWT (see `.issues/auth.md`)
+- `apps/dashboard`'s catch-all route forwards to `apps/bff` instead of doing its own credential exchange
+- First-boot setup: the `TRUSTED_PROXY_OWNER_EMAIL` becomes `owner` on first sight; a setup step collects the first project's name
 - Role middleware (`owner` / `admin` / `viewer`) guards all dashboard routes
 
 ### Slice 3 — Project & Environment CRUD
@@ -453,7 +470,7 @@ Vertical tracer-bullet slices in dependency order. Each slice is independently d
 
 ## 15. Out of Scope (v2 Candidates)
 
-- SSO / SAML / OAuth login
+- Signature-verifying reverse proxies (Cloudflare Access, GCP IAP, AWS ALB) — Trusted Proxy Authentication is scoped to plain-header proxies (oauth2-proxy, Authelia, Pomerium) for v1
 - Multivariate / A/B flags
 - Flag scheduling (enable at time T)
 - Webhook / Slack / email notifications on flag changes

@@ -1,57 +1,18 @@
-import type { Session, User } from '@repo/prisma';
+export {
+  resolveTrustedProxyUser,
+  type ResolveTrustedProxyUserArgs,
+} from './trustedProxy.js';
 
-export { SESSION_COOKIE } from './consts';
-
-export type SessionWithUser = Session & { user: User };
-
-type SessionLookup = (token: string) => Promise<SessionWithUser | null>;
-
-/**
- * better-auth stores the cookie as `<token>.<signature>`. The DB row keys on
- * the raw token, so strip the signature before lookup.
- */
-export const extractSessionToken = (rawCookie: string): string => {
-  const decoded = decodeURIComponent(rawCookie);
-  const dot = decoded.indexOf('.');
-  return dot === -1 ? decoded : decoded.slice(0, dot);
-};
-
-/**
- * Validates the session cookie against the DB. Returns the associated user or
- * null if the cookie is absent, unknown, or expired.
- */
-export const resolveSessionUser = async (
-  rawCookie: string | undefined,
-  findSession: SessionLookup,
-): Promise<User | null> => {
-  if (!rawCookie) return null;
-
-  const token = extractSessionToken(rawCookie);
-  if (!token) return null;
-
-  const session = await findSession(token);
-  if (!session) return null;
-
-  if (session.expiresAt.getTime() <= Date.now()) return null;
-
-  return session.user;
-};
-
-/**
- * Injects `Authorization: Bearer <jwt>`, rewrites the URL origin to
- * `apiBaseUrl` (preserving path and query string), and returns the proxied
- * response.
- */
-export const forwardWithJwt = async (
+const proxyRequest = async (
   request: Request,
-  jwt: string,
   apiBaseUrl: string,
+  mutateHeaders?: (headers: Headers) => void,
 ): Promise<Response> => {
   const { pathname, search } = new URL(request.url);
   const target = new URL(pathname + search, apiBaseUrl);
 
   const headers = new Headers(request.headers);
-  headers.set('Authorization', `Bearer ${jwt}`);
+  mutateHeaders?.(headers);
 
   const method = request.method;
   const body =
@@ -65,3 +26,29 @@ export const forwardWithJwt = async (
     headers: upstream.headers,
   });
 };
+
+/**
+ * Injects `Authorization: Bearer <jwt>`, rewrites the URL origin to
+ * `apiBaseUrl` (preserving path and query string), and returns the proxied
+ * response.
+ */
+export const forwardWithJwt = (
+  request: Request,
+  jwt: string,
+  apiBaseUrl: string,
+): Promise<Response> =>
+  proxyRequest(request, apiBaseUrl, (headers) => {
+    headers.set('Authorization', `Bearer ${jwt}`);
+  });
+
+/**
+ * Forwards a request unchanged (all original headers preserved, no
+ * Authorization injected) to `apiBaseUrl`. Used by apps/dashboard's
+ * catch-all route, which does no authentication of its own — apps/bff
+ * validates the Trusted Proxy Authentication headers already present on the
+ * original request and mints the JWT itself.
+ */
+export const forwardRequest = (
+  request: Request,
+  apiBaseUrl: string,
+): Promise<Response> => proxyRequest(request, apiBaseUrl);

@@ -16,19 +16,17 @@ Before writing, refactoring, or reviewing any code here, read:
 ## Data Rules
 
 - **Client components use TanStack Query** (`useQuery` / `useMutation`) to call the Next.js API routes at `/api/...`. Never fetch from client components directly to `apps/api` or `apps/bff`.
-- **Next.js API routes do nothing except authenticate and proxy.** The single catch-all handler at `src/app/api/[...path]/route.ts` reads the Better Auth session cookie, uses `@repo/bff` to mint an RS256 JWT, then forwards to `apps/api`. No business logic. Adding a new `apps/api` resource never requires a new Next.js route file — it proxies automatically once the resource exists server-side and a `src/queries/<resource>.ts` hook calls `/api/<path>`.
+- **The catch-all route does no authentication of its own.** `src/app/api/[...path]/route.ts` forwards the incoming request unchanged (all headers intact, via `@repo/bff`'s `forwardRequest`) to `apps/bff`, which validates the Trusted Proxy Authentication headers (set by the operator's reverse proxy — oauth2-proxy, Authelia, Pomerium, ...), mints the RS256 JWT, and forwards on to `apps/api`. No business logic, no credential exchange, here. Adding a new `apps/api` resource never requires a new Next.js route file — it proxies automatically once the resource exists server-side and a `src/queries/<resource>.ts` hook calls `/api/<path>`.
 - **No server actions for data.** All business-data reads and writes (projects, environments, members, users, flags, ...) go through TanStack Query + the catch-all proxy. Never introduce a server action (`'use server'`, `useActionState`) for data fetching or mutation.
 - **No direct Prisma access for business data.** Never import `@repo/prisma` to read or write projects, environments, members, users, flags, or any other domain data.
 
-### The one sanctioned Prisma exception: session -> JWT exchange
+### The one sanctioned Prisma exception: Trusted Proxy Authentication
 
-A small, fixed set of files exist purely to resolve the Better Auth session cookie into the identity claims baked into the JWT — this **is** the "authorize the user, then exchange session id for a JWT" mechanism, not business-data access, so it is allowed to import `@repo/prisma`:
+A small, fixed set of files exist purely to resolve the Trusted Proxy Authentication headers into the identity used for page gating — this **is** the "authorize the user" mechanism for server-rendered pages, not business-data access, so it is allowed to import `@repo/prisma`:
 
-- `src/lib/auth.ts` — Better Auth server config (`prismaAdapter`).
-- `src/lib/session.ts` — `getSession()`, wraps `auth.api.getSession(...)`.
-- `src/lib/guards.ts` — `requireSession()` / `requireOwner()` / `requireProjectAccess()`. Used by server components purely to gate rendering (redirect to `/login`, `forbidden()`) and to read `projectRole` for conditional UI (`canManage`) — never to fetch data that gets rendered.
-- `src/app/api/[...path]/route.ts` — mints the RS256 JWT (via `@repo/auth/jwt`) from the resolved session, with `MeJwtClaims` (no `projectId`) for non-project-scoped paths like `/projects` and `/users`, or `ProjectJwtClaims` (looked up via `ProjectMember`) for `/projects/:projectId/...` paths.
-- `src/app/(public)/setup/**`, `src/app/(public)/register/page.tsx`, `src/app/(public)/login/page.tsx` — the pre-auth bootstrap flow (checking whether any user exists yet, creating the first OWNER + first project). This runs before any session/JWT exists, so it cannot go through the normal proxy; treat it as a narrow, separate exception from ordinary business-data CRUD, not a precedent to extend elsewhere.
+- `src/lib/guards.ts` — `resolveAuthedUser()` (the underlying resolution: validates the Trusted Proxy Secret + Identity Header via `@repo/bff`'s `resolveTrustedProxyUser`, JIT-provisioning the `User` via an upsert with an empty `update` clause so an existing user's role is never overwritten) plus `requireSession()` / `requireOwner()` / `requireProjectAccess()` built on top. Used by server components purely to gate rendering (`unauthorized()`, `forbidden()`) and to read `projectRole` for conditional UI (`canManage`) — never to fetch data that gets rendered. Note this app never mints or verifies a JWT itself — that's `apps/bff`'s job for the actual data path; this is a separate, UX-level gate.
+- `src/app/(public)/setup/**` — the pre-auth bootstrap flow (checking whether any project exists yet, creating the first project once the designated owner — `TRUSTED_PROXY_OWNER_EMAIL` — has been seen). This runs before any project exists, so treat it as a narrow, separate exception from ordinary business-data CRUD, not a precedent to extend elsewhere.
+- `src/app/page.tsx`, `src/app/(dashboard)/layout.tsx` — check `Project.count()` to redirect to `/setup` on a fresh install.
 
 Every other file that needs project/environment/member/user/flag data must go through `src/queries/<resource>.ts` + `apps/api`, even inside pages and layouts that are otherwise server components — see the pattern below.
 

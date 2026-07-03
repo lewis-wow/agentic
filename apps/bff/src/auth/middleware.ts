@@ -1,22 +1,24 @@
 import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
 import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
-import { isMembershipRole, PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
-import { resolveSessionUser, SESSION_COOKIE } from '@repo/bff';
-import type { ProjectMember } from '@repo/prisma';
-import { getCookie } from 'hono/cookie';
+import {
+  isMembershipRole,
+  PROJECT_ROLE,
+  SYSTEM_ROLE,
+  type SystemRole,
+} from '@repo/auth/roles';
+import { resolveTrustedProxyUser } from '@repo/bff';
+import type { ProjectMember, User } from '@repo/prisma';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
-import { JWT_TTL_SECONDS } from '../consts.js';
+import { JWT_TTL_SECONDS, TRUSTED_PROXY_SECRET_HEADER } from '../consts.js';
 
-export { SESSION_COOKIE, type SessionWithUser } from '@repo/bff';
-
-type SessionLookup = Parameters<typeof resolveSessionUser>[1];
 type MembershipLookup = (
   userId: string,
   projectId: string,
 ) => Promise<ProjectMember | null>;
+type UpsertUser = (args: { email: string; role: SystemRole }) => Promise<User>;
 
 export type ApiKeyLookupResult = {
   apiKeyHash: string;
@@ -26,13 +28,16 @@ export type ApiKeyLookupResult = {
 };
 type ApiKeyLookup = (apiKeyId: string) => Promise<ApiKeyLookupResult | null>;
 
-type SessionMiddlewareOptions = {
-  findSession: SessionLookup;
+/** Options shared by both Trusted Proxy Authentication middlewares. */
+type TrustedProxyOptions = {
+  upsertUser: UpsertUser;
   privateKeyPem: string;
-  cookieName?: string;
+  expectedSecret: string;
+  designatedOwnerEmail: string;
+  identityHeaderName: string;
 };
 
-type ProjectMiddlewareOptions = SessionMiddlewareOptions & {
+type TrustedProxyProjectOptions = TrustedProxyOptions & {
   findMembership: MembershipLookup;
 };
 
@@ -50,21 +55,26 @@ export type AuthVariables = {
 };
 
 /**
- * Project-scoped auth: validates the session cookie, resolves the caller's role
- * for `:projectId`, and mints an RS256 project JWT.
+ * Project-scoped Trusted Proxy Authentication: validates the Trusted Proxy
+ * Secret + Identity Header, upserts the `User` (JIT-provisioning on first
+ * sight), resolves the caller's role for `:projectId`, and mints an RS256
+ * project JWT.
  *
  * - Owner bypasses membership → `projectRole: 'owner'`.
  * - Member must have a `ProjectMember` row → `projectRole: 'admin' | 'viewer'`.
- * - Missing/expired session → 401. No membership → 403.
+ * - Missing/invalid secret or identity header → 401. No membership → 403.
  */
-export const createProjectAuthMiddleware = (
-  options: ProjectMiddlewareOptions,
+export const createTrustedProxyProjectAuthMiddleware = (
+  options: TrustedProxyProjectOptions,
 ) =>
   createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-    const user = await resolveSessionUser(
-      getCookie(c, options.cookieName ?? SESSION_COOKIE),
-      options.findSession,
-    );
+    const user = await resolveTrustedProxyUser({
+      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
+      email: c.req.header(options.identityHeaderName),
+      expectedSecret: options.expectedSecret,
+      designatedOwnerEmail: options.designatedOwnerEmail,
+      upsertUser: options.upsertUser,
+    });
 
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
@@ -112,15 +122,21 @@ export const createProjectAuthMiddleware = (
   });
 
 /**
- * Non-project-scoped auth (e.g. `/me`): validates the session and mints a JWT
- * carrying only `{ userId, systemRole }`.
+ * Non-project-scoped Trusted Proxy Authentication (e.g. `/me`): validates the
+ * Trusted Proxy Secret + Identity Header and mints a JWT carrying only
+ * `{ userId, systemRole }`.
  */
-export const createMeAuthMiddleware = (options: SessionMiddlewareOptions) =>
+export const createTrustedProxyMeAuthMiddleware = (
+  options: TrustedProxyOptions,
+) =>
   createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-    const user = await resolveSessionUser(
-      getCookie(c, options.cookieName ?? SESSION_COOKIE),
-      options.findSession,
-    );
+    const user = await resolveTrustedProxyUser({
+      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
+      email: c.req.header(options.identityHeaderName),
+      expectedSecret: options.expectedSecret,
+      designatedOwnerEmail: options.designatedOwnerEmail,
+      upsertUser: options.upsertUser,
+    });
 
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);

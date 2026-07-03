@@ -44,6 +44,8 @@ Do not report a task as complete if any of these commands exit with a non-zero s
 ```bash
 # Development
 pnpm dev                    # Start all apps in watch mode
+pnpm dev:proxy              # Stand-in reverse proxy for Trusted Proxy Auth (see .issues/auth.md) —
+                             # visit http://localhost:4000 instead of :3000 directly
 pnpm build                  # Build all packages/apps (Turborepo)
 pnpm lint                   # Lint all packages/apps
 pnpm check-types            # TypeScript type-check all packages/apps

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Credential-exchange primitives shared by both BFF layers (`apps/bff` and `apps/dashboard` Next.js API routes). Provides session validation, RS256 JWT minting, and the `forwardWithJwt` proxy helper.
+Credential-exchange primitives shared by both BFF layers (`apps/bff` and `apps/dashboard`'s Next.js catch-all route). Provides Trusted Proxy Authentication validation and the `forwardWithJwt` / `forwardRequest` proxy helpers.
 
 ## Required Context Loading
 
@@ -10,17 +10,16 @@ Credential-exchange primitives shared by both BFF layers (`apps/bff` and `apps/d
 
 ## Exports
 
-| Export                | Description                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `SESSION_COOKIE`      | Name of the Better Auth session cookie (`better-auth.session_token`)                                    |
-| `SessionWithUser`     | Type: a `Session` row joined with its `User`                                                            |
-| `extractSessionToken` | Strips the `.signature` suffix from the raw cookie value                                                |
-| `resolveSessionUser`  | Validates the session token against the DB and returns the `User` or `null`                             |
-| `forwardWithJwt`      | Injects `Authorization: Bearer <jwt>`, rewrites origin to `apiBaseUrl`, and reverse-proxies the request |
+| Export                        | Description                                                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `resolveTrustedProxyUser`     | Validates the Trusted Proxy Secret + Identity Header (timing-safe), then upserts and returns the `User`, or `null` if invalid |
+| `ResolveTrustedProxyUserArgs` | Argument type for `resolveTrustedProxyUser`                                                                                   |
+| `forwardWithJwt`              | Injects `Authorization: Bearer <jwt>`, rewrites origin to `apiBaseUrl`, and reverse-proxies the request                       |
+| `forwardRequest`              | Reverse-proxies the request unchanged (no Authorization injected) — used where the upstream does its own auth                 |
 
 ## Rules
 
 - This package is **framework-agnostic** — it must work in both Hono middleware and Next.js Route Handlers. Never import Hono or Next.js types here.
-- `resolveSessionUser` is the only place in the codebase that validates a session cookie. Do not duplicate this logic in consuming apps.
-- `forwardWithJwt` is the only place that builds the proxied request. Consuming apps call it; they do not hand-roll `fetch` to `apps/api`.
+- `resolveTrustedProxyUser` is the only place in the codebase that validates the Trusted Proxy Secret / Identity Header pair. It takes the extracted `secret`/`email` strings and an injected `upsertUser` callback — it never reads headers or touches Prisma itself. `apps/bff`'s middleware and `apps/dashboard`'s `guards.ts` each call it with their own Prisma-backed `upsertUser`, since one enforces the actual data-path JWT minting and the other gates server-rendered pages — but the validation logic itself lives only here.
+- `forwardWithJwt` / `forwardRequest` are the only places that build the proxied request. Consuming apps call them; they do not hand-roll `fetch` to another service.
 - Exports are maintained via a barrelsby barrel at `src/index.ts`. After adding a new export, run `pnpm barrels` from the repo root.

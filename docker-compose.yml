@@ -60,9 +60,9 @@ services:
     environment:
       DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY_DASHBOARD:-}
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags
-      API_URL: http://api:3001
+      BFF_URL: http://bff:3000
     depends_on:
-      api:
+      bff:
         condition: service_healthy
 
   bff:
@@ -78,6 +78,16 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   postgres_data:

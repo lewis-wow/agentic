@@ -1,5 +1,7 @@
 # Slice 4 — Boolean Flag CRUD + Audit Events
 
+> **2026-07-03 update:** The session-cookie/Better Auth details below (`resolveSessionUser`, "read the Better Auth session cookie") are superseded by Trusted Proxy Authentication — see `.issues/auth.md`. `apps/dashboard`'s catch-all route now forwards unauthenticated to `apps/bff`, which performs the credential exchange and mints the JWT. `packages/bff` now exports `resolveTrustedProxyUser` and `forwardRequest` in place of `resolveSessionUser`/`extractSessionToken`. Everything else in this document (flag CRUD, audit events, TanStack Query conventions) is unaffected.
+
 ## Architecture decisions (agreed in design session)
 
 - **`apps/api` is the single source of truth.** All Prisma queries and business logic live there. No direct Prisma calls from the dashboard.

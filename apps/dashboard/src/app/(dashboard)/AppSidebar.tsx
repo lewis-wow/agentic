@@ -34,12 +34,14 @@ type Props = {
   isOwner: boolean;
   userEmail: string;
   userRole: string;
+  logoutUrl?: string;
 };
 
 export const AppSidebar = ({
   isOwner,
   userEmail,
   userRole,
+  logoutUrl,
 }: Props): React.ReactNode => {
   const pathname = usePathname();
   const { data: projects = [], isPending } = useProjects();
@@ -165,7 +167,7 @@ export const AppSidebar = ({
               {userRole}
             </Badge>
           </div>
-          <LogoutButton />
+          {logoutUrl && <LogoutButton logoutUrl={logoutUrl} />}
         </div>
         <div className="px-2 pb-1 text-[11px] text-sidebar-foreground/50">
           {isPending ? (
