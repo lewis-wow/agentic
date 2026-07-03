@@ -1,5 +1,5 @@
 export { prisma } from './client.js';
-export { Prisma, PrismaClient } from '@prisma/client';
+export { Prisma, PrismaClient } from './generated/prisma/client.js';
 export type {
   FlagStatus,
   FlagType,
@@ -10,4 +10,4 @@ export type {
   FlagState,
   ProjectMember,
   ApiKey,
-} from '@prisma/client';
+} from './generated/prisma/client.js';

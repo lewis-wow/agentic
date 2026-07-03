@@ -273,7 +273,6 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
           flagId,
           userId: claims.userId,
           action: 'flag.rules_updated',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           meta: JSON.parse(
             JSON.stringify({ environmentId, rules: validatedRules }),
           ),

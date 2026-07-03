@@ -20,6 +20,11 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "@repo/prisma#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "prisma/**", "prisma.config.ts"],
+      "outputs": ["src/generated/**"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },
