@@ -47,6 +47,12 @@ importers:
       '@hono/node-server':
         specifier: ^1.0.0
         version: 1.19.14(hono@4.12.27)
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@prisma/client':
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.3.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3))(typescript@5.9.3)
       '@repo/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -68,12 +74,18 @@ importers:
       '@repo/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       effect:
         specifier: ^3.21.4
         version: 3.21.4
       hono:
         specifier: ^4.0.0
         version: 4.12.27
+      pg:
+        specifier: ^8.13.0
+        version: 8.22.0
     devDependencies:
       '@dotenvx/dotenvx':
         specifier: ^1.51.0
@@ -90,6 +102,9 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@5.9.3)
       tsx:
         specifier: ^4.20.6
         version: 4.22.4
@@ -108,6 +123,12 @@ importers:
       '@hono/standard-validator':
         specifier: ^0.2.2
         version: 0.2.2(@standard-schema/spec@1.1.0)(hono@4.12.27)
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@prisma/client':
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(magicast@0.3.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3))(typescript@5.9.3)
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -123,6 +144,9 @@ importers:
       '@repo/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       effect:
         specifier: ^3.21.4
         version: 3.21.4
@@ -132,6 +156,9 @@ importers:
       lru-cache:
         specifier: ^11.5.1
         version: 11.5.1
+      pg:
+        specifier: ^8.13.0
+        version: 8.22.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -151,6 +178,9 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@5.9.3)
       tsx:
         specifier: ^4.20.6
         version: 4.22.4

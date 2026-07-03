@@ -59,10 +59,14 @@ const sdkAuth = createSdkAuthMiddleware({
   privateKeyPem,
 });
 
+app.use('/projects', meAuth);
 app.use('/projects/:projectId/*', projectAuth);
 app.use('/me', meAuth);
 app.use('/v1/*', sdkAuth);
 
+app.all('/projects', (c) =>
+  forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL),
+);
 app.all('/projects/:projectId/*', (c) =>
   forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL),
 );

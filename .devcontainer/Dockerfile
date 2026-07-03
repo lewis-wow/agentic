@@ -43,6 +43,13 @@ RUN apt-get update && apt-get install -y \
 # Non-root user node
 RUN useradd -m -s /bin/zsh node
 
+# Allow node to grant itself access to the host-mounted docker.sock without a
+# password — the socket's host-side GID varies per machine, so we can't just
+# add node to a docker group at build time. Scoped to this one chmod so it
+# can't be used as a general sudo escape hatch.
+RUN echo "node ALL=(root) NOPASSWD: /usr/bin/chmod 666 /var/run/docker.sock" > /etc/sudoers.d/node-docker-sock \
+    && chmod 0440 /etc/sudoers.d/node-docker-sock
+
 ENV NVM_DIR=/home/node/.nvm
 
 WORKDIR /workspace

@@ -1,0 +1,135 @@
+# Example: fronting the stack with Pomerium as the Trusted Proxy Authentication
+# reverse proxy (see .issues/auth.md and .plans/PRD.md §8.1).
+#
+# This is an overlay on the root docker-compose.yml, not a standalone stack —
+# it only adds pomerium + a mock OIDC provider, and points the existing
+# dashboard/bff services at them. Run from the repo root:
+#
+#   cp examples/pomerium/.env.example examples/pomerium/.env
+#   ./examples/pomerium/certs/generate-certs.sh
+#   docker compose -f docker-compose.yml -f examples/pomerium/docker-compose.yml \
+#     --env-file examples/pomerium/.env up
+#
+# See examples/pomerium/README.md for the full walkthrough (hosts file entries,
+# logging in, what to expect).
+
+services:
+  dashboard:
+    environment:
+      TRUSTED_PROXY_SECRET: ${TRUSTED_PROXY_SECRET}
+      TRUSTED_PROXY_OWNER_EMAIL: ${TRUSTED_PROXY_OWNER_EMAIL}
+
+  bff:
+    environment:
+      TRUSTED_PROXY_SECRET: ${TRUSTED_PROXY_SECRET}
+      TRUSTED_PROXY_OWNER_EMAIL: ${TRUSTED_PROXY_OWNER_EMAIL}
+
+  # Stand-in identity provider so this example needs no real IdP account.
+  # Registers one test user/client — see README.md for the login credentials.
+  mock-idp:
+    image: ghcr.io/soluto/oidc-server-mock:latest
+    # Force amd64 (emulated where needed): this image's published arm64 build
+    # is broken — it throws `FileLoadException: Could not load ...
+    # OpenIdConnectServerMock` and crashes (exit 139) on arm64 hosts (e.g.
+    # Apple Silicon under Docker Desktop). The amd64 build runs fine under
+    # emulation.
+    platform: linux/amd64
+    ports:
+      - '4011:4011'
+    # DNS alias on the compose network: lets Pomerium reach this container as
+    # `idp.localhost` directly over the internal docker network, instead of
+    # hairpinning back out through the host (see pomerium service comment
+    # below for why that hairpin path is unreliable).
+    networks:
+      default:
+        aliases:
+          - idp.localhost
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Recent .NET 8 base images default to listening on 8080 (non-root
+      # user) instead of 80. Pin explicitly to 4011 so the container listens
+      # on the *same* port number externally (browser, via the published
+      # port) and internally (Pomerium, via the `idp.localhost` alias above)
+      # — both sides hit the literal URL `http://idp.localhost:4011`, which
+      # also has to match what's baked into pomerium/config.yaml
+      # (idp_provider_url) and RedirectUris below.
+      #
+      # Explicit ASPNETCORE_URLS with a literal IPv4 address (not
+      # ASPNETCORE_HTTP_PORTS, and not a `+`/`*` wildcard) is required here:
+      # both of those make Kestrel bind the IPv6 wildcard `::`, which on
+      # Docker networks without working IPv6 routing only accepts loopback
+      # connections — sibling containers (e.g. Pomerium) can't reach it even
+      # though the process is "listening".
+      ASPNETCORE_URLS: 'http://0.0.0.0:4011'
+      # Duende IdentityServer defaults its auth/session cookies to
+      # SameSite=None (to support cross-origin embed scenarios), which
+      # requires the Secure flag or browsers silently drop the cookie. Since
+      # this mock IdP is served over plain HTTP (no TLS — only Pomerium
+      # terminates TLS in this example), that default breaks login: the form
+      # submits fine server-side, but the browser discards the returned
+      # cookie, so the very next request looks logged-out again and the user
+      # just gets bounced back to the login page. SameSite=Lax doesn't
+      # require Secure and is sufficient here since the cookie is only ever
+      # used same-site (on idp.localhost itself).
+      SERVER_OPTIONS_INLINE: |
+        {
+          "Authentication": {
+            "CookieSameSiteMode": "Lax",
+            "CheckSessionCookieSameSiteMode": "Lax"
+          }
+        }
+      # Duende IdentityServer (this image's underlying engine) requires PKCE
+      # by default for every client. Pomerium's generic OIDC client doesn't
+      # send a code_challenge, so the auth request was rejected with
+      # "invalid_request: code challenge required" — RequirePkce below relaxes
+      # that for this demo-only client/secret (see comment above).
+      CLIENTS_CONFIGURATION_INLINE: |
+        [
+          {
+            "ClientId": "pomerium-example",
+            "ClientSecrets": ["pomerium-example-secret"],
+            "AllowedGrantTypes": ["authorization_code"],
+            "RedirectUris": ["https://authenticate.localhost/oauth2/callback"],
+            "AllowedScopes": ["openid", "profile", "email"],
+            "RequirePkce": false
+          }
+        ]
+      USERS_CONFIGURATION_INLINE: |
+        [
+          {
+            "SubjectId": "1",
+            "Username": "owner",
+            "Password": "password",
+            "Claims": [
+              { "Type": "email", "Value": "owner@example.com", "ValueType": "string" }
+            ]
+          }
+        ]
+
+  # The reverse proxy performing Trusted Proxy Authentication. Terminates TLS,
+  # authenticates the browser against mock-idp, and injects the Identity
+  # Header + shared secret that apps/bff validates.
+  pomerium:
+    build:
+      # Relative paths in a compose overlay resolve against the *project
+      # directory* (the first -f file's directory, i.e. the repo root — see
+      # README.md's run command), not this file's own directory.
+      context: ./examples/pomerium
+    volumes:
+      - pomerium-data:/data
+    ports:
+      - '443:443'
+    # No extra_hosts/host-gateway entry needed: mock-idp's `idp.localhost`
+    # network alias (see mock-idp service above) makes that hostname
+    # resolvable directly on the shared compose network. Pomerium's own
+    # outbound calls to mock-idp (discovery + token exchange) therefore
+    # resolve the same host:port the browser uses (http://idp.localhost:4011)
+    # without hairpinning back out through the host — which was unreliable
+    # (Docker Desktop's host-gateway address doesn't always hairpin back to
+    # a sibling container's published port).
+    depends_on:
+      - dashboard
+      - mock-idp
+
+volumes:
+  pomerium-data:

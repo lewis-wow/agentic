@@ -1,0 +1,53 @@
+# Pomerium config for the Trusted Proxy Authentication example.
+#
+# This is a demo configuration — the secrets below are checked into the repo
+# on purpose so the stack boots with zero setup. Do not reuse them anywhere
+# real. See ../.env.example for the values that must stay in sync with this
+# file (Pomerium's config.yaml is not template-substituted, unlike the
+# docker-compose.yml environment blocks).
+
+address: :443
+certificate_file: /pomerium/certs/cert.pem
+certificate_key_file: /pomerium/certs/key.pem
+
+# Generate your own with: openssl rand -base64 32
+shared_secret: rK8gIbQ1M1meCOal790+EWEprJTfynuhTQ427WsISdI=
+cookie_secret: u/9Z2geMDES2ALzhuiqhpqfvfA4Zt/MGjp8iXAqnOIY=
+
+databroker_storage_type: file
+databroker_storage_connection_string: file:///data/pomerium
+
+authenticate_service_url: https://authenticate.localhost
+
+# Generic OIDC provider — points at the mock-idp service instead of a real
+# IdP (Google/Okta/...) so this example runs with no external accounts.
+idp_provider: oidc
+idp_provider_url: http://idp.localhost:4011
+idp_client_id: pomerium-example
+idp_client_secret: pomerium-example-secret
+idp_scopes:
+  - openid
+  - email
+  - profile
+
+# Maps OIDC claims onto arbitrary upstream header names. The dashboard/bff
+# only read the identity header named by TRUSTED_PROXY_IDENTITY_HEADER
+# (default X-Forwarded-Email) — see .issues/auth.md.
+jwt_claims_headers:
+  X-Forwarded-Email: email
+
+routes:
+  - from: https://dashboard.localhost
+    to: http://dashboard:3000
+    allow_any_authenticated_user: true
+    pass_identity_headers: true
+    # Without this, Pomerium rewrites the Host header to the upstream
+    # address (dashboard:3000) and that rewritten value leaks into
+    # X-Forwarded-Host too — Next.js's Server Actions origin check then
+    # rejects every action ("x-forwarded-host dashboard:3000 does not match
+    # origin dashboard.localhost"). Preserving the original Host fixes both.
+    preserve_host_header: true
+    set_request_headers:
+      # Must match TRUSTED_PROXY_SECRET baked into apps/dashboard and
+      # apps/bff's env for this example (see ../docker-compose.yml).
+      X-Trusted-Proxy-Secret: pomerium-example-trusted-proxy-secret

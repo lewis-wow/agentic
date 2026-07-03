@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+echo "Granting access to the mounted docker.sock"
+
+# The socket is bind-mounted from the host and owned by root; grant node
+# access without needing to guess the host's docker group GID.
+if [ -S /var/run/docker.sock ]; then
+    sudo chmod 666 /var/run/docker.sock
+fi
+
 echo "Setting up persistent Claude session paths"
 
 # Create the configuration directory inside your workspace

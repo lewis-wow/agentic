@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "dev": "dotenvx run -f .env.development -f ../../.env.development -- tsx watch src/index.ts",
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@repo/api": "workspace:*",
     "@repo/pagination": "workspace:*",
     "@repo/auth": "workspace:*",
@@ -18,8 +20,10 @@
     "@repo/exception": "workspace:*",
     "@repo/prisma": "workspace:*",
     "@repo/utils": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "effect": "^3.21.4",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.51.0",
@@ -27,6 +31,7 @@
     "@repo/typescript-config": "workspace:*",
     "@repo/vitest-config": "workspace:*",
     "@types/node": "^20.0.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

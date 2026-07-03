@@ -1,7 +1,7 @@
 {
   "name": "Secure AI Agent Sandbox",
 
-  // Reference to docker-compose.yml, which also handles the socket proxy
+  // Reference to docker-compose.yml, which mounts the host docker.sock
   "dockerComposeFile": "docker-compose.yml",
 
   // Name of the service from docker-compose to use as the dev environment
@@ -21,6 +21,14 @@
   // Settings specific to the editor and AI tools
   "customizations": {
     "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        }
+      },
       // Core extensions that are automatically installed in the container
       "extensions": [
         "dbaeumer.vscode-eslint",
