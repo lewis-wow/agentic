@@ -30,6 +30,7 @@ Strictly follow the guidelines found inside these files for every task.
 Repo-wide conventions live in `docs/specification/`. Read the relevant file before touching the area it covers:
 
 - [Architecture & Data Flow](docs/specification/architecture.md)
+- [Environment API Keys](docs/specification/api-keys.md)
 - [Testing Convention](docs/specification/testing.md)
 - [Environment Variables](docs/specification/environment-variables.md)
 - [Barrel Files](docs/specification/barrel-files.md)
