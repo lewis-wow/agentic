@@ -1,21 +1,21 @@
 import { JSONSchema, Schema } from 'effect';
 
-import { ApiKeyListPageSchema } from './schemas/apiKeys.js';
-import { AuditLogPageSchema } from './schemas/auditLog.js';
-import { EnvironmentListPageSchema } from './schemas/environments.js';
+import { ApiKeyListPageSchema } from './schemas/apiKeys.dto.js';
+import { AuditLogPageSchema } from './schemas/auditLog.dto.js';
+import { EnvironmentListPageSchema } from './schemas/environments.dto.js';
 import {
   FlagListPageSchema,
   FlagSnapshotResponseSchema,
-} from './schemas/flags.js';
-import { MemberListPageSchema } from './schemas/members.js';
+} from './schemas/flags.dto.js';
+import { MemberListPageSchema } from './schemas/members.dto.js';
 import {
   AddMemberRequestSchema,
   CreateApiKeyRequestSchema,
   CreateEnvironmentRequestSchema,
   CreateProjectRequestSchema,
   RenameProjectRequestSchema,
-} from './schemas/projects.js';
-import { UserListPageSchema } from './schemas/users.js';
+} from './schemas/projects.dto.js';
+import { UserListPageSchema } from './schemas/users.dto.js';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
 

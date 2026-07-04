@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 
-import { PaginatedResponseSchema } from './pagination.js';
 import { IsoDateFromPrisma } from './prisma.js';
 
 export const ApiKeyListItemSchema = Schema.Struct({
@@ -15,15 +14,11 @@ export const ApiKeyListItemSchema = Schema.Struct({
 
 export type ApiKeyListItem = Schema.Schema.Type<typeof ApiKeyListItemSchema>;
 
-export const ApiKeyListPageSchema =
-  PaginatedResponseSchema(ApiKeyListItemSchema);
-
-export type ApiKeyListPage = Schema.Schema.Type<typeof ApiKeyListPageSchema>;
-
 // Raw shape: matches `prisma.apiKey.findMany/create` with
 // `include: { environment: { select: { id, name } } }` — Prisma nests the
-// environment relation; the wire contract wants it flattened.
-const ApiKeyListItemFromPrismaRawSchema = Schema.Struct({
+// environment relation; the wire contract wants it flattened. Exported so
+// `apiKeys.dto.ts` can nest it inside `CreateApiKeyResponseFromPrismaRawSchema`.
+export const ApiKeyListItemFromPrismaRawSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   apiKeyId: Schema.String,
@@ -56,93 +51,3 @@ export const ApiKeyListItemFromPrisma = Schema.transform(
     }),
   },
 );
-
-export const CreateApiKeyResponseSchema = Schema.Struct({
-  apiKey: ApiKeyListItemSchema,
-  fullKey: Schema.String,
-});
-
-export type CreateApiKeyResponse = Schema.Schema.Type<
-  typeof CreateApiKeyResponseSchema
->;
-
-const CreateApiKeyResponseFromPrismaRawSchema = Schema.Struct({
-  apiKey: ApiKeyListItemFromPrismaRawSchema,
-  fullKey: Schema.String,
-});
-
-export const CreateApiKeyResponseFromPrisma = Schema.transform(
-  CreateApiKeyResponseFromPrismaRawSchema,
-  CreateApiKeyResponseSchema,
-  {
-    strict: true,
-    decode: (raw) => ({
-      apiKey: {
-        id: raw.apiKey.id,
-        name: raw.apiKey.name,
-        apiKeyId: raw.apiKey.apiKeyId,
-        environmentId: raw.apiKey.environment.id,
-        environmentName: raw.apiKey.environment.name,
-        revokedAt: raw.apiKey.revokedAt,
-        createdAt: raw.apiKey.createdAt,
-      },
-      fullKey: raw.fullKey,
-    }),
-    encode: (response) => ({
-      apiKey: {
-        id: response.apiKey.id,
-        name: response.apiKey.name,
-        apiKeyId: response.apiKey.apiKeyId,
-        revokedAt: response.apiKey.revokedAt,
-        createdAt: response.apiKey.createdAt,
-        environment: {
-          id: response.apiKey.environmentId,
-          name: response.apiKey.environmentName,
-        },
-      },
-      fullKey: response.fullKey,
-    }),
-  },
-);
-
-export const RotateApiKeyResponseSchema = Schema.Struct({
-  fullKey: Schema.String,
-});
-
-export type RotateApiKeyResponse = Schema.Schema.Type<
-  typeof RotateApiKeyResponseSchema
->;
-
-export const RevokeApiKeyResponseSchema = Schema.Struct({
-  apiKey: Schema.Struct({
-    id: Schema.String,
-    revokedAt: Schema.NullOr(Schema.String),
-  }),
-});
-
-export type RevokeApiKeyResponse = Schema.Schema.Type<
-  typeof RevokeApiKeyResponseSchema
->;
-
-const RevokeApiKeyResponseFromPrismaRawSchema = Schema.Struct({
-  apiKey: Schema.Struct({
-    id: Schema.String,
-    revokedAt: Schema.NullOr(IsoDateFromPrisma),
-  }),
-});
-
-export const RevokeApiKeyResponseFromPrisma = Schema.transform(
-  RevokeApiKeyResponseFromPrismaRawSchema,
-  RevokeApiKeyResponseSchema,
-  { strict: true, decode: (raw) => raw, encode: (response) => response },
-);
-
-// --- Route input schemas (path params / query string) ---
-
-export const ApiKeyListQuerySchema = Schema.Struct({
-  search: Schema.optional(Schema.String),
-});
-
-export const ApiKeyIdParamSchema = Schema.Struct({
-  apiKeyId: Schema.String.pipe(Schema.minLength(1)),
-});

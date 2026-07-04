@@ -5,10 +5,8 @@ import {
   EnvironmentNameConflict,
   EnvironmentNotFound,
 } from '../exceptions/index.js';
-import {
-  EnvironmentListPageSchema,
-  EnvironmentSchema,
-} from '../schemas/environments.js';
+import { EnvironmentListPageSchema } from '../schemas/environments.dto.js';
+import { EnvironmentSchema } from '../schemas/environments.js';
 
 export type EnvironmentServiceOptions = {
   prisma: PrismaClient;

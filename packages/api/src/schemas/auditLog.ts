@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 
-import { PaginatedResponseSchema } from './pagination.js';
 import { IsoDateFromPrisma } from './prisma.js';
 
 export const AuditLogEntrySchema = Schema.Struct({
@@ -13,10 +12,6 @@ export const AuditLogEntrySchema = Schema.Struct({
 });
 
 export type AuditLogEntry = Schema.Schema.Type<typeof AuditLogEntrySchema>;
-
-export const AuditLogPageSchema = PaginatedResponseSchema(AuditLogEntrySchema);
-
-export type AuditLogPage = Schema.Schema.Type<typeof AuditLogPageSchema>;
 
 // Raw shape: matches `prisma.auditEvent.findMany` with
 // `include: { user: { select: { id, name } } }` — Prisma nests the user

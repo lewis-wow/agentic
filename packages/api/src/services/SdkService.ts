@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@repo/prisma';
 import { Schema } from 'effect';
 
-import { FlagSnapshotResponseSchema } from '../schemas/flags.js';
+import { FlagSnapshotResponseSchema } from '../schemas/flags.dto.js';
 import type { FlagType, TargetingRule } from '../schemas/flags.js';
 
 export type SdkServiceOptions = {

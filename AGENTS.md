@@ -35,6 +35,7 @@ Repo-wide conventions live in `docs/specification/`. Read the relevant file befo
 - [Environment Variables](docs/specification/environment-variables.md)
 - [Barrel Files](docs/specification/barrel-files.md)
 - [Effect Schema for Requests and Responses](docs/specification/effect-schema.md)
+- [Schema File Organization: `<name>.ts` vs `<name>.dto.ts`](docs/specification/schema-file-organization.md)
 - [OpenAPI Generation](docs/specification/openapi.md)
 - [Forms](docs/specification/forms.md)
 - [App-Scoped Packages for Domain Schemas](docs/specification/app-scoped-packages.md)
