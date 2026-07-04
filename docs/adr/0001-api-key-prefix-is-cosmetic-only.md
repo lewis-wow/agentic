@@ -1,0 +1,5 @@
+# API key prefix is cosmetic only, never validated
+
+Generated API keys carry a prefix derived from their owning environment's name (e.g. `development_`, `qa-staging_`), replacing the previous fixed `env_` prefix. We considered making key "type" (backend vs. frontend/read-only) part of this prefix, encoded and enforced like Stripe's `sk_`/`pk_` convention, but decided against introducing a key-type distinction at all — every SDK-gated endpoint today is read-only, so there is no capability split for a prefix to encode.
+
+We decided the environment-name prefix itself must be purely cosmetic: `parseApiKeyId` matches the trailing `<32-hex apiKeyId>.<64-hex secret>` pattern anywhere in the string and ignores whatever precedes it, rather than validating the prefix against the current environment name. `apiKeyId` is already globally unique and is the sole lookup key; validating the prefix would add an authentication-relevant dependency on a cosmetic, human-edited value (environment name) for zero security benefit, and would turn edge cases (unicode names, empty slugs, renamed environments) into auth bugs instead of display quirks.

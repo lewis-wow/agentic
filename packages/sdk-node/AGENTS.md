@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Node.js SDK client for consuming the feature flag API. Authenticates via an `env_<id>.<secret>` API key, fetches the flag snapshot on `connect()`, and evaluates flags locally.
+Node.js SDK client for consuming the feature flag API. Authenticates via an API key (`<envSlug>_<id>.<secret>`, where `envSlug` is a cosmetic hint only), fetches the flag snapshot on `connect()`, and evaluates flags locally.
 
 ## Required Context Loading
 

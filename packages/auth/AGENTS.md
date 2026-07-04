@@ -12,7 +12,8 @@ Cross-cutting authentication primitives: JWT sign/verify, RS256 key helpers, API
 
 ```text
 src/
-  apiKey.ts   # API key generate/verify (env_<id>.<secret> format)
+  apiKey.ts   # API key generate/verify (<envSlug>_<id>.<secret> format)
+  keyPrefix.ts # Cosmetic environment-name slug prefix (see docs/adr/0001-api-key-prefix-is-cosmetic-only.md)
   claims.ts   # JWT claims types: ProjectJwtClaims, SdkJwtClaims, MeJwtClaims, AuthJwtClaims
   jwt.ts      # RS256 JWT sign/verify helpers
   roles.ts    # SYSTEM_ROLE, MEMBERSHIP_ROLE, PROJECT_ROLE as const enums + type guards

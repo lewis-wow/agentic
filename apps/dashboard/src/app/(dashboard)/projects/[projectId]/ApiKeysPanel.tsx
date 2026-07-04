@@ -1,6 +1,7 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { slugifyEnvironmentName } from '@repo/auth/key-prefix';
 import { TablePagination } from '@repo/ui/components/TablePagination';
 import {
   AlertDialog,
@@ -431,6 +432,7 @@ const ApiKeyRow = ({
 }: ApiKeyRowProps): React.ReactNode => {
   const rotateMutation = useRotateApiKey(projectId);
   const isRevoked = !!apiKey.revokedAt;
+  const envSlug = slugifyEnvironmentName(apiKey.environmentName);
 
   return (
     <TableRow>
@@ -440,7 +442,8 @@ const ApiKeyRow = ({
       </TableCell>
       <TableCell>
         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-          env_{apiKey.apiKeyId}.••••••••
+          {envSlug ? `${envSlug}_` : ''}
+          {apiKey.apiKeyId}.••••••••
         </code>
       </TableCell>
       <TableCell>

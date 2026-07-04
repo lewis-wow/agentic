@@ -33,8 +33,8 @@ export const setupAction = async (
   }
 
   const [devKey, prodKey] = await Promise.all([
-    generateApiKey(),
-    generateApiKey(),
+    generateApiKey({ environmentName: 'development' }),
+    generateApiKey({ environmentName: 'production' }),
   ]);
 
   await prisma.project.create({

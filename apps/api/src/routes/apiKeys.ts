@@ -113,7 +113,9 @@ apiKeysRouter.post('/', async (c) => {
   });
   if (!environment) return new EnvironmentNotFound().toResponse();
 
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+    environmentName: environment.name,
+  });
 
   const apiKey = await prisma.apiKey.create({
     data: { name: name.trim(), apiKeyId, apiKeyHash, environmentId },
@@ -146,11 +148,14 @@ apiKeysRouter.post('/:apiKeyId/rotate', async (c) => {
 
   const existing = await prisma.apiKey.findFirst({
     where: { id, environment: { projectId: claims.projectId } },
+    include: { environment: { select: { name: true } } },
   });
   if (!existing) return new ApiKeyNotFound().toResponse();
   if (existing.revokedAt) return new ApiKeyAlreadyRevoked().toResponse();
 
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+    environmentName: existing.environment.name,
+  });
 
   await prisma.apiKey.update({
     where: { id },

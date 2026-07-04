@@ -27,11 +27,15 @@ vi.mock('@repo/prisma', () => ({
 }));
 
 vi.mock('@repo/auth/api-key', () => ({
-  generateApiKey: vi.fn().mockResolvedValue({
-    fullKey: 'env_abc123.secretvalue',
-    apiKeyId: 'abc123',
-    apiKeyHash: '$2a$10$hashedvalue',
-  }),
+  generateApiKey: vi
+    .fn()
+    .mockImplementation(
+      async ({ environmentName }: { environmentName: string }) => ({
+        fullKey: `${environmentName}_abc123.secretvalue`,
+        apiKeyId: 'abc123',
+        apiKeyHash: '$2a$10$hashedvalue',
+      }),
+    ),
 }));
 
 const { privateKey, publicKey } = generateTestKeys();
@@ -150,7 +154,7 @@ describe('POST /projects/:projectId/api-keys', () => {
 
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.fullKey).toBe('env_abc123.secretvalue');
+    expect(body.fullKey).toBe('production_abc123.secretvalue');
     expect(body.apiKey.environmentName).toBe('production');
   });
 
@@ -204,6 +208,7 @@ describe('POST /projects/:projectId/api-keys/:apiKeyId/rotate', () => {
     mockPrisma.apiKey.findFirst.mockResolvedValue({
       id: 'key-1',
       revokedAt: null,
+      environment: { name: 'production' },
     } as never);
     mockPrisma.apiKey.update.mockResolvedValue({} as never);
 
@@ -214,7 +219,7 @@ describe('POST /projects/:projectId/api-keys/:apiKeyId/rotate', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.fullKey).toBe('env_abc123.secretvalue');
+    expect(body.fullKey).toBe('production_abc123.secretvalue');
   });
 
   it('returns 404 when the key does not exist', async () => {

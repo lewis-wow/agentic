@@ -33,7 +33,9 @@ const buildApp = (
 
 describe('sdk auth middleware', () => {
   it('mints an sdk-client JWT for a valid api key', async () => {
-    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+      environmentName: 'production',
+    });
     const apiKey = makeApiKey({
       apiKeyHash,
       environmentId: 'env-9',
@@ -61,7 +63,9 @@ describe('sdk auth middleware', () => {
   });
 
   it('returns 401 for a tampered secret', async () => {
-    const { fullKey, apiKeyHash } = await generateApiKey();
+    const { fullKey, apiKeyHash } = await generateApiKey({
+      environmentName: 'production',
+    });
     const apiKey = makeApiKey({ apiKeyHash });
     const findApiKey = vi.fn().mockResolvedValue(apiKey);
     const app = buildApp(findApiKey);
@@ -75,7 +79,7 @@ describe('sdk auth middleware', () => {
   });
 
   it('returns 401 for an unknown apiKeyId', async () => {
-    const { fullKey } = await generateApiKey();
+    const { fullKey } = await generateApiKey({ environmentName: 'production' });
     const findApiKey = vi.fn().mockResolvedValue(null);
     const app = buildApp(findApiKey);
 
@@ -87,7 +91,9 @@ describe('sdk auth middleware', () => {
   });
 
   it('returns 401 for a revoked api key, even with a valid secret', async () => {
-    const { fullKey, apiKeyHash } = await generateApiKey();
+    const { fullKey, apiKeyHash } = await generateApiKey({
+      environmentName: 'production',
+    });
     const apiKey = makeApiKey({ apiKeyHash, revokedAt: new Date() });
     const findApiKey = vi.fn().mockResolvedValue(apiKey);
     const app = buildApp(findApiKey);
@@ -100,7 +106,9 @@ describe('sdk auth middleware', () => {
   });
 
   it('rejects immediately once revoked, even if a prior request cached the key', async () => {
-    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+      environmentName: 'production',
+    });
     const cache = new LRUCache<string, string>({ max: 10, ttl: 60_000 });
     const findApiKey = vi
       .fn()
@@ -137,7 +145,7 @@ describe('sdk auth middleware', () => {
     expect(findApiKey).not.toHaveBeenCalled();
   });
 
-  it('returns 401 for a key without the env_ prefix', async () => {
+  it('returns 401 for a key with no apiKeyId.secret shape, regardless of prefix', async () => {
     const findApiKey = vi.fn();
     const app = buildApp(findApiKey);
 
@@ -149,8 +157,50 @@ describe('sdk auth middleware', () => {
     expect(findApiKey).not.toHaveBeenCalled();
   });
 
+  it('authenticates a key regardless of its cosmetic environment-name prefix', async () => {
+    const { fullKey, apiKeyHash } = await generateApiKey({
+      environmentName: 'QA Staging',
+    });
+    expect(fullKey).toMatch(/^qa-staging_/);
+    const apiKey = makeApiKey({
+      apiKeyHash,
+      environmentId: 'env-9',
+      environment: { projectId: 'project-9' },
+    });
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
+    const app = buildApp(findApiKey);
+
+    const res = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${fullKey}` },
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('authenticates a key with no prefix at all', async () => {
+    const { fullKey, apiKeyHash } = await generateApiKey({
+      environmentName: '!!!',
+    });
+    expect(fullKey).toMatch(/^[0-9a-f]{32}\./);
+    const apiKey = makeApiKey({
+      apiKeyHash,
+      environmentId: 'env-9',
+      environment: { projectId: 'project-9' },
+    });
+    const findApiKey = vi.fn().mockResolvedValue(apiKey);
+    const app = buildApp(findApiKey);
+
+    const res = await app.request('/v1/flags', {
+      headers: { Authorization: `Bearer ${fullKey}` },
+    });
+
+    expect(res.status).toBe(200);
+  });
+
   it('uses the LRU cache on the second request, skipping bcrypt', async () => {
-    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey();
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+      environmentName: 'production',
+    });
     const apiKey = makeApiKey({
       apiKeyHash,
       environmentId: 'env-cached',

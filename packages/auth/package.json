@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./roles": "./src/roles.ts",
     "./jwt": "./src/jwt.ts",
-    "./api-key": "./src/apiKey.ts"
+    "./api-key": "./src/apiKey.ts",
+    "./key-prefix": "./src/keyPrefix.ts"
   },
   "scripts": {
     "lint": "eslint .",

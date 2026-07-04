@@ -170,20 +170,17 @@ const defaultSdkCache = new LRUCache<string, string>({
 });
 
 /**
- * Parses `apiKeyId` from a full SDK key of the form `env_<apiKeyId>.<secret>`.
+ * Parses `apiKeyId` from a full SDK key of the form
+ * `<cosmeticPrefix>_<apiKeyId>.<secret>`, where `<cosmeticPrefix>_` may be
+ * absent entirely. The prefix is a display-only hint (see
+ * docs/adr/0001-api-key-prefix-is-cosmetic-only.md) and is never validated —
+ * only the trailing `<32-hex apiKeyId>.<64-hex secret>` shape matters.
  * Returns `undefined` for any other format.
  */
-const parseApiKeyId = (fullKey: string): string | undefined => {
-  if (!fullKey.startsWith('env_')) {
-    return undefined;
-  }
-  const withoutPrefix = fullKey.slice('env_'.length);
-  const dotIndex = withoutPrefix.indexOf('.');
-  if (dotIndex === -1) {
-    return undefined;
-  }
-  return withoutPrefix.slice(0, dotIndex);
-};
+const API_KEY_SHAPE = /([0-9a-f]{32})\.[0-9a-f]{64}$/;
+
+const parseApiKeyId = (fullKey: string): string | undefined =>
+  API_KEY_SHAPE.exec(fullKey)?.[1];
 
 /**
  * SDK auth: exchanges an `env_<apiKeyId>.<secret>` Bearer token for an
