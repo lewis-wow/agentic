@@ -305,6 +305,18 @@ importers:
 
   packages/api:
     dependencies:
+      '@repo/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@repo/enums':
+        specifier: workspace:*
+        version: link:../enums
+      '@repo/exception':
+        specifier: workspace:*
+        version: link:../exception
+      '@repo/prisma':
+        specifier: workspace:*
+        version: link:../prisma
       effect:
         specifier: ^3.21.4
         version: 3.21.4

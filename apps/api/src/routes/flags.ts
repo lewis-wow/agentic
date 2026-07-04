@@ -14,6 +14,12 @@ import {
   RenameFlagRequestSchema,
   UpdateFlagStateRequestSchema,
 } from '@repo/api';
+import {
+  FlagIsArchived,
+  FlagKeyConflict,
+  FlagNotFound,
+  Forbidden,
+} from '@repo/api/exceptions';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
@@ -22,12 +28,6 @@ import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
 import { emitFlagEvent } from '../events/emitter.js';
-import {
-  FlagIsArchived,
-  FlagKeyConflict,
-  FlagNotFound,
-  Forbidden,
-} from '../exceptions/index.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };

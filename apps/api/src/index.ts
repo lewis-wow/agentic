@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { SCALAR_REFERENCE_HTML } from '@repo/api';
 import { decodeBase64Pem } from '@repo/auth/jwt';
+import { HttpException } from '@repo/exception';
 import { Hono } from 'hono';
 
 import {
@@ -46,6 +47,15 @@ app.route('/projects/:projectId/members', membersRouter);
 app.route('/projects/:projectId/api-keys', apiKeysRouter);
 app.route('/users', usersRouter);
 app.route('/v1', sdkRouter);
+
+// Route handlers either return `exception.toResponse()` directly, or (the
+// convention for service-backed routes) let a thrown `HttpException`
+// propagate up to here — either way it becomes the same structured
+// { code, message } response, never Hono's generic error shape.
+app.onError((err) => {
+  if (err instanceof HttpException) return err.toResponse();
+  throw err;
+});
 
 serve({ fetch: app.fetch, port: env.API_PORT }, (info) => {
   console.log(`API listening at http://localhost:${info.port}`);

@@ -11,6 +11,8 @@ This is a **Turborepo monorepo** with two workspace groups:
 
 Each layer has its own `AGENTS.md` with layer-specific rules. Read the relevant one before working in that layer.
 
+**Within the `apps/api` / `packages/api` pair, the split is by framework dependency, not by "app vs package."** `packages/api` is framework-agnostic — schemas, exceptions, business-logic services, validation helpers, none of it importing Hono — and `apps/api` is Hono-only: routes, middleware, the server entrypoint. See [App-Scoped Packages](./app-scoped-packages.md) and `packages/api/AGENTS.md`.
+
 ## Startup Logging
 
 Every runnable app in `apps/*` must print the URL it's listening on to the console once it starts. For Hono services this means passing a `listeningListener` callback to `serve(...)` (see `apps/api/src/index.ts` and `apps/bff/src/index.ts`); frameworks that already print their own URL on startup (e.g. Next.js's `next dev`/`next start`) satisfy this automatically.

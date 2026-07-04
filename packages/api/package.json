@@ -5,13 +5,20 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./exceptions": "./src/exceptions/index.ts",
+    "./services": "./src/services/index.ts",
+    "./validation": "./src/validation/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/auth": "workspace:*",
+    "@repo/enums": "workspace:*",
+    "@repo/exception": "workspace:*",
+    "@repo/prisma": "workspace:*",
     "effect": "^3.21.4"
   },
   "devDependencies": {

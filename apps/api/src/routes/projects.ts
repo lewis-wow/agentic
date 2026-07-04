@@ -1,10 +1,9 @@
 import {
   CreateProjectRequestSchema,
-  ProjectDetailFromPrisma,
-  ProjectFromPrisma,
-  ProjectListItemFromPrisma,
   RenameProjectRequestSchema,
 } from '@repo/api';
+import { Forbidden } from '@repo/api/exceptions';
+import { ProjectService } from '@repo/api/services';
 import type { AuthJwtClaims, MeJwtClaims } from '@repo/auth';
 import {
   canManageProject,
@@ -13,11 +12,9 @@ import {
 } from '@repo/auth';
 import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
-import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import { Forbidden, ProjectNotFound } from '../exceptions/index.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
@@ -29,6 +26,8 @@ const requireUserClaims = (
   return { userId: auth.userId, systemRole: auth.systemRole };
 };
 
+const projectService = new ProjectService({ prisma });
+
 export const projectsRouter = new Hono<AppEnv>();
 
 projectsRouter.get('/', async (c) => {
@@ -36,28 +35,12 @@ projectsRouter.get('/', async (c) => {
   const claims = requireUserClaims(auth);
   if (!claims) return new Forbidden().toResponse();
 
-  const environmentsInclude = {
-    orderBy: { createdAt: 'asc' as const },
-    select: { id: true, name: true },
-  };
+  const result = await projectService.list({
+    userId: claims.userId,
+    systemRole: claims.systemRole,
+  });
 
-  const projects =
-    claims.systemRole === SYSTEM_ROLE.OWNER
-      ? await prisma.project.findMany({
-          orderBy: { createdAt: 'asc' },
-          include: { environments: environmentsInclude },
-        })
-      : await prisma.project.findMany({
-          where: { members: { some: { userId: claims.userId } } },
-          orderBy: { createdAt: 'asc' },
-          include: { environments: environmentsInclude },
-        });
-
-  const encoded = projects.map((project) =>
-    Schema.decodeUnknownSync(ProjectListItemFromPrisma)(project),
-  );
-
-  return c.json({ projects: encoded });
+  return c.json(result);
 });
 
 projectsRouter.post(
@@ -72,12 +55,9 @@ projectsRouter.post(
 
     const { name } = c.req.valid('json');
 
-    const project = await prisma.project.create({
-      data: { name: name.trim() },
-    });
+    const result = await projectService.create({ name });
 
-    const encoded = Schema.decodeUnknownSync(ProjectFromPrisma)(project);
-    return c.json({ project: encoded }, 201);
+    return c.json(result, 201);
   },
 );
 
@@ -86,29 +66,9 @@ projectsRouter.get('/:projectId', async (c) => {
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
 
-  const project = await prisma.project.findUnique({
-    where: { id: claims.projectId },
-    include: {
-      environments: { orderBy: { createdAt: 'asc' } },
-      members: {
-        include: { user: { select: { id: true, name: true, email: true } } },
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  });
-  if (!project) return new ProjectNotFound().toResponse();
+  const result = await projectService.get({ projectId: claims.projectId });
 
-  const owner = await prisma.user.findFirst({
-    where: { role: SYSTEM_ROLE.OWNER },
-    select: { id: true, name: true, email: true },
-  });
-
-  const encoded = Schema.decodeUnknownSync(ProjectDetailFromPrisma)({
-    ...project,
-    owner,
-  });
-
-  return c.json({ project: encoded });
+  return c.json(result);
 });
 
 projectsRouter.patch(
@@ -122,18 +82,12 @@ projectsRouter.patch(
 
     const { name } = c.req.valid('json');
 
-    const existing = await prisma.project.findUnique({
-      where: { id: claims.projectId },
-    });
-    if (!existing) return new ProjectNotFound().toResponse();
-
-    const project = await prisma.project.update({
-      where: { id: claims.projectId },
-      data: { name: name.trim() },
+    const result = await projectService.rename({
+      projectId: claims.projectId,
+      name,
     });
 
-    const encoded = Schema.decodeUnknownSync(ProjectFromPrisma)(project);
-    return c.json({ project: encoded });
+    return c.json(result);
   },
 );
 
@@ -145,12 +99,7 @@ projectsRouter.delete('/:projectId', async (c) => {
     return new Forbidden().toResponse();
   }
 
-  const project = await prisma.project.findUnique({
-    where: { id: claims.projectId },
-  });
-  if (!project) return new ProjectNotFound().toResponse();
-
-  await prisma.project.delete({ where: { id: claims.projectId } });
+  await projectService.remove({ projectId: claims.projectId });
 
   return new Response(null, { status: 204 });
 });

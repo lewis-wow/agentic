@@ -1,9 +1,8 @@
 import { sValidator } from '@hono/standard-validator';
+import { RequestValidationFailed } from '@repo/api/exceptions';
 import type { Schema } from 'effect';
 import { Schema as S } from 'effect';
 import type { ValidationTargets } from 'hono';
-
-import { RequestValidationFailed } from './exceptions/index.js';
 
 // Every Hono route that reads a JSON body, query string, or path params
 // validates it through an Effect Schema via this helper — never by hand

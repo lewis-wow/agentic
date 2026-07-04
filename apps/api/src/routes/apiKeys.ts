@@ -8,6 +8,12 @@ import {
   RevokeApiKeyResponseFromPrisma,
   RotateApiKeyResponseSchema,
 } from '@repo/api';
+import {
+  ApiKeyAlreadyRevoked,
+  ApiKeyNotFound,
+  EnvironmentNotFound,
+  Forbidden,
+} from '@repo/api/exceptions';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { generateApiKey } from '@repo/auth/api-key';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
@@ -16,12 +22,6 @@ import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import {
-  ApiKeyAlreadyRevoked,
-  ApiKeyNotFound,
-  EnvironmentNotFound,
-  Forbidden,
-} from '../exceptions/index.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };

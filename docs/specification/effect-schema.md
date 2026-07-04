@@ -88,6 +88,8 @@ import { FlagIdParamSchema } from '@repo/api';
 
 Reason: `packages/api` is the single contract layer between `apps/api` and every consumer (dashboard, SDKs, other services). A schema defined inside `apps/api` can't be reused or reasoned about from outside that app, and it splits "the contract" across two packages for no benefit — path param and query schemas are just as much a part of a route's contract as its body schema.
 
+This same "framework-agnostic things live in `packages/api`" principle extends past schemas — exceptions (`@repo/api/exceptions`), business-logic services (`@repo/api/services`), and non-Hono validation helpers (`@repo/api/validation`) are separate subpath exports of the same package, none of them importing Hono. See `packages/api/AGENTS.md` for the full subpath breakdown.
+
 ## Validating Hono route input
 
 Every route handler that reads a JSON body, query string, or path params validates it through `apps/api/src/validation.ts`'s `validate(target, schema)` helper — never by hand (`await c.req.json()` + `typeof` checks, manual `c.req.param()` destructuring trusted as-is, ad hoc regexes). `validate` wraps [`@hono/standard-validator`](https://github.com/honojs/middleware/tree/main/packages/standard-validator)'s `sValidator` around `Schema.standardSchemaV1(schema)` — the bridge Effect Schema provides for any [Standard Schema](https://standardschema.dev/)-compliant validation middleware — and on failure returns `RequestValidationFailed` (a `BAD_REQUEST_400` `HttpException`) instead of the library's default response shape, so failures still go through this app's normal exception path (see [Error Handling](./error-handling.md)).

@@ -1,8 +1,7 @@
+import { Unauthorized } from '@repo/api/exceptions';
 import type { AuthJwtClaims } from '@repo/auth';
 import { JwtError, verifyRs256 } from '@repo/auth/jwt';
 import { createMiddleware } from 'hono/factory';
-
-import { Unauthorized } from '../exceptions/index.js';
 
 type Options = {
   publicKeyPem: string;

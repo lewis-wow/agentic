@@ -1,11 +1,7 @@
-import {
-  type FlagType,
-  type TargetingRule,
-  FlagSnapshotResponseSchema,
-} from '@repo/api';
+import { Forbidden } from '@repo/api/exceptions';
+import { SdkService } from '@repo/api/services';
 import { isSdkClaims } from '@repo/auth';
 import { prisma } from '@repo/prisma';
-import { Schema } from 'effect';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
@@ -15,20 +11,10 @@ import {
   getRingBuffer,
   type FlagStreamEvent,
 } from '../events/emitter.js';
-import { Forbidden } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
-const toSdkFlagType = (prismaType: string): FlagType => {
-  if (prismaType === 'percentage_rollout') return 'percentage_rollout';
-  if (prismaType === 'targeted') return 'targeted';
-  return 'boolean';
-};
-
-const parseRules = (raw: unknown): TargetingRule[] => {
-  if (!Array.isArray(raw)) return [];
-  return raw as TargetingRule[];
-};
+const sdkService = new SdkService({ prisma });
 
 export const sdkRouter = new Hono<AppEnv>();
 
@@ -126,28 +112,10 @@ sdkRouter.get('/flags/stream', async (c) => {
       }
 
       // Snapshot path (fresh connect or stale/absent Last-Event-ID)
-      const flagsWithStates = await prisma.flag.findMany({
-        where: { projectId: auth.projectId },
-        include: {
-          states: {
-            where: { environmentId: auth.environmentId },
-            select: { status: true, type: true, rollout: true, rules: true },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
+      const encoded = await sdkService.getFlagSnapshot({
+        projectId: auth.projectId,
+        environmentId: auth.environmentId,
       });
-
-      const flags = flagsWithStates
-        .filter((flag) => flag.states[0]?.status !== 'archived')
-        .map((flag) => ({
-          key: flag.key,
-          enabled: flag.states[0]?.status === 'active',
-          type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
-          rollout: flag.states[0]?.rollout ?? 0,
-          rules: parseRules(flag.states[0]?.rules),
-        }));
-
-      const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });
 
       await stream.writeSSE({
         event: 'snapshot',
@@ -170,28 +138,10 @@ sdkRouter.get('/flags', async (c) => {
   const auth = c.get('auth');
   if (!isSdkClaims(auth)) return new Forbidden().toResponse();
 
-  const flagsWithStates = await prisma.flag.findMany({
-    where: { projectId: auth.projectId },
-    include: {
-      states: {
-        where: { environmentId: auth.environmentId },
-        select: { status: true, type: true, rollout: true, rules: true },
-      },
-    },
-    orderBy: { createdAt: 'asc' },
+  const encoded = await sdkService.getFlagSnapshot({
+    projectId: auth.projectId,
+    environmentId: auth.environmentId,
   });
-
-  const flags = flagsWithStates
-    .filter((flag) => flag.states[0]?.status !== 'archived')
-    .map((flag) => ({
-      key: flag.key,
-      enabled: flag.states[0]?.status === 'active',
-      type: toSdkFlagType(flag.states[0]?.type ?? 'boolean'),
-      rollout: flag.states[0]?.rollout ?? 0,
-      rules: parseRules(flag.states[0]?.rules),
-    }));
-
-  const encoded = Schema.encodeSync(FlagSnapshotResponseSchema)({ flags });
 
   return c.json(encoded);
 });

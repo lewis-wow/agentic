@@ -1,4 +1,5 @@
 import { UserListPageSchema, UserListQuerySchema } from '@repo/api';
+import { Forbidden } from '@repo/api/exceptions';
 import type { AuthJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
@@ -9,7 +10,6 @@ import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import { Forbidden } from '../exceptions/index.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };

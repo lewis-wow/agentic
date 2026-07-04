@@ -7,6 +7,12 @@ import {
   MemberListPageSchema,
   MemberListQuerySchema,
 } from '@repo/api';
+import {
+  CannotAddOwnerAsMember,
+  Forbidden,
+  MemberNotFound,
+  UserNotFound,
+} from '@repo/api/exceptions';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
@@ -15,12 +21,6 @@ import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import {
-  CannotAddOwnerAsMember,
-  Forbidden,
-  MemberNotFound,
-  UserNotFound,
-} from '../exceptions/index.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
