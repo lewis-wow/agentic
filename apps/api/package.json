@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
+    "build:openapi-static": "tsx src/scripts/build-openapi-static.ts",
     "dev": "dotenvx run -f .env.development -f ../../.env.development -- tsx watch src/index.ts",
     "lint": "eslint .",
     "check-types": "tsc --noEmit"

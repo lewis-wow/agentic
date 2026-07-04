@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { generateOpenApiDocument, SCALAR_REFERENCE_HTML } from '@repo/api';
 import { decodeBase64Pem } from '@repo/auth/jwt';
 import { Hono } from 'hono';
 
@@ -22,6 +23,9 @@ const publicKeyPem = decodeBase64Pem(env.AUTH_PUBLIC_KEY);
 const app = new Hono<AppEnv>();
 
 app.get('/', (c) => c.json({ status: 'ok' }));
+
+app.get('/openapi.json', (c) => c.json(generateOpenApiDocument()));
+app.get('/docs', (c) => c.html(SCALAR_REFERENCE_HTML));
 
 const jwtAuth = createJwtVerifyMiddleware({ publicKeyPem });
 

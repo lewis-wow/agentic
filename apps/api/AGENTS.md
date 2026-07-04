@@ -52,7 +52,7 @@ Non-project-scoped routes (`/projects` list+create, `/users`) receive a `MeJwtCl
   - **Service methods throw `Exception` subclasses directly**, same as route handlers do today — there is no Effect failure channel involved in the service layer. Effect is used in this app only for `Schema` validation (request bodies, env vars), not for service composition or control flow.
   - **Route handlers call the service inside a `try`/`catch`** (or let the thrown `Exception` propagate to the shared error-handling middleware, whichever is already wired) and call `.toResponse()` on it, exactly as they do today for exceptions thrown inline.
 
-- **Every mutating request body is decoded through an Effect `Schema.Struct`** defined in `packages/api` (the sibling package) — see `CreateProjectRequestSchema`, `CreateEnvironmentRequestSchema`, `AddMemberRequestSchema` for the pattern (`Schema.decodeUnknownEither`, branch on `Either.isLeft`). Never define inline types for request bodies. GET responses are returned as plain typed Prisma projections rather than encoded through a schema (existing convention); match that for new GET routes rather than introducing a second style.
+- **Every mutating request body is decoded through an Effect `Schema.Struct`** defined in `packages/api` (the sibling package) — see `CreateProjectRequestSchema`, `CreateEnvironmentRequestSchema`, `AddMemberRequestSchema` for the pattern (`Schema.decodeUnknownEither`, branch on `Either.isLeft`). Never define inline types for request bodies. **Paginated list GET responses are encoded through their `PaginatedResponseSchema`** (see `packages/api/src/schemas/pagination.ts`) via `Schema.encodeSync` before `c.json(...)` — see `users.ts`, `apiKeys.ts`, `environments.ts`, `members.ts`, and the list/audit-log handlers in `flags.ts` for the pattern. Single-resource GET responses (flag detail, project detail, etc.) still return plain typed Prisma projections until they adopt a schema too — match whichever style the endpoint you're touching already uses.
 - **Every error is an `Exception` subclass** from `src/exceptions/`. Never call `c.json()` directly with a status code. Use `exception.toResponse()` or `throw exception` outside a service; inside a service, fail the `Effect` with it instead.
 
 ## Adding a New Route
@@ -116,6 +116,10 @@ export class FlagNotFound extends HttpException {
 ```
 
 Extend `HttpException` (not the plain `Exception` base) — it adds `.toResponse()`, which every route handler in this app returns directly.
+
+## API Documentation (OpenAPI)
+
+`GET /openapi.json` and `GET /docs` are wired in `src/index.ts`, but the document itself is generated entirely in `packages/api/src/openapi.ts` — see [OpenAPI Generation](../../docs/specification/openapi.md) for the full convention, including how to add a new endpoint and how to produce a standalone static bundle (`pnpm build:openapi-static`).
 
 ## Environment Variables
 

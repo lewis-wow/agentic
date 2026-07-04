@@ -22,6 +22,7 @@ src/
     environments.ts # Environment schema + paginated environment list schemas
     members.ts     # Project member list item + paginated member list schema
     projects.ts    # Project/environment/member request schemas
+  openapi.ts       # Generates the OpenAPI document from the schemas above — see docs/specification/openapi.md
 ```
 
 ## Rules

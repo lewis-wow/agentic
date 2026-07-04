@@ -13,15 +13,15 @@
 
 You have access to specific local documentation files for this project. Before writing, refactoring, or reviewing any code, you must use your file-reading tool to read the relevant documentation file from the list below based on the technology you are working with:
 
-- For TypeScript use: @docs/standards/typescript.md (Strict TypeScript development standards, JavaScript is prohibited)
-- For React use: @docs/standards/react.md (React architectural patterns and state management)
-- For Turborepo use: @docs/standards/turborepo.md (Turborepo workspace management and build orchestration)
-- For Dotenvx use: @docs/standards/dotenvx.md (Dotenvx multi-environment configuration and vault encryption)
-- For Hono use: @docs/standards/hono.md (Hono HTTP routing, middleware, and backend context)
-- For Effect use: @docs/standards/effect.md (Effect schemas, data parsing, and runtime validation)
-- For Shadcn UI use: @docs/standards/shadcnui.md (Shadcn UI design system and primitive configurations)
-- For Prisma use: @docs/standards/prisma.md (Prisma schema declarations and database client)
-- For TanStack Query use: @docs/standards/tanstack-query.md (Data fetching and mutation patterns in the dashboard)
+- For TypeScript use: [docs/standards/typescript.md](docs/standards/typescript.md) (Strict TypeScript development standards, JavaScript is prohibited)
+- For React use: [docs/standards/react.md](docs/standards/react.md) (React architectural patterns and state management)
+- For Turborepo use: [docs/standards/turborepo.md](docs/standards/turborepo.md) (Turborepo workspace management and build orchestration)
+- For Dotenvx use: [docs/standards/dotenvx.md](docs/standards/dotenvx.md) (Dotenvx multi-environment configuration and vault encryption)
+- For Hono use: [docs/standards/hono.md](docs/standards/hono.md) (Hono HTTP routing, middleware, and backend context)
+- For Effect use: [docs/standards/effect.md](docs/standards/effect.md) (Effect schemas, data parsing, and runtime validation)
+- For Shadcn UI use: [docs/standards/shadcnui.md](docs/standards/shadcnui.md) (Shadcn UI design system and primitive configurations)
+- For Prisma use: [docs/standards/prisma.md](docs/standards/prisma.md) (Prisma schema declarations and database client)
+- For TanStack Query use: [docs/standards/tanstack-query.md](docs/standards/tanstack-query.md) (Data fetching and mutation patterns in the dashboard)
 
 Strictly follow the guidelines found inside these files for every task.
 
@@ -35,6 +35,7 @@ Repo-wide conventions live in `docs/specification/`. Read the relevant file befo
 - [Environment Variables](docs/specification/environment-variables.md)
 - [Barrel Files](docs/specification/barrel-files.md)
 - [Effect Schema for Requests and Responses](docs/specification/effect-schema.md)
+- [OpenAPI Generation](docs/specification/openapi.md)
 - [Forms](docs/specification/forms.md)
 - [App-Scoped Packages for Domain Schemas](docs/specification/app-scoped-packages.md)
 - [Enums and Constants](docs/specification/enums-and-constants.md)

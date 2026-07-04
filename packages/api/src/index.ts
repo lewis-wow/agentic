@@ -6,3 +6,4 @@ export * from './schemas/users.js';
 export * from './schemas/apiKeys.js';
 export * from './schemas/environments.js';
 export * from './schemas/members.js';
+export * from './openapi.js';
