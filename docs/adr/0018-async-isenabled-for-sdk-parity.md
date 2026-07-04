@@ -1,0 +1,3 @@
+# `isEnabled()` is async on both SDKs, even though Node didn't need it to be
+
+`SdkClient.isEnabled()` returns `Promise<boolean>` in both `sdk-node` and `sdk-browser`, even though Node's `node:crypto` could hash synchronously. The browser SDK must use `globalThis.crypto.subtle`, which is Promise-only, for percentage-rollout bucketing; rather than let the two SDKs diverge (sync in Node, async in the browser), `sdk-core`'s shared implementation makes every SDK's `isEnabled()` async, so `packages/sdk-node` and `packages/sdk-browser` expose an identical public API through thin wrappers around one shared client.

@@ -1,5 +1,5 @@
 # Example: fronting the stack with Pomerium as the Trusted Proxy Authentication
-# reverse proxy (see .issues/auth.md and .plans/PRD.md §8.1).
+# reverse proxy (see docs/adr/0014-trusted-proxy-authentication.md).
 #
 # This is an overlay on the root docker-compose.yml, not a standalone stack —
 # it only adds pomerium + a mock OIDC provider, and points the existing

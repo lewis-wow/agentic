@@ -6,7 +6,7 @@ Shared ESLint flat-config presets consumed by every app and package in the monor
 
 ## Required Context Loading
 
-- @.docs/typescript.md
+- @docs/standards/typescript.md
 
 ## Usage
 

@@ -3,7 +3,7 @@
 // local development. Trusted Proxy Authentication requires every request to
 // carry an Identity Header and a Trusted Proxy Secret — this script injects
 // both on every request it forwards, so `apps/dashboard`'s own code path
-// never branches on "am I in dev" (see .issues/auth.md, "Local dev").
+// never branches on "am I in dev" (see docs/adr/0014-trusted-proxy-authentication.md).
 //
 // Usage: node scripts/dev-trusted-proxy.mjs
 // Then visit http://localhost:4000 instead of http://localhost:3000 directly.

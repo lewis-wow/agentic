@@ -6,8 +6,8 @@ The structured error base class (`Exception<TData>`) and the runtime schema (`Ex
 
 ## Required Context Loading
 
-- @.docs/typescript.md
-- @.docs/effect.md
+- @docs/standards/typescript.md
+- @docs/standards/effect.md
 
 ## Key Concepts
 

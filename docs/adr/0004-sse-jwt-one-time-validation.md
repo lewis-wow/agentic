@@ -1,0 +1,3 @@
+# SSE connections validate the JWT once, at connect time only
+
+The SDK JWT authenticating an SSE stream is checked when the connection opens and never again for the lifetime of that connection. A revoked API key or an expired JWT does not close an already-open stream early — the client keeps receiving events until it disconnects and tries to reconnect, at which point the new connection is rejected. We accepted this because SSE connections are long-lived and per-event JWT verification would add overhead on every broadcast with no proportional security benefit; revocation still takes effect on the next connection attempt.

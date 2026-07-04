@@ -1,0 +1,3 @@
+# `apps/api` is the single source of truth; the dashboard never touches Prisma directly
+
+All reads and writes go through `apps/api` — no other service, including `apps/dashboard`, queries Prisma directly or embeds business logic of its own. The dashboard's only data-fetching mechanism is TanStack Query calling Next.js API routes, which exchange credentials for a JWT and forward to `apps/api`; there are no Next.js server actions for data. This keeps validation, authorization, and audit-logging logic in one place instead of duplicated (and potentially drifting) across every layer that could otherwise read or write the database.

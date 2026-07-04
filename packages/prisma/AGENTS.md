@@ -6,8 +6,8 @@ Prisma schema, generated client, and the shared singleton `prisma` instance. Re-
 
 ## Required Context Loading
 
-- @.docs/prisma.md
-- @.docs/typescript.md
+- @docs/standards/prisma.md
+- @docs/standards/typescript.md
 
 ## Rules
 
@@ -18,7 +18,7 @@ Prisma schema, generated client, and the shared singleton `prisma` instance. Re-
 
 ## Schema Conventions
 
-See @.docs/prisma.md for the full set of schema rules. Key points:
+See @docs/standards/prisma.md for the full set of schema rules. Key points:
 
 - Every model has `id String @id @default(cuid())`, `createdAt DateTime @default(now())`, and `updatedAt DateTime @updatedAt`.
 - Timestamps are always the last two fields in every model.

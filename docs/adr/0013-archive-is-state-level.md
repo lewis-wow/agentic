@@ -1,0 +1,3 @@
+# Archiving a flag is a `FlagState` value, not a new column on `Flag`
+
+Archiving sets every environment's `FlagState.status` to `archived`; there is no separate `Flag.archived` boolean. We reused the existing per-environment `status` field (`active | inactive | archived`) instead of adding a flag-level column, so "archived" composes naturally with the per-environment status model already in place rather than requiring every reader of flag state to check two independent fields. The cost is that "is this flag archived" means checking all of its `FlagState` rows agree, rather than reading a single field.

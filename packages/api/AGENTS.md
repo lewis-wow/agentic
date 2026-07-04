@@ -6,8 +6,8 @@ Domain schemas for every `apps/api` endpoint. This is the **contract layer** bet
 
 ## Required Context Loading
 
-- @.docs/typescript.md
-- @.docs/effect.md
+- @docs/standards/typescript.md
+- @docs/standards/effect.md
 
 ## Source Layout
 

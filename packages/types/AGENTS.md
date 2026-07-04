@@ -6,7 +6,7 @@ Fundamental TypeScript utility types shared across the entire monorepo. Contains
 
 ## Required Context Loading
 
-- @.docs/typescript.md
+- @docs/standards/typescript.md
 
 ## Rules
 

@@ -6,7 +6,7 @@ Credential-exchange primitives shared by both BFF layers (`apps/bff` and `apps/d
 
 ## Required Context Loading
 
-- @.docs/typescript.md
+- @docs/standards/typescript.md
 
 ## Exports
 

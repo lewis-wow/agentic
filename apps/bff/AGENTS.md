@@ -8,9 +8,9 @@
 
 Before writing, refactoring, or reviewing any code here, read:
 
-- @.docs/typescript.md
-- @.docs/hono.md
-- @.docs/effect.md
+- @docs/standards/typescript.md
+- @docs/standards/hono.md
+- @docs/standards/effect.md
 
 ## Source Layout
 
@@ -25,7 +25,7 @@ src/
 ## Rules
 
 - **No business logic.** The only work done here is authentication (parse Bearer token, verify API key, mint JWT) and proxying the request to `apps/api` via `@repo/bff`'s `forwardWithJwt`.
-- **Bearer token format:** `<envSlug>_<apiKeyId>.<secret>` — the `envSlug` prefix is a cosmetic, unvalidated hint derived from the owning environment's name (see `docs/adr/0001-api-key-prefix-is-cosmetic-only.md`); only the trailing `<apiKeyId>.<secret>` is parsed. Parsing and verification use `@repo/bff` primitives.
+- **Bearer token format:** `<envSlug>_<apiKeyId>.<secret>` — the `envSlug` prefix is a cosmetic, unvalidated hint derived from the owning environment's name (see `docs/adr/0008-api-key-prefix-is-cosmetic-only.md`); only the trailing `<apiKeyId>.<secret>` is parsed. Parsing and verification use `@repo/bff` primitives.
 - **No Prisma access.** Never import `@repo/prisma` here.
 - **Every error is an `Exception` subclass.** Never call `c.json()` directly with a status code. Exceptions live in `src/exceptions/` if any are needed.
 - **Environment variables** are validated at startup in `src/env.ts` via Effect `Schema.Struct`.

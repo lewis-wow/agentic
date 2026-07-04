@@ -32,7 +32,7 @@ idp_scopes:
 
 # Maps OIDC claims onto arbitrary upstream header names. The dashboard/bff
 # only read the identity header named by TRUSTED_PROXY_IDENTITY_HEADER
-# (default X-Forwarded-Email) — see .issues/auth.md.
+# (default X-Forwarded-Email) — see apps/bff/AGENTS.md.
 jwt_claims_headers:
   X-Forwarded-Email: email
 

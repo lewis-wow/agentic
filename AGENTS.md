@@ -12,15 +12,15 @@
 
 You have access to specific local documentation files for this project. Before writing, refactoring, or reviewing any code, you must use your file-reading tool to read the relevant documentation file from the list below based on the technology you are working with:
 
-- For TypeScript use: @.docs/typescript.md (Strict TypeScript development standards, JavaScript is prohibited)
-- For React use: @.docs/react.md (React architectural patterns and state management)
-- For Turborepo use: @.docs/turborepo.md (Turborepo workspace management and build orchestration)
-- For Dotenvx use: @.docs/dotenvx.md (Dotenvx multi-environment configuration and vault encryption)
-- For Hono use: @.docs/hono.md (Hono HTTP routing, middleware, and backend context)
-- For Effect use: @.docs/effect.md (Effect schemas, data parsing, and runtime validation)
-- For Shadcn UI use: @.docs/shadcnui.md (Shadcn UI design system and primitive configurations)
-- For Prisma use: @.docs/prisma.md (Prisma schema declarations and database client)
-- For TanStack Query use: @.docs/tanstack-query.md (Data fetching and mutation patterns in the dashboard)
+- For TypeScript use: @docs/standards/typescript.md (Strict TypeScript development standards, JavaScript is prohibited)
+- For React use: @docs/standards/react.md (React architectural patterns and state management)
+- For Turborepo use: @docs/standards/turborepo.md (Turborepo workspace management and build orchestration)
+- For Dotenvx use: @docs/standards/dotenvx.md (Dotenvx multi-environment configuration and vault encryption)
+- For Hono use: @docs/standards/hono.md (Hono HTTP routing, middleware, and backend context)
+- For Effect use: @docs/standards/effect.md (Effect schemas, data parsing, and runtime validation)
+- For Shadcn UI use: @docs/standards/shadcnui.md (Shadcn UI design system and primitive configurations)
+- For Prisma use: @docs/standards/prisma.md (Prisma schema declarations and database client)
+- For TanStack Query use: @docs/standards/tanstack-query.md (Data fetching and mutation patterns in the dashboard)
 
 Strictly follow the guidelines found inside these files for every task.
 
@@ -44,7 +44,7 @@ Do not report a task as complete if any of these commands exit with a non-zero s
 ```bash
 # Development
 pnpm dev                    # Start all apps in watch mode
-pnpm dev:proxy              # Stand-in reverse proxy for Trusted Proxy Auth (see .issues/auth.md) —
+pnpm dev:proxy              # Stand-in reverse proxy for Trusted Proxy Auth (see docs/adr/0014-trusted-proxy-authentication.md) —
                              # visit http://localhost:4000 instead of :3000 directly
 pnpm build                  # Build all packages/apps (Turborepo)
 pnpm lint                   # Lint all packages/apps
@@ -185,7 +185,7 @@ Generic shared packages (`packages/types`, `packages/auth`, `packages/prisma`, �
 
 ### Enums and Constants
 
-**Enums** — any fixed set of related named values — must be declared as `as const` objects following the pattern in `.docs/typescript.md`. Never use the TypeScript `enum` keyword.
+**Enums** — any fixed set of related named values — must be declared as `as const` objects following the pattern in `docs/standards/typescript.md`. Never use the TypeScript `enum` keyword.
 
 ```ts
 export const SYSTEM_ROLE = {

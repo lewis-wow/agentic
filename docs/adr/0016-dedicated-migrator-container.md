@@ -1,0 +1,3 @@
+# Migrations run in a dedicated one-shot container, not on app boot
+
+A `migrator` service runs `prisma migrate deploy` as a one-shot container (`restart: no`) before `api` or `dashboard` start; neither app runs migrations as part of its own startup. Running migrations inline on app boot was rejected because it couples the app's readiness to a step that can fail or hang for reasons unrelated to the app itself (a bad migration, a slow `ALTER TABLE`); a dedicated container makes migration success an explicit, independently observable precondition via Compose's `service_completed_successfully` dependency, rather than something buried inside application logs during boot.

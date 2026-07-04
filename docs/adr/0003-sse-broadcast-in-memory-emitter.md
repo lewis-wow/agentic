@@ -1,0 +1,3 @@
+# SSE broadcast uses an in-process EventEmitter, not an external bus
+
+Flag-change events are broadcast to connected SDK clients via a single in-process Node.js `EventEmitter` singleton (`apps/api/src/events/emitter.ts`), rather than an external pub/sub system like Redis. The platform runs a single `apps/api` process against one Postgres instance with no horizontal-scaling requirement, so an in-memory emitter needs no extra infrastructure to operate. This becomes a hard constraint the moment `apps/api` needs to run as more than one instance — events emitted on one instance would never reach SDK clients connected to another.

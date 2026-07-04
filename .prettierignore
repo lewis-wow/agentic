@@ -1,6 +1,6 @@
 node_modules
 dist
-.docs/tanstack-query.md
+docs/standards/tanstack-query.md
 .turbo
 pnpm-lock.yaml
 .agents

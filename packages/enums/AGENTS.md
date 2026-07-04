@@ -6,7 +6,7 @@ Shared `as const` enums used across the entire monorepo: `HttpStatusCode` and `N
 
 ## Required Context Loading
 
-- @.docs/typescript.md
+- @docs/standards/typescript.md
 
 ## Rules
 

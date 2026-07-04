@@ -8,10 +8,10 @@
 
 Before writing, refactoring, or reviewing any code here, read:
 
-- @.docs/typescript.md
-- @.docs/react.md
-- @.docs/tanstack-query.md
-- @.docs/shadcnui.md
+- @docs/standards/typescript.md
+- @docs/standards/react.md
+- @docs/standards/tanstack-query.md
+- @docs/standards/shadcnui.md
 
 ## Data Rules
 

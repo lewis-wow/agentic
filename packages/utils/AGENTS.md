@@ -6,8 +6,8 @@ Shared runtime utility functions used across apps and packages. Lightweight help
 
 ## Required Context Loading
 
-- @.docs/typescript.md
-- @.docs/effect.md
+- @docs/standards/typescript.md
+- @docs/standards/effect.md
 
 ## Rules
 

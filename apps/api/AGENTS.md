@@ -8,10 +8,10 @@
 
 Before writing, refactoring, or reviewing any code here, read:
 
-- @.docs/typescript.md
-- @.docs/hono.md
-- @.docs/effect.md
-- @.docs/prisma.md
+- @docs/standards/typescript.md
+- @docs/standards/hono.md
+- @docs/standards/effect.md
+- @docs/standards/prisma.md
 
 ## Source Layout
 

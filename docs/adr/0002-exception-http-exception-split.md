@@ -1,0 +1,3 @@
+# `Exception` is HTTP-agnostic; `HttpException` adds HTTP concerns
+
+`packages/exception` originally bundled HTTP concepts (`status`, `toResponse()`, `fromResponse()`) directly into the base `Exception` class, which made it unusable outside an HTTP server context — notably in `packages/sdk-node`, which throws exceptions but never produces an HTTP response. We split the class in two: `Exception<TData>` keeps `code`, `message`, `data`, and `cause`; `HttpException<TData>` extends it and adds the HTTP-specific members. Every error in the monorepo extends `Exception`; only errors that cross an HTTP boundary extend `HttpException`.

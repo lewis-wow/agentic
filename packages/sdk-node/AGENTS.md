@@ -6,8 +6,8 @@ Node.js SDK client for consuming the feature flag API. Authenticates via an API 
 
 ## Required Context Loading
 
-- @.docs/typescript.md
-- @.docs/effect.md
+- @docs/standards/typescript.md
+- @docs/standards/effect.md
 
 ## Key Concepts
 

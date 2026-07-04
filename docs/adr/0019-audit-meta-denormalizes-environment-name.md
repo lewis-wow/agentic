@@ -1,0 +1,3 @@
+# Audit event meta stores `environmentName` at write time, not by live join
+
+`flag.toggled` and `flag.rollout_updated` audit events store `environmentName` directly in their `meta` JSON at the moment they're written, rather than the dashboard joining through `environmentId` to the current `Environment` row when rendering the timeline. Environments can be renamed or deleted after the fact; denormalizing the name preserves what the audit event actually referred to at the time it happened, rather than showing whatever the environment is currently called (or failing to render at all if it's since been deleted). Rows written before this change lack `environmentName` and fall back to displaying the raw `environmentId`.

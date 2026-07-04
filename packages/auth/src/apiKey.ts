@@ -18,7 +18,7 @@ export type GenerateApiKeyArgs = {
 /**
  * Generates a new API key in the format `<envSlug>_<apiKeyId>.<secret>`,
  * where `envSlug` is the owning environment's name, slugified, purely as a
- * cosmetic hint (see docs/adr/0001-api-key-prefix-is-cosmetic-only.md).
+ * cosmetic hint (see docs/adr/0008-api-key-prefix-is-cosmetic-only.md).
  *
  * - `apiKeyId` (32 hex chars) is stored plaintext in the DB for indexed lookup.
  * - `secret` (64 hex chars) is bcrypt-hashed and stored as `apiKeyHash`.

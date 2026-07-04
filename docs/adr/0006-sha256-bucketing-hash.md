@@ -1,0 +1,3 @@
+# Percentage rollout buckets with SHA-256, not a non-cryptographic hash
+
+Percentage-rollout bucketing hashes `` `${flagKey}/${userId}` `` with `crypto.createHash('sha256')`, takes the first 4 bytes as a big-endian uint32, and reduces `% 100` to get a bucket in `[0, 99]`. We chose SHA-256 over a faster non-cryptographic hash (FNV, MurmurHash) because it ships in Node's standard library with no extra dependency, and its output distribution is uniform enough for stable, evenly-spread bucketing without us having to vet a hash's statistical properties ourselves. Because the hash is deterministic and unsalted, the same `(flagKey, userId)` pair always lands in the same bucket — sticky bucketing falls out for free.

@@ -10,9 +10,9 @@
 
 Before writing, refactoring, or reviewing any code in this package, read the relevant documentation:
 
-- For TypeScript use: @.docs/typescript.md
-- For React use: @.docs/react.md
-- For Shadcn UI use: @.docs/shadcnui.md
+- For TypeScript use: @docs/standards/typescript.md
+- For React use: @docs/standards/react.md
+- For Shadcn UI use: @docs/standards/shadcnui.md
 
 ## Commands
 

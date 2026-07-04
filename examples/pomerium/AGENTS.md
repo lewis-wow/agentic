@@ -11,9 +11,9 @@ This example is the real thing; `pnpm dev:proxy`
 (`scripts/dev-trusted-proxy.mjs`) is the local-dev stand-in that fakes the
 same headers unconditionally.
 
-Read `.issues/auth.md` (Trusted Proxy Authentication section) and
-`.plans/PRD.md` §8.1 before changing anything here — this example exists to
-demonstrate that design, not to introduce its own.
+Read `docs/adr/0014-trusted-proxy-authentication.md` and `apps/bff/AGENTS.md`
+before changing anything here — this example exists to demonstrate that
+design, not to introduce its own.
 
 Login is backed by a mock OIDC provider
 ([`oidc-server-mock`](https://github.com/Soluto/oidc-server-mock)) with one
@@ -22,12 +22,14 @@ hardcoded test user, so the example runs with zero external accounts.
 ## Required Context Loading
 
 This folder has no application source code (no TypeScript, no build step) —
-it's Docker Compose + Pomerium config. `.docs/*.md` generally does not apply
+it's Docker Compose + Pomerium config. `docs/standards/*.md` generally does not apply
 here. What matters instead:
 
-- `.issues/auth.md` — the Trusted Proxy Authentication contract this example
-  implements (header names, secret comparison, JWT minting downstream).
-- `.plans/PRD.md` §8.1 — product-level description of the same feature.
+- `docs/adr/0014-trusted-proxy-authentication.md` — why this platform delegates
+  authentication to a reverse proxy instead of building its own login.
+- `apps/bff/AGENTS.md` — the Trusted Proxy Authentication contract this
+  example implements (header names, secret comparison, JWT minting
+  downstream).
 
 ## Layout
 
@@ -59,8 +61,7 @@ Browser ──HTTPS──> Pomerium ──OIDC login──> mock-idp
 `bff`/`api`/`postgres`/`migrator` are unmodified from the root
 `docker-compose.yml` — only `dashboard`'s browser-facing traffic goes through
 Pomerium. `apps/dashboard`'s catch-all route forwards to `apps/bff` directly
-over the docker network (Issue 5 in `.issues/auth.md`), so Pomerium never
-fronts `bff` itself.
+over the docker network, so Pomerium never fronts `bff` itself.
 
 `pomerium/config.yaml` maps the OIDC `email` claim onto `X-Forwarded-Email`
 via `jwt_claims_headers`, and adds a static `X-Trusted-Proxy-Secret` header
@@ -89,8 +90,9 @@ via `set_request_headers` on the `dashboard.localhost` route.
   `cookie_secret`, or `TRUSTED_PROXY_SECRET` from this example anywhere real.
 - **Only `dashboard.localhost` is routed through Pomerium.** Don't add a
   route for `bff` or `api` — the architecture intentionally keeps Pomerium
-  in front of the dashboard only; see `.issues/auth.md` Issue 5 for why
-  `bff` isn't fronted directly.
+  in front of the dashboard only. `apps/dashboard`'s catch-all route forwards
+  to `apps/bff` directly over the docker network (see "How it fits together"
+  above), so `bff` never needs its own Pomerium route.
 - **The root compose file still publishes `dashboard` on host port 3000**,
   bypassing Pomerium entirely. That's intentional for local convenience —
   the app enforces the same identity check regardless of what's in front of

@@ -6,7 +6,7 @@ Shared Vitest config factories used by every app's `__tests__/vitest.unit.config
 
 ## Required Context Loading
 
-- @.docs/typescript.md
+- @docs/standards/typescript.md
 
 ## Usage
 
