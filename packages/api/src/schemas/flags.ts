@@ -1,3 +1,4 @@
+import type { ValueOfEnum } from '@repo/types';
 import { Schema } from 'effect';
 
 export const FLAG_TYPE = {
@@ -6,7 +7,7 @@ export const FLAG_TYPE = {
   TARGETED: 'targeted',
 } as const;
 
-export type FlagType = (typeof FLAG_TYPE)[keyof typeof FLAG_TYPE];
+export type FlagType = ValueOfEnum<typeof FLAG_TYPE>;
 
 export const RULE_OPERATOR = {
   EQ: 'EQ',
@@ -16,7 +17,7 @@ export const RULE_OPERATOR = {
   CONTAINS: 'CONTAINS',
 } as const;
 
-export type RuleOperator = (typeof RULE_OPERATOR)[keyof typeof RULE_OPERATOR];
+export type RuleOperator = ValueOfEnum<typeof RULE_OPERATOR>;
 
 export const RULE_OPERATOR_VALUES = Object.values(RULE_OPERATOR) as [
   RuleOperator,
@@ -25,7 +26,7 @@ export const RULE_OPERATOR_VALUES = Object.values(RULE_OPERATOR) as [
 
 export const TargetingRuleSchema = Schema.Struct({
   attribute: Schema.String,
-  operator: Schema.Literal(...RULE_OPERATOR_VALUES),
+  operator: Schema.Enums(RULE_OPERATOR),
   value: Schema.Array(Schema.String),
 });
 
@@ -34,11 +35,7 @@ export type TargetingRule = Schema.Schema.Type<typeof TargetingRuleSchema>;
 export const FlagConfigSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
-  type: Schema.Literal(
-    FLAG_TYPE.BOOLEAN,
-    FLAG_TYPE.PERCENTAGE_ROLLOUT,
-    FLAG_TYPE.TARGETED,
-  ),
+  type: Schema.Enums(FLAG_TYPE),
   rollout: Schema.Number,
   rules: Schema.Array(TargetingRuleSchema),
 });
@@ -57,11 +54,7 @@ export type FlagSnapshotResponse = Schema.Schema.Type<
 export const FlagCreatedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
-  type: Schema.Literal(
-    FLAG_TYPE.BOOLEAN,
-    FLAG_TYPE.PERCENTAGE_ROLLOUT,
-    FLAG_TYPE.TARGETED,
-  ),
+  type: Schema.Enums(FLAG_TYPE),
   rollout: Schema.Number,
   rules: Schema.Array(TargetingRuleSchema),
 });
@@ -72,11 +65,7 @@ export type FlagCreatedEvent = Schema.Schema.Type<
 export const FlagUpdatedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
-  type: Schema.Literal(
-    FLAG_TYPE.BOOLEAN,
-    FLAG_TYPE.PERCENTAGE_ROLLOUT,
-    FLAG_TYPE.TARGETED,
-  ),
+  type: Schema.Enums(FLAG_TYPE),
   rollout: Schema.Number,
   rules: Schema.Array(TargetingRuleSchema),
 });
@@ -87,11 +76,7 @@ export type FlagUpdatedEvent = Schema.Schema.Type<
 export const FlagUnarchivedEventSchema = Schema.Struct({
   key: Schema.String,
   enabled: Schema.Boolean,
-  type: Schema.Literal(
-    FLAG_TYPE.BOOLEAN,
-    FLAG_TYPE.PERCENTAGE_ROLLOUT,
-    FLAG_TYPE.TARGETED,
-  ),
+  type: Schema.Enums(FLAG_TYPE),
   rollout: Schema.Number,
   rules: Schema.Array(TargetingRuleSchema),
 });

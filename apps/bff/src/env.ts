@@ -4,10 +4,9 @@ import { Schema } from 'effect';
 
 export const env = createEnv({
   schema: {
-    NODE_ENV: Schema.optionalWith(
-      Schema.Literal(NodeEnv.DEVELOPMENT, NodeEnv.PRODUCTION, NodeEnv.TEST),
-      { default: () => NodeEnv.DEVELOPMENT },
-    ),
+    NODE_ENV: Schema.optionalWith(Schema.Enums(NodeEnv), {
+      default: () => NodeEnv.DEVELOPMENT,
+    }),
     BFF_PORT: Schema.optionalWith(Schema.NumberFromString, {
       default: () => 3000,
     }),

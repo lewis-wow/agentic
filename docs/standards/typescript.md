@@ -139,10 +139,11 @@ export type NodeEnv = ValueOfEnum<typeof NODE_ENV>;
 - **Never use "as" during importing if it is not required**
 
 - **Use ValueOfEnum for extracting enum value types**
-  Always use a `ValueOfEnum` utility type to extract the union of values from a `const` enum object. Never use `typeof` or manual unions directly.
+  Always use the `ValueOfEnum` utility type, imported from `@repo/types`, to extract the union of values from a `const` enum object. Never use `typeof X[keyof typeof X]` inline, a manual union, or a locally re-declared copy of `ValueOfEnum` — every package that needs it takes `@repo/types` as a dependency.
 
 ```typescript
-type ValueOfEnum<T> = T[keyof T];
+// Correct
+import type { ValueOfEnum } from '@repo/types';
 
 const ROLES = {
   ADMIN: 'ADMIN',
@@ -150,6 +151,12 @@ const ROLES = {
 } as const;
 
 type Role = ValueOfEnum<typeof ROLES>; // 'ADMIN' | 'USER'
+
+// Incorrect — inline typeof/keyof
+type Role = (typeof ROLES)[keyof typeof ROLES];
+
+// Incorrect — local re-declaration instead of importing from @repo/types
+type ValueOfEnum<T> = T[keyof T];
 ```
 
 - **Use Effect Schema for all validation and DTOs**

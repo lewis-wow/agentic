@@ -1,4 +1,4 @@
-type ValueOfEnum<T extends Record<string, string>> = T[keyof T];
+import type { ValueOfEnum } from '@repo/types';
 
 /**
  * System-level role stored on `User.role`. Exactly one `OWNER` exists per
