@@ -7,6 +7,7 @@
 - Modules: ESM
 - Always scope non-global .env into particular app as .env.production for production or .env.development for development
 - node_modules are stored in root node_modules/ folder
+- All GitHub activity performed by Claude Code must be prefixed with `CLAUDE: ` — this includes issue titles, issue comments, close descriptions, PR titles/descriptions, and any other content posted to GitHub. The same `CLAUDE: ` prefix applies to git commit messages.
 
 ## Required Context Loading
 
