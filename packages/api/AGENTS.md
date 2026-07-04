@@ -14,7 +14,14 @@ Domain schemas for every `apps/api` endpoint. This is the **contract layer** bet
 ```text
 src/
   schemas/
-    flags.ts   # Flag schemas, flag event schemas, FLAG_TYPE const enum
+    pagination.ts  # PaginatedResponseSchema helper — the standard { items, total, page, limit } envelope
+    flags.ts       # Flag schemas, flag event schemas, FLAG_TYPE/FLAG_STATUS const enums
+    auditLog.ts    # Audit log entry + paginated audit log schemas
+    users.ts       # User list item + paginated user list schemas
+    apiKeys.ts     # API key list item + paginated API key list schemas
+    environments.ts # Environment schema + paginated environment list schemas
+    members.ts     # Project member list item + paginated member list schema
+    projects.ts    # Project/environment/member request schemas
 ```
 
 ## Rules

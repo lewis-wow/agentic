@@ -1,9 +1,10 @@
+import type { Environment } from '@repo/api';
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '../lib/apiFetch';
 import { apiKeyKeys } from './apiKeys';
-import { projectKeys, type Environment } from './projects';
+import { projectKeys } from './projects';
 
 export const environmentKeys = {
   all: (projectId: string, search: string) =>
@@ -15,27 +16,16 @@ const ENVIRONMENTS_LIMIT = 10;
 export const useEnvironmentsList = (projectId: string, search: string) =>
   usePaginatedQuery<Environment>({
     queryKey: [...environmentKeys.all(projectId, search)],
-    queryFn: async (page): Promise<PagedResponse<Environment>> => {
+    queryFn: (page): Promise<PagedResponse<Environment>> => {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(ENVIRONMENTS_LIMIT),
       });
       if (search) params.set('search', search);
 
-      const data = await apiFetch<{
-        environments: Environment[];
-        total: number;
-        page: number;
-        limit: number;
-      }>({
+      return apiFetch<PagedResponse<Environment>>({
         path: `/api/projects/${projectId}/environments?${params.toString()}`,
       });
-      return {
-        items: data.environments,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-      };
     },
     limit: ENVIRONMENTS_LIMIT,
   });

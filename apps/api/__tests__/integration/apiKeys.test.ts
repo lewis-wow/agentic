@@ -102,6 +102,7 @@ describe('GET /projects/:projectId/api-keys', () => {
         environment: { id: 'env-1', name: 'production' },
       },
     ] as never);
+    mockPrisma.apiKey.count.mockResolvedValue(1 as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/api-keys`, {
       headers: bearer(ownerToken(PROJECT_ID)),
@@ -109,8 +110,8 @@ describe('GET /projects/:projectId/api-keys', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.apiKeys).toHaveLength(1);
-    expect(body.apiKeys[0]).toMatchObject({
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]).toMatchObject({
       id: 'key-1',
       name: 'Default',
       apiKeyId: 'abc123',

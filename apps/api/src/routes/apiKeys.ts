@@ -1,4 +1,4 @@
-import { CreateApiKeyRequestSchema } from '@repo/api';
+import { ApiKeyListPageSchema, CreateApiKeyRequestSchema } from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { generateApiKey } from '@repo/auth/api-key';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
@@ -67,20 +67,21 @@ apiKeysRouter.get('/', async (c) => {
     prisma.apiKey.count({ where }),
   ]);
 
-  return c.json({
-    apiKeys: apiKeys.map((key) => ({
+  const encoded = Schema.encodeSync(ApiKeyListPageSchema)({
+    items: apiKeys.map((key) => ({
       id: key.id,
       name: key.name,
       apiKeyId: key.apiKeyId,
       environmentId: key.environment.id,
       environmentName: key.environment.name,
-      revokedAt: key.revokedAt,
-      createdAt: key.createdAt,
+      revokedAt: key.revokedAt ? key.revokedAt.toISOString() : null,
+      createdAt: key.createdAt.toISOString(),
     })),
     total,
     page,
     limit,
   });
+  return c.json(encoded);
 });
 
 apiKeysRouter.post('/', async (c) => {

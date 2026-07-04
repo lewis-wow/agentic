@@ -43,3 +43,31 @@ const FlagConfigSchema = Schema.Struct({
 ```
 
 `Schema.Literal` is still the right tool for ad hoc literal unions that aren't backed by an exported `as const` object.
+
+**Use `PaginatedResponseSchema` for any paginated list response — never hand-write the envelope.** `packages/api/src/schemas/pagination.ts` exports `PaginatedResponseSchema(itemSchema)`, which wraps an item schema in the project's standard pagination envelope: `{ items: itemSchema[], total: number, page: number, limit: number }`. Every paginated endpoint uses this exact field name (`items`) for its array — never a domain-specific name like `flags`, `users`, or `members` — so `packages/pagination`'s client-side `PagedResponse<T>` type and `usePaginatedQuery` hook can consume any paginated endpoint's response with zero remapping.
+
+```ts
+import { Schema } from 'effect';
+
+import { PaginatedResponseSchema } from './pagination.js';
+
+export const FlagListItemSchema = Schema.Struct({
+  id: Schema.String,
+  key: Schema.String,
+});
+
+export type FlagListItem = Schema.Schema.Type<typeof FlagListItemSchema>;
+
+export const FlagListPageSchema = PaginatedResponseSchema(FlagListItemSchema);
+
+export type FlagListPage = Schema.Schema.Type<typeof FlagListPageSchema>;
+```
+
+The route handler encodes through it like any other response schema (see [`Schema.encodeSync`](https://effect.website/docs/schema/getting-started/#encoding) usage in `apps/api/src/routes/*.ts`):
+
+```ts
+const encoded = Schema.encodeSync(FlagListPageSchema)({ items, total, page, limit });
+return c.json(encoded);
+```
+
+If an endpoint needs an extra field alongside the page (e.g. the members list also returns the project `owner`), build the `Schema.Struct` by hand and spread the exported `PageMetaFields` (`{ total, page, limit }`) instead of calling `PaginatedResponseSchema` — see `MemberListPageSchema` for the pattern.

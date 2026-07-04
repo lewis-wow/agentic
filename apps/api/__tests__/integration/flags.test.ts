@@ -223,6 +223,7 @@ describe('GET /projects/:projectId/flags', () => {
         states: [{ status: 'active' }],
       },
     ] as never);
+    mockPrisma.flag.count.mockResolvedValue(1 as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags?environmentId=env-1&status=active`,
@@ -231,8 +232,8 @@ describe('GET /projects/:projectId/flags', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.flags).toHaveLength(1);
-    expect(body.flags[0].key).toBe('active-flag');
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].key).toBe('active-flag');
   });
 
   it('includes archived flags by default (status=all)', async () => {
@@ -256,6 +257,7 @@ describe('GET /projects/:projectId/flags', () => {
         states: [{ status: 'archived', type: 'boolean', rollout: 0 }],
       },
     ] as never);
+    mockPrisma.flag.count.mockResolvedValue(2 as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags?environmentId=env-1`,
@@ -264,8 +266,8 @@ describe('GET /projects/:projectId/flags', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.flags).toHaveLength(2);
-    expect(body.flags.map((f: { key: string }) => f.key)).toEqual([
+    expect(body.items).toHaveLength(2);
+    expect(body.items.map((f: { key: string }) => f.key)).toEqual([
       'active-flag',
       'archived-flag',
     ]);
@@ -1235,11 +1237,11 @@ describe('GET /projects/:projectId/flags/:flagId/audit-log', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.events).toHaveLength(3);
+    expect(body.items).toHaveLength(3);
     expect(body.total).toBe(3);
     expect(body.page).toBe(1);
     expect(body.limit).toBe(25);
-    expect(body.events[0]).toMatchObject({
+    expect(body.items[0]).toMatchObject({
       id: 'audit-1',
       action: 'flag.created',
       userId: 'user-owner',

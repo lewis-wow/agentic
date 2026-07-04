@@ -1,4 +1,9 @@
-import { TargetingRuleSchema } from '@repo/api';
+import {
+  AuditLogPageSchema,
+  FLAG_STATUS_VALUES,
+  FlagListPageSchema,
+  TargetingRuleSchema,
+} from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
@@ -318,12 +323,12 @@ flagsRouter.get('/:flagId/audit-log', async (c) => {
     prisma.auditEvent.count({ where: { flagId } }),
   ]);
 
-  return c.json({
-    events: events.map((e) => ({
+  const encoded = Schema.encodeSync(AuditLogPageSchema)({
+    items: events.map((e) => ({
       id: e.id,
       action: e.action,
-      meta: e.meta,
-      createdAt: e.createdAt,
+      meta: e.meta as Record<string, unknown>,
+      createdAt: e.createdAt.toISOString(),
       userId: e.user.id,
       userName: e.user.name,
     })),
@@ -331,6 +336,7 @@ flagsRouter.get('/:flagId/audit-log', async (c) => {
     page,
     limit,
   });
+  return c.json(encoded);
 });
 
 flagsRouter.get('/:flagId', async (c) => {
@@ -433,8 +439,6 @@ flagsRouter.delete('/:flagId', async (c) => {
   return new Response(null, { status: 204 });
 });
 
-const FLAG_STATUS_VALUES = ['active', 'inactive', 'archived'] as const;
-
 flagsRouter.get('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
@@ -485,18 +489,23 @@ flagsRouter.get('/', async (c) => {
     prisma.flag.count({ where }),
   ]);
 
-  const flags = flagsWithStates.map((flag) => ({
-    id: flag.id,
-    key: flag.key,
-    name: flag.name,
-    status: flag.states[0]?.status ?? 'inactive',
-    type: flag.states[0]?.type ?? 'boolean',
-    rollout: flag.states[0]?.rollout ?? 0,
-    createdAt: flag.createdAt,
-    updatedAt: flag.updatedAt,
-  }));
+  const encoded = Schema.encodeSync(FlagListPageSchema)({
+    items: flagsWithStates.map((flag) => ({
+      id: flag.id,
+      key: flag.key,
+      name: flag.name,
+      status: flag.states[0]?.status ?? 'inactive',
+      type: flag.states[0]?.type ?? 'boolean',
+      rollout: flag.states[0]?.rollout ?? 0,
+      createdAt: flag.createdAt.toISOString(),
+      updatedAt: flag.updatedAt.toISOString(),
+    })),
+    total,
+    page,
+    limit,
+  });
 
-  return c.json({ flags, total, page, limit });
+  return c.json(encoded);
 });
 
 flagsRouter.post('/', async (c) => {

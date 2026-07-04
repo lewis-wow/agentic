@@ -1,11 +1,9 @@
+import type { Environment } from '@repo/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '../lib/apiFetch';
 
-export type Environment = {
-  id: string;
-  name: string;
-};
+export type { Environment } from '@repo/api';
 
 export type ProjectListItem = {
   id: string;

@@ -1,26 +1,25 @@
-import type { TargetingRule } from '@repo/api';
+import type {
+  AuditLogEntry,
+  Environment,
+  FlagListItem,
+  FlagStatus,
+  FlagType,
+  TargetingRule,
+} from '@repo/api';
 import { usePaginatedQuery } from '@repo/pagination';
 import type { PagedResponse } from '@repo/pagination';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '../lib/apiFetch';
 
-export type { TargetingRule } from '@repo/api';
-
-export type FlagStatus = 'active' | 'inactive' | 'archived';
-
-export type FlagType = 'boolean' | 'percentage_rollout' | 'targeted';
-
-export type FlagListItem = {
-  id: string;
-  key: string;
-  name: string;
-  status: FlagStatus;
-  type: FlagType;
-  rollout: number;
-  createdAt: string;
-  updatedAt: string;
-};
+export type {
+  AuditLogEntry,
+  Environment,
+  FlagListItem,
+  FlagStatus,
+  FlagType,
+  TargetingRule,
+} from '@repo/api';
 
 export type FlagState = {
   id: string;
@@ -32,15 +31,6 @@ export type FlagState = {
   rules: TargetingRule[];
 };
 
-export type AuditLogEntry = {
-  id: string;
-  action: string;
-  meta: Record<string, unknown>;
-  createdAt: string;
-  userId: string;
-  userName: string;
-};
-
 export type FlagDetail = {
   id: string;
   key: string;
@@ -48,11 +38,6 @@ export type FlagDetail = {
   createdAt: string;
   updatedAt: string;
   states: FlagState[];
-};
-
-export type Environment = {
-  id: string;
-  name: string;
 };
 
 export const flagKeys = {
@@ -100,7 +85,7 @@ export const useFlags = (
     queryKey: [
       ...flagKeys.byEnv(projectId, environmentId ?? '', search, status),
     ],
-    queryFn: async (page): Promise<PagedResponse<FlagListItem>> => {
+    queryFn: (page): Promise<PagedResponse<FlagListItem>> => {
       const params = new URLSearchParams({
         environmentId: environmentId ?? '',
         status,
@@ -109,20 +94,9 @@ export const useFlags = (
       });
       if (search) params.set('search', search);
 
-      const data = await apiFetch<{
-        flags: FlagListItem[];
-        total: number;
-        page: number;
-        limit: number;
-      }>({
+      return apiFetch<PagedResponse<FlagListItem>>({
         path: `/api/projects/${projectId}/flags?${params.toString()}`,
       });
-      return {
-        items: data.flags,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-      };
     },
     limit: FLAGS_LIMIT,
     enabled: !!environmentId,
@@ -320,22 +294,10 @@ const AUDIT_LOG_LIMIT = 25;
 export const useAuditLog = (projectId: string, flagId: string) =>
   usePaginatedQuery<AuditLogEntry>({
     queryKey: [...flagKeys.auditLog(projectId, flagId)],
-    queryFn: async (page): Promise<PagedResponse<AuditLogEntry>> => {
-      const data = await apiFetch<{
-        events: AuditLogEntry[];
-        total: number;
-        page: number;
-        limit: number;
-      }>({
+    queryFn: (page): Promise<PagedResponse<AuditLogEntry>> =>
+      apiFetch<PagedResponse<AuditLogEntry>>({
         path: `/api/projects/${projectId}/flags/${flagId}/audit-log?page=${page}&limit=${AUDIT_LOG_LIMIT}`,
-      });
-      return {
-        items: data.events,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-      };
-    },
+      }),
     limit: AUDIT_LOG_LIMIT,
   });
 

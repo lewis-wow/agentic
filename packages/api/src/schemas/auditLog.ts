@@ -1,5 +1,7 @@
 import { Schema } from 'effect';
 
+import { PaginatedResponseSchema } from './pagination.js';
+
 export const AuditLogEntrySchema = Schema.Struct({
   id: Schema.String,
   action: Schema.String,
@@ -11,11 +13,6 @@ export const AuditLogEntrySchema = Schema.Struct({
 
 export type AuditLogEntry = Schema.Schema.Type<typeof AuditLogEntrySchema>;
 
-export const AuditLogPageSchema = Schema.Struct({
-  events: Schema.Array(AuditLogEntrySchema),
-  total: Schema.Number,
-  page: Schema.Number,
-  limit: Schema.Number,
-});
+export const AuditLogPageSchema = PaginatedResponseSchema(AuditLogEntrySchema);
 
 export type AuditLogPage = Schema.Schema.Type<typeof AuditLogPageSchema>;

@@ -1,17 +1,10 @@
+import type { ApiKeyListItem } from '@repo/api';
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '../lib/apiFetch';
 
-export type ApiKeyListItem = {
-  id: string;
-  name: string;
-  apiKeyId: string;
-  environmentId: string;
-  environmentName: string;
-  revokedAt: string | null;
-  createdAt: string;
-};
+export type { ApiKeyListItem } from '@repo/api';
 
 export const apiKeyKeys = {
   all: (projectId: string) => ['projects', projectId, 'api-keys'] as const,
@@ -24,27 +17,16 @@ const API_KEYS_LIMIT = 10;
 export const useApiKeys = (projectId: string, search = '') =>
   usePaginatedQuery<ApiKeyListItem>({
     queryKey: [...apiKeyKeys.list(projectId, search)],
-    queryFn: async (page): Promise<PagedResponse<ApiKeyListItem>> => {
+    queryFn: (page): Promise<PagedResponse<ApiKeyListItem>> => {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(API_KEYS_LIMIT),
       });
       if (search) params.set('search', search);
 
-      const data = await apiFetch<{
-        apiKeys: ApiKeyListItem[];
-        total: number;
-        page: number;
-        limit: number;
-      }>({
+      return apiFetch<PagedResponse<ApiKeyListItem>>({
         path: `/api/projects/${projectId}/api-keys?${params.toString()}`,
       });
-      return {
-        items: data.apiKeys,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-      };
     },
     limit: API_KEYS_LIMIT,
   });

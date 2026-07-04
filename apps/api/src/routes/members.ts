@@ -1,4 +1,4 @@
-import { AddMemberRequestSchema } from '@repo/api';
+import { AddMemberRequestSchema, MemberListPageSchema } from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { isMembershipRole, SYSTEM_ROLE } from '@repo/auth/roles';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
@@ -69,13 +69,14 @@ membersRouter.get('/', async (c) => {
     }),
   ]);
 
-  return c.json({
+  const encoded = Schema.encodeSync(MemberListPageSchema)({
     owner,
-    members: members.map((m) => ({ id: m.id, role: m.role, user: m.user })),
+    items: members.map((m) => ({ id: m.id, role: m.role, user: m.user })),
     total,
     page,
     limit,
   });
+  return c.json(encoded);
 });
 
 membersRouter.get('/addable', async (c) => {

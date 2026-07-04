@@ -1,4 +1,7 @@
-import { CreateEnvironmentRequestSchema } from '@repo/api';
+import {
+  CreateEnvironmentRequestSchema,
+  EnvironmentListPageSchema,
+} from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
@@ -56,7 +59,13 @@ environmentsRouter.get('/', async (c) => {
     prisma.environment.count({ where }),
   ]);
 
-  return c.json({ environments, total, page, limit });
+  const encoded = Schema.encodeSync(EnvironmentListPageSchema)({
+    items: environments,
+    total,
+    page,
+    limit,
+  });
+  return c.json(encoded);
 });
 
 environmentsRouter.post('/', async (c) => {

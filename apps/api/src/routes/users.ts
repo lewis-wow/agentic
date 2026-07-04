@@ -1,9 +1,11 @@
+import { UserListPageSchema } from '@repo/api';
 import type { AuthJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import type { Prisma } from '@repo/prisma';
+import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
@@ -50,5 +52,11 @@ usersRouter.get('/', async (c) => {
     prisma.user.count({ where }),
   ]);
 
-  return c.json({ users, total, page, limit });
+  const encoded = Schema.encodeSync(UserListPageSchema)({
+    items: users,
+    total,
+    page,
+    limit,
+  });
+  return c.json(encoded);
 });
