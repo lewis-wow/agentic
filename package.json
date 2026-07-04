@@ -17,7 +17,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:coverage": "vitest run --coverage --config vitest.integration.config.ts",
     "test:ui": "vitest --ui",
-    "barrels": "barrelsby --config .barrelsby.json"
+    "barrels": "barrelsby --config .barrelsby.json",
+    "tdd": "./scripts/tdd.sh"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.51.0",

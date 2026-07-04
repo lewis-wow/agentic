@@ -1,11 +1,9 @@
+import { SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
 import {
-  isMembershipRole,
-  PROJECT_ROLE,
-  type ProjectRole,
-  SYSTEM_ROLE,
-  type SystemRole,
-} from '@repo/auth/roles';
-import { resolveTrustedProxyUser } from '@repo/bff';
+  type DashboardProjectRole,
+  resolveProjectRole,
+  resolveTrustedProxyUser,
+} from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { headers } from 'next/headers';
 import { forbidden, unauthorized } from 'next/navigation';
@@ -87,7 +85,7 @@ export const requireOwner = async (): Promise<AuthedUser> => {
 
 export type ProjectAccess = {
   user: AuthedUser;
-  projectRole: ProjectRole;
+  projectRole: DashboardProjectRole;
 };
 
 /**
@@ -101,17 +99,18 @@ export const requireProjectAccess = async (
 ): Promise<ProjectAccess> => {
   const user = await requireSession();
 
-  if (user.role === SYSTEM_ROLE.OWNER) {
-    return { user, projectRole: PROJECT_ROLE.OWNER };
-  }
-
-  const membership = await prisma.projectMember.findUnique({
-    where: { userId_projectId: { userId: user.id, projectId } },
+  const projectRole = await resolveProjectRole({
+    user: { id: user.id, role: user.role },
+    projectId,
+    findMembership: (userId, pid) =>
+      prisma.projectMember.findUnique({
+        where: { userId_projectId: { userId, projectId: pid } },
+      }),
   });
 
-  if (!membership || !isMembershipRole(membership.role)) {
+  if (!projectRole) {
     forbidden();
   }
 
-  return { user, projectRole: membership.role };
+  return { user, projectRole };
 };

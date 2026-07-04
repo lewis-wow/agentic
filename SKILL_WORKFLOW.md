@@ -9,3 +9,7 @@
 5. /improve-codebase-architecture
 
 /btw - side question
+
+/github-issues
+
+./scripts/tdd.sh

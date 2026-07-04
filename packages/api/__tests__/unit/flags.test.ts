@@ -5,6 +5,7 @@ import {
   FLAG_TYPE,
   FlagSnapshotResponseSchema,
   RULE_OPERATOR,
+  RULE_OPERATOR_VALUES,
   TargetingRuleSchema,
 } from '../../src/index.js';
 
@@ -15,6 +16,21 @@ describe('RULE_OPERATOR', () => {
     expect(RULE_OPERATOR.IN).toBe('IN');
     expect(RULE_OPERATOR.NOT_IN).toBe('NOT_IN');
     expect(RULE_OPERATOR.CONTAINS).toBe('CONTAINS');
+  });
+});
+
+describe('RULE_OPERATOR_VALUES', () => {
+  it('contains exactly the RULE_OPERATOR values, derived from RULE_OPERATOR itself', () => {
+    expect(RULE_OPERATOR_VALUES).toEqual(Object.values(RULE_OPERATOR));
+  });
+
+  it('is accepted in full by TargetingRuleSchema.operator', () => {
+    for (const operator of RULE_OPERATOR_VALUES) {
+      const raw = { attribute: 'plan', operator, value: ['pro'] };
+      expect(() =>
+        Schema.decodeUnknownSync(TargetingRuleSchema)(raw),
+      ).not.toThrow();
+    }
   });
 });
 

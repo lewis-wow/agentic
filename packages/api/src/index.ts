@@ -1,6 +1,7 @@
 export {
   FLAG_TYPE,
   RULE_OPERATOR,
+  RULE_OPERATOR_VALUES,
   FlagConfigSchema,
   FlagSnapshotResponseSchema,
   FlagCreatedEventSchema,

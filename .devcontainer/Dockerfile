@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get update && apt-get install -y \
     docker-ce-cli \
     google-chrome-stable:amd64 \
+    gh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

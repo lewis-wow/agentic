@@ -1,6 +1,7 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { RULE_OPERATOR_VALUES } from '@repo/api';
 import { DataTable } from '@repo/ui/components/data-table';
 import { Button } from '@repo/ui/components/ui/button';
 import {
@@ -488,11 +489,11 @@ const RuleBuilderSection = ({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="EQ">EQ</SelectItem>
-                              <SelectItem value="NEQ">NEQ</SelectItem>
-                              <SelectItem value="IN">IN</SelectItem>
-                              <SelectItem value="NOT_IN">NOT_IN</SelectItem>
-                              <SelectItem value="CONTAINS">CONTAINS</SelectItem>
+                              {RULE_OPERATOR_VALUES.map((op) => (
+                                <SelectItem key={op} value={op}>
+                                  {op}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormControl>

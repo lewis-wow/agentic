@@ -1,14 +1,10 @@
 import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
 import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
-import {
-  isMembershipRole,
-  PROJECT_ROLE,
-  SYSTEM_ROLE,
-  type SystemRole,
-} from '@repo/auth/roles';
-import { resolveTrustedProxyUser } from '@repo/bff';
+import { PROJECT_ROLE, SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
+import { resolveProjectRole, resolveTrustedProxyUser } from '@repo/bff';
 import type { ProjectMember, User } from '@repo/prisma';
+import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
@@ -54,11 +50,60 @@ export type AuthVariables = {
   claims: ProjectJwtClaims | MeJwtClaims | SdkJwtClaims;
 };
 
+type BuildClaims<TClaims> = (
+  c: Context<{ Variables: AuthVariables }>,
+  user: User,
+) => Promise<TClaims | Response>;
+
 /**
- * Project-scoped Trusted Proxy Authentication: validates the Trusted Proxy
- * Secret + Identity Header, upserts the `User` (JIT-provisioning on first
- * sight), resolves the caller's role for `:projectId`, and mints an RS256
- * project JWT.
+ * Shared frame for both Trusted Proxy Authentication middlewares: validates
+ * the Trusted Proxy Secret + Identity Header, upserts the `User`
+ * (JIT-provisioning on first sight), then delegates to `buildClaims` for the
+ * claims shape specific to this route (project-scoped vs. `/me`).
+ * `buildClaims` may itself short-circuit with an error `Response` (e.g. a
+ * missing `:projectId` or a failed `resolveProjectRole` check).
+ */
+const createTrustedProxyMiddleware = <
+  TClaims extends ProjectJwtClaims | MeJwtClaims,
+>(
+  options: TrustedProxyOptions,
+  buildClaims: BuildClaims<TClaims>,
+) =>
+  createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
+    const user = await resolveTrustedProxyUser({
+      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
+      email: c.req.header(options.identityHeaderName),
+      expectedSecret: options.expectedSecret,
+      designatedOwnerEmail: options.designatedOwnerEmail,
+      upsertUser: options.upsertUser,
+    });
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const claimsOrResponse = await buildClaims(c, user);
+    if (claimsOrResponse instanceof Response) {
+      return claimsOrResponse;
+    }
+    const claims = claimsOrResponse;
+
+    const jwt = signRs256({
+      payload: claims,
+      privateKeyPem: options.privateKeyPem,
+      expiresInSeconds: JWT_TTL_SECONDS,
+    });
+
+    c.set('claims', claims);
+    c.set('jwt', jwt);
+    c.header('Authorization', `Bearer ${jwt}`);
+
+    await next();
+  });
+
+/**
+ * Project-scoped Trusted Proxy Authentication: resolves the caller's role for
+ * `:projectId` and mints an RS256 project JWT.
  *
  * - Owner bypasses membership → `projectRole: 'owner'`.
  * - Member must have a `ProjectMember` row → `projectRole: 'admin' | 'viewer'`.
@@ -67,101 +112,49 @@ export type AuthVariables = {
 export const createTrustedProxyProjectAuthMiddleware = (
   options: TrustedProxyProjectOptions,
 ) =>
-  createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-    const user = await resolveTrustedProxyUser({
-      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
-      email: c.req.header(options.identityHeaderName),
-      expectedSecret: options.expectedSecret,
-      designatedOwnerEmail: options.designatedOwnerEmail,
-      upsertUser: options.upsertUser,
-    });
-
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
+  createTrustedProxyMiddleware<ProjectJwtClaims>(options, async (c, user) => {
     const projectId = c.req.param('projectId');
     if (!projectId) {
       return c.json({ error: 'Missing project id' }, 400);
     }
 
-    let claims: ProjectJwtClaims;
-
-    if (user.role === SYSTEM_ROLE.OWNER) {
-      claims = {
-        userId: user.id,
-        systemRole: SYSTEM_ROLE.OWNER,
-        projectId,
-        projectRole: PROJECT_ROLE.OWNER,
-      };
-    } else {
-      const membership = await options.findMembership(user.id, projectId);
-      if (!membership || !isMembershipRole(membership.role)) {
-        return c.json({ error: 'Forbidden' }, 403);
-      }
-
-      claims = {
-        userId: user.id,
-        systemRole: SYSTEM_ROLE.MEMBER,
-        projectId,
-        projectRole: membership.role,
-      };
-    }
-
-    const jwt = signRs256({
-      payload: claims,
-      privateKeyPem: options.privateKeyPem,
-      expiresInSeconds: JWT_TTL_SECONDS,
+    const projectRole = await resolveProjectRole({
+      user: { id: user.id, role: user.role as SystemRole },
+      projectId,
+      findMembership: options.findMembership,
     });
 
-    c.set('claims', claims);
-    c.set('jwt', jwt);
-    c.header('Authorization', `Bearer ${jwt}`);
-
-    await next();
-  });
-
-/**
- * Non-project-scoped Trusted Proxy Authentication (e.g. `/me`): validates the
- * Trusted Proxy Secret + Identity Header and mints a JWT carrying only
- * `{ userId, systemRole }`.
- */
-export const createTrustedProxyMeAuthMiddleware = (
-  options: TrustedProxyOptions,
-) =>
-  createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-    const user = await resolveTrustedProxyUser({
-      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
-      email: c.req.header(options.identityHeaderName),
-      expectedSecret: options.expectedSecret,
-      designatedOwnerEmail: options.designatedOwnerEmail,
-      upsertUser: options.upsertUser,
-    });
-
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
+    if (!projectRole) {
+      return c.json({ error: 'Forbidden' }, 403);
     }
 
-    const claims: MeJwtClaims = {
+    return {
       userId: user.id,
       systemRole:
         user.role === SYSTEM_ROLE.OWNER
           ? SYSTEM_ROLE.OWNER
           : SYSTEM_ROLE.MEMBER,
+      projectId,
+      projectRole,
     };
-
-    const jwt = signRs256({
-      payload: claims,
-      privateKeyPem: options.privateKeyPem,
-      expiresInSeconds: JWT_TTL_SECONDS,
-    });
-
-    c.set('claims', claims);
-    c.set('jwt', jwt);
-    c.header('Authorization', `Bearer ${jwt}`);
-
-    await next();
   });
+
+/**
+ * Non-project-scoped Trusted Proxy Authentication (e.g. `/me`): mints a JWT
+ * carrying only `{ userId, systemRole }`.
+ */
+export const createTrustedProxyMeAuthMiddleware = (
+  options: TrustedProxyOptions,
+) =>
+  createTrustedProxyMiddleware<MeJwtClaims>(options, (_c, user) =>
+    Promise.resolve({
+      userId: user.id,
+      systemRole:
+        user.role === SYSTEM_ROLE.OWNER
+          ? SYSTEM_ROLE.OWNER
+          : SYSTEM_ROLE.MEMBER,
+    }),
+  );
 
 /** Module-level LRU cache: apiKeyId → environmentId (60 s TTL, max 500 entries). */
 const defaultSdkCache = new LRUCache<string, string>({

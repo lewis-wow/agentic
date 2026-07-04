@@ -1,6 +1,7 @@
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { apiFetch } from '../lib/apiFetch';
 import { apiKeyKeys } from './apiKeys';
 import { projectKeys, type Environment } from './projects';
 
@@ -21,16 +22,14 @@ export const useEnvironmentsList = (projectId: string, search: string) =>
       });
       if (search) params.set('search', search);
 
-      const res = await fetch(
-        `/api/projects/${projectId}/environments?${params.toString()}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         environments: Environment[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/projects/${projectId}/environments?${params.toString()}`,
+      });
       return {
         items: data.environments,
         total: data.total,
@@ -52,17 +51,17 @@ type CreateEnvironmentPayload = {
 export const useCreateEnvironment = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (
+    mutationFn: (
       args: CreateEnvironmentArgs,
-    ): Promise<CreateEnvironmentPayload> => {
-      const res = await fetch(`/api/projects/${projectId}/environments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return (await res.json()) as CreateEnvironmentPayload;
-    },
+    ): Promise<CreateEnvironmentPayload> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/environments`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.detail(projectId),
@@ -78,13 +77,11 @@ export const useCreateEnvironment = (projectId: string) => {
 export const useDeleteEnvironment = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (environmentId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/environments/${environmentId}`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (environmentId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/environments/${environmentId}`,
+        init: { method: 'DELETE' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.detail(projectId),

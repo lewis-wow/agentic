@@ -1,7 +1,5 @@
 import { TargetingRuleSchema } from '@repo/api';
-import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
-import { isSdkClaims } from '@repo/auth';
-import { PROJECT_ROLE } from '@repo/auth/roles';
+import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Schema } from 'effect';
@@ -27,16 +25,6 @@ import {
 type AppEnv = { Variables: ApiAuthVariables };
 
 const FLAG_KEY_RE = /^[a-z0-9-]+$/;
-
-const requireProjectClaims = (auth: AuthJwtClaims): ProjectJwtClaims | null => {
-  if (!('userId' in auth) || !('projectId' in auth)) return null;
-  if (isSdkClaims(auth)) return null;
-  return auth as ProjectJwtClaims;
-};
-
-const canManage = (claims: ProjectJwtClaims): boolean =>
-  claims.projectRole === PROJECT_ROLE.OWNER ||
-  claims.projectRole === PROJECT_ROLE.ADMIN;
 
 const parseBody = async (
   request: Request,
@@ -68,7 +56,7 @@ flagsRouter.post('/:flagId/archive', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
@@ -115,7 +103,7 @@ flagsRouter.post('/:flagId/unarchive', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
@@ -170,7 +158,7 @@ flagsRouter.patch('/:flagId/environments/:environmentId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { flagId, environmentId } = c.req.param();
   const body = await parseBody(c.req.raw);
@@ -390,7 +378,7 @@ flagsRouter.patch('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
   const body = await parseBody(c.req.raw);
@@ -424,7 +412,7 @@ flagsRouter.delete('/:flagId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { flagId } = c.req.param();
 
@@ -515,7 +503,7 @@ flagsRouter.post('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const body = await parseBody(c.req.raw);
   const { key, name } = body;

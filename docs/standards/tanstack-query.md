@@ -54,10 +54,34 @@ export const flagKeys = {
 
 Use prefix matching for invalidation: invalidating `flagKeys.all(projectId)` marks all flag queries for that project stale.
 
+## Fetching — apiFetch, not raw `fetch`
+
+Every `queryFn`/`mutationFn` calls `apiFetch<T>(args: ApiFetchArgs)` from `src/lib/apiFetch.ts` — never call `fetch` directly and never hand-write `if (!res.ok) throw new Error(await res.text())`. `apiFetch` throws a typed `HttpException` (from `@repo/exception`) on any non-ok response — reconstructed via `HttpException.fromResponse`, falling back to `UnknownError` when the response body isn't a structured API error shape — and returns the parsed JSON body on success.
+
+```ts
+export type ApiFetchArgs = {
+  path: string;
+  init?: RequestInit;
+};
+
+export const apiFetch = async <T>(args: ApiFetchArgs): Promise<T> => {
+  const res = await fetch(args.path, args.init);
+  if (!res.ok) {
+    const exception =
+      HttpException.fromResponse({ json: await res.json(), status: res.status }) ??
+      new UnknownError();
+    throw exception;
+  }
+  return res.json() as Promise<T>;
+};
+```
+
 ## useQuery
 
 ```ts
 import { useQuery } from '@tanstack/react-query';
+
+import { apiFetch } from '../lib/apiFetch';
 
 type FlagsQueryPayload = {
   flags: Flag[];
@@ -69,26 +93,25 @@ const useFlags = (
 ): FlagsQueryPayload | undefined => {
   const { data } = useQuery({
     queryKey: flagKeys.byEnv(projectId, environmentId),
-    queryFn: async (): Promise<FlagsQueryPayload> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags?environmentId=${environmentId}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      return res.json() as Promise<FlagsQueryPayload>;
-    },
+    queryFn: (): Promise<FlagsQueryPayload> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags?environmentId=${environmentId}`,
+      }),
   });
   return data;
 };
 ```
 
 - Always type the `queryFn` return explicitly.
-- Throw on non-ok responses so TanStack Query treats them as errors.
+- `apiFetch` throws a typed `HttpException` on non-ok responses so TanStack Query treats them as errors — never swallow or rewrap it.
 - Use `isPending` / `isError` / `data` from `useQuery` to drive loading and error states.
 
 ## useMutation
 
 ```ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { apiFetch } from '../lib/apiFetch';
 
 type CreateFlagArgs = {
   projectId: string;
@@ -104,15 +127,15 @@ const useCreateFlag = (projectId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (args: CreateFlagArgs): Promise<CreateFlagPayload> => {
-      const res = await fetch(`/api/projects/${projectId}/flags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json() as Promise<CreateFlagPayload>;
-    },
+    mutationFn: (args: CreateFlagArgs): Promise<CreateFlagPayload> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
     },
@@ -159,6 +182,7 @@ return (
 
 - **Never call `apps/api` or `apps/bff` directly from the dashboard.** Always go through `/api/...` Next.js API routes.
 - **Never use server actions for data.** TanStack Query + fetch is the only data pattern.
+- **Never call `fetch` directly in a `queryFn`/`mutationFn`.** Always go through `apiFetch` (`src/lib/apiFetch.ts`) so errors surface as typed `HttpException`s, not raw `Error`s.
 - **Never use `any` in query or mutation types.** Type both the payload and the args explicitly.
 - Colocate query key factories, fetcher functions, and mutation hooks in a `queries/` directory per resource (e.g., `apps/dashboard/src/queries/flags.ts`).
 - Set a sensible `staleTime` default (30 s) in the `QueryClient`; override per-query only when the data freshness requirement differs significantly.

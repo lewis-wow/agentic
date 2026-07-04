@@ -6,5 +6,6 @@ export default mergeConfig(unitConfig, {
   test: {
     name: 'api:unit',
     root: path.resolve(import.meta.dirname, '..'),
+    setupFiles: ['./__tests__/setup.ts'],
   },
 });

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { apiFetch } from '../lib/apiFetch';
+
 export type Environment = {
   id: string;
   name: string;
@@ -40,9 +42,9 @@ export const useProjects = () =>
   useQuery({
     queryKey: projectKeys.all(),
     queryFn: async (): Promise<ProjectListItem[]> => {
-      const res = await fetch('/api/projects');
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { projects: ProjectListItem[] };
+      const data = await apiFetch<{ projects: ProjectListItem[] }>({
+        path: '/api/projects',
+      });
       return data.projects;
     },
   });
@@ -55,13 +57,14 @@ export const useCreateProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: CreateProjectArgs): Promise<ProjectListItem> => {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
+      const data = await apiFetch<{ project: ProjectListItem }>({
+        path: '/api/projects',
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
       });
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { project: ProjectListItem };
       return data.project;
     },
     onSuccess: () => {
@@ -74,9 +77,9 @@ export const useProject = (projectId: string) =>
   useQuery({
     queryKey: projectKeys.detail(projectId),
     queryFn: async (): Promise<ProjectDetail> => {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { project: ProjectDetail };
+      const data = await apiFetch<{ project: ProjectDetail }>({
+        path: `/api/projects/${projectId}`,
+      });
       return data.project;
     },
   });
@@ -89,13 +92,14 @@ export const useRenameProject = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: RenameProjectArgs): Promise<ProjectDetail> => {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
+      const data = await apiFetch<{ project: ProjectDetail }>({
+        path: `/api/projects/${projectId}`,
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
       });
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { project: ProjectDetail };
       return data.project;
     },
     onSuccess: () => {
@@ -110,12 +114,11 @@ export const useRenameProject = (projectId: string) => {
 export const useDeleteProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (projectId: string): Promise<void> => {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (projectId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}`,
+        init: { method: 'DELETE' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.all() });
     },

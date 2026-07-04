@@ -1,6 +1,7 @@
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { apiFetch } from '../lib/apiFetch';
 import { projectKeys } from './projects';
 
 export type AddableUser = {
@@ -30,11 +31,9 @@ export const useAddableUsers = (
   useQuery({
     queryKey: memberKeys.addable(projectId, query),
     queryFn: async (): Promise<AddableUser[]> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/members/addable?query=${encodeURIComponent(query)}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { users: AddableUser[] };
+      const data = await apiFetch<{ users: AddableUser[] }>({
+        path: `/api/projects/${projectId}/members/addable?query=${encodeURIComponent(query)}`,
+      });
       return data.users;
     },
     enabled: enabled && query.trim().length > 0,
@@ -52,16 +51,14 @@ export const useMembers = (projectId: string, search: string) =>
       });
       if (search) params.set('search', search);
 
-      const res = await fetch(
-        `/api/projects/${projectId}/members?${params.toString()}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         members: MemberListItem[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/projects/${projectId}/members?${params.toString()}`,
+      });
       return {
         items: data.members,
         total: data.total,
@@ -80,14 +77,15 @@ type AddMemberArgs = {
 export const useAddMember = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: AddMemberArgs): Promise<void> => {
-      const res = await fetch(`/api/projects/${projectId}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (args: AddMemberArgs): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/members`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.detail(projectId),
@@ -102,13 +100,11 @@ export const useAddMember = (projectId: string) => {
 export const useRemoveMember = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (memberId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/members/${memberId}`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (memberId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/members/${memberId}`,
+        init: { method: 'DELETE' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.detail(projectId),

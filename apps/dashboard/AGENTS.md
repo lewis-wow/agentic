@@ -117,6 +117,23 @@ const RenameForm = ({ projectId, flagId, currentName }: Props) => {
 
 Existing resource files: `src/queries/flags.ts`, `projects.ts`, `environments.ts`, `members.ts`, `users.ts`. Add a new one per resource rather than growing an existing file across domains.
 
+**All fetching goes through `apiFetch` in `src/lib/apiFetch.ts`** — never call `fetch` directly inside a `queryFn`/`mutationFn`, and never write `if (!res.ok) throw new Error(await res.text())` by hand:
+
+```ts
+import { apiFetch } from '../lib/apiFetch';
+
+type FetchFlagsArgs = {
+  path: string;
+  init?: RequestInit;
+};
+
+const data = await apiFetch<{ flags: FlagListItem[]; total: number }>({
+  path: `/api/projects/${projectId}/flags?${params.toString()}`,
+});
+```
+
+`apiFetch<T>(args: ApiFetchArgs)` throws a typed `HttpException` on any non-ok response — reconstructed via `HttpException.fromResponse`, falling back to `UnknownError` (from `@repo/exception`) when the body isn't a structured API error. `query.error` / `mutation.error` are therefore always `HttpException`, never a bare `Error`; check `error.code` or `error instanceof SomeSpecificException` rather than parsing `error.message`.
+
 Colocate query key factories, fetcher functions, and mutation hooks in `src/queries/<resource>.ts`:
 
 ```ts

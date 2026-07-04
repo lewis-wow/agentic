@@ -1,6 +1,8 @@
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { apiFetch } from '../lib/apiFetch';
+
 export type ApiKeyListItem = {
   id: string;
   name: string;
@@ -29,16 +31,14 @@ export const useApiKeys = (projectId: string, search = '') =>
       });
       if (search) params.set('search', search);
 
-      const res = await fetch(
-        `/api/projects/${projectId}/api-keys?${params.toString()}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         apiKeys: ApiKeyListItem[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/projects/${projectId}/api-keys?${params.toString()}`,
+      });
       return {
         items: data.apiKeys,
         total: data.total,
@@ -62,17 +62,15 @@ type CreateApiKeyPayload = {
 export const useCreateApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (
-      args: CreateApiKeyArgs,
-    ): Promise<CreateApiKeyPayload> => {
-      const res = await fetch(`/api/projects/${projectId}/api-keys`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return (await res.json()) as CreateApiKeyPayload;
-    },
+    mutationFn: (args: CreateApiKeyArgs): Promise<CreateApiKeyPayload> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/api-keys`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: apiKeyKeys.all(projectId),
@@ -84,14 +82,11 @@ export const useCreateApiKey = (projectId: string) => {
 export const useRotateApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (apiKeyId: string): Promise<{ fullKey: string }> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/api-keys/${apiKeyId}/rotate`,
-        { method: 'POST' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-      return (await res.json()) as { fullKey: string };
-    },
+    mutationFn: (apiKeyId: string): Promise<{ fullKey: string }> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/api-keys/${apiKeyId}/rotate`,
+        init: { method: 'POST' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: apiKeyKeys.all(projectId),
@@ -103,13 +98,11 @@ export const useRotateApiKey = (projectId: string) => {
 export const useRevokeApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (apiKeyId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/api-keys/${apiKeyId}/revoke`,
-        { method: 'POST' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (apiKeyId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/api-keys/${apiKeyId}/revoke`,
+        init: { method: 'POST' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: apiKeyKeys.all(projectId),
@@ -121,13 +114,11 @@ export const useRevokeApiKey = (projectId: string) => {
 export const useDeleteApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (apiKeyId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/api-keys/${apiKeyId}`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (apiKeyId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/api-keys/${apiKeyId}`,
+        init: { method: 'DELETE' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: apiKeyKeys.all(projectId),

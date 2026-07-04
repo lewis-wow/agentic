@@ -1,7 +1,5 @@
 import { CreateEnvironmentRequestSchema } from '@repo/api';
-import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
-import { isSdkClaims } from '@repo/auth';
-import { PROJECT_ROLE } from '@repo/auth/roles';
+import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
@@ -16,16 +14,6 @@ import {
 } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
-
-const requireProjectClaims = (auth: AuthJwtClaims): ProjectJwtClaims | null => {
-  if (!('userId' in auth) || !('projectId' in auth)) return null;
-  if (isSdkClaims(auth)) return null;
-  return auth as ProjectJwtClaims;
-};
-
-const canManage = (claims: ProjectJwtClaims): boolean =>
-  claims.projectRole === PROJECT_ROLE.OWNER ||
-  claims.projectRole === PROJECT_ROLE.ADMIN;
 
 const parseBody = async (
   request: Request,
@@ -75,7 +63,7 @@ environmentsRouter.post('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const body = await parseBody(c.req.raw);
   const decoded = Schema.decodeUnknownEither(CreateEnvironmentRequestSchema)(
@@ -107,7 +95,7 @@ environmentsRouter.delete('/:environmentId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { environmentId } = c.req.param();
 

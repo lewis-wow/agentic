@@ -1,6 +1,11 @@
+import type { TargetingRule } from '@repo/api';
 import { usePaginatedQuery } from '@repo/pagination';
 import type { PagedResponse } from '@repo/pagination';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { apiFetch } from '../lib/apiFetch';
+
+export type { TargetingRule } from '@repo/api';
 
 export type FlagStatus = 'active' | 'inactive' | 'archived';
 
@@ -15,12 +20,6 @@ export type FlagListItem = {
   rollout: number;
   createdAt: string;
   updatedAt: string;
-};
-
-export type TargetingRule = {
-  attribute: string;
-  operator: 'EQ' | 'NEQ' | 'IN' | 'NOT_IN' | 'CONTAINS';
-  value: string[];
 };
 
 export type FlagState = {
@@ -82,9 +81,9 @@ export const useEnvironments = (projectId: string) =>
   useQuery({
     queryKey: flagKeys.environments(projectId),
     queryFn: async (): Promise<Environment[]> => {
-      const res = await fetch(`/api/projects/${projectId}/flags/environments`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { environments: Environment[] };
+      const data = await apiFetch<{ environments: Environment[] }>({
+        path: `/api/projects/${projectId}/flags/environments`,
+      });
       return data.environments;
     },
   });
@@ -110,16 +109,14 @@ export const useFlags = (
       });
       if (search) params.set('search', search);
 
-      const res = await fetch(
-        `/api/projects/${projectId}/flags?${params.toString()}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         flags: FlagListItem[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/projects/${projectId}/flags?${params.toString()}`,
+      });
       return {
         items: data.flags,
         total: data.total,
@@ -140,13 +137,14 @@ export const useCreateFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: CreateFlagArgs): Promise<FlagListItem> => {
-      const res = await fetch(`/api/projects/${projectId}/flags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args),
+      const data = await apiFetch<{ flag: FlagListItem }>({
+        path: `/api/projects/${projectId}/flags`,
+        init: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        },
       });
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flag: FlagListItem };
       return data.flag;
     },
     onSuccess: () => {
@@ -165,16 +163,14 @@ export const useToggleFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: ToggleFlagArgs): Promise<FlagState> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
-        {
+      const data = await apiFetch<{ flagState: FlagState }>({
+        path: `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
+        init: {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: args.status }),
         },
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flagState: FlagState };
+      });
       return data.flagState;
     },
     onSuccess: (_data, variables) => {
@@ -209,16 +205,14 @@ export const useUpdateFlagEnvironment = (projectId: string) => {
       if (args.type !== undefined) body['type'] = args.type;
       if (args.rollout !== undefined) body['rollout'] = args.rollout;
       if (args.status !== undefined) body['status'] = args.status;
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
-        {
+      const data = await apiFetch<{ flagState: FlagState }>({
+        path: `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
+        init: {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         },
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flagState: FlagState };
+      });
       return data.flagState;
     },
     onSuccess: (_data, variables) => {
@@ -234,9 +228,9 @@ export const useFlagDetail = (projectId: string, flagId: string) =>
   useQuery({
     queryKey: flagKeys.detail(projectId, flagId),
     queryFn: async (): Promise<FlagDetail> => {
-      const res = await fetch(`/api/projects/${projectId}/flags/${flagId}`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flag: FlagDetail };
+      const data = await apiFetch<{ flag: FlagDetail }>({
+        path: `/api/projects/${projectId}/flags/${flagId}`,
+      });
       return data.flag;
     },
   });
@@ -249,13 +243,14 @@ export const useRenameFlag = (projectId: string, flagId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (args: RenameFlagArgs): Promise<FlagDetail> => {
-      const res = await fetch(`/api/projects/${projectId}/flags/${flagId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: args.name }),
+      const data = await apiFetch<{ flag: FlagDetail }>({
+        path: `/api/projects/${projectId}/flags/${flagId}`,
+        init: {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: args.name }),
+        },
       });
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { flag: FlagDetail };
       return data.flag;
     },
     onSuccess: () => {
@@ -269,13 +264,11 @@ export const useRenameFlag = (projectId: string, flagId: string) => {
 export const useArchiveFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (flagId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${flagId}/archive`,
-        { method: 'POST' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (flagId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags/${flagId}/archive`,
+        init: { method: 'POST' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
     },
@@ -285,13 +278,11 @@ export const useArchiveFlag = (projectId: string) => {
 export const useUnarchiveFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (flagId: string): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${flagId}/unarchive`,
-        { method: 'POST' },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (flagId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags/${flagId}/unarchive`,
+        init: { method: 'POST' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
     },
@@ -307,17 +298,15 @@ type UpdateFlagRulesArgs = {
 export const useUpdateFlagRules = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: UpdateFlagRulesArgs): Promise<void> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
-        {
+    mutationFn: (args: UpdateFlagRulesArgs): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags/${args.flagId}/environments/${args.environmentId}`,
+        init: {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rules: args.rules }),
         },
-      );
-      if (!res.ok) throw new Error(await res.text());
-    },
+      }),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: flagKeys.detail(projectId, variables.flagId),
@@ -332,16 +321,14 @@ export const useAuditLog = (projectId: string, flagId: string) =>
   usePaginatedQuery<AuditLogEntry>({
     queryKey: [...flagKeys.auditLog(projectId, flagId)],
     queryFn: async (page): Promise<PagedResponse<AuditLogEntry>> => {
-      const res = await fetch(
-        `/api/projects/${projectId}/flags/${flagId}/audit-log?page=${page}&limit=${AUDIT_LOG_LIMIT}`,
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         events: AuditLogEntry[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/projects/${projectId}/flags/${flagId}/audit-log?page=${page}&limit=${AUDIT_LOG_LIMIT}`,
+      });
       return {
         items: data.events,
         total: data.total,
@@ -355,12 +342,11 @@ export const useAuditLog = (projectId: string, flagId: string) =>
 export const useDeleteFlag = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (flagId: string): Promise<void> => {
-      const res = await fetch(`/api/projects/${projectId}/flags/${flagId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error(await res.text());
-    },
+    mutationFn: (flagId: string): Promise<void> =>
+      apiFetch({
+        path: `/api/projects/${projectId}/flags/${flagId}`,
+        init: { method: 'DELETE' },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: flagKeys.all(projectId) });
     },

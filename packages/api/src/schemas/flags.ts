@@ -18,9 +18,14 @@ export const RULE_OPERATOR = {
 
 export type RuleOperator = (typeof RULE_OPERATOR)[keyof typeof RULE_OPERATOR];
 
+export const RULE_OPERATOR_VALUES = Object.values(RULE_OPERATOR) as [
+  RuleOperator,
+  ...RuleOperator[],
+];
+
 export const TargetingRuleSchema = Schema.Struct({
   attribute: Schema.String,
-  operator: Schema.Literal('EQ', 'NEQ', 'IN', 'NOT_IN', 'CONTAINS'),
+  operator: Schema.Literal(...RULE_OPERATOR_VALUES),
   value: Schema.Array(Schema.String),
 });
 

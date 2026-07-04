@@ -1,3 +1,4 @@
+import { RULE_OPERATOR_VALUES } from '@repo/api';
 import { Schema } from 'effect';
 
 const FLAG_KEY_PATTERN = /^[a-z0-9-]+$/;
@@ -32,7 +33,7 @@ export const RuleFormSchema = Schema.Struct({
   attribute: Schema.String.pipe(
     Schema.minLength(1, { message: () => 'Attribute is required' }),
   ),
-  operator: Schema.Literal('EQ', 'NEQ', 'IN', 'NOT_IN', 'CONTAINS'),
+  operator: Schema.Literal(...RULE_OPERATOR_VALUES),
   valueRaw: Schema.String.pipe(
     Schema.minLength(1, { message: () => 'At least one value is required' }),
   ),

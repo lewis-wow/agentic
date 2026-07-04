@@ -1,8 +1,6 @@
 import { CreateApiKeyRequestSchema } from '@repo/api';
-import type { AuthJwtClaims, ProjectJwtClaims } from '@repo/auth';
-import { isSdkClaims } from '@repo/auth';
+import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { generateApiKey } from '@repo/auth/api-key';
-import { PROJECT_ROLE } from '@repo/auth/roles';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
 import { Either, Schema } from 'effect';
@@ -18,16 +16,6 @@ import {
 } from '../exceptions/index.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
-
-const requireProjectClaims = (auth: AuthJwtClaims): ProjectJwtClaims | null => {
-  if (!('userId' in auth) || !('projectId' in auth)) return null;
-  if (isSdkClaims(auth)) return null;
-  return auth as ProjectJwtClaims;
-};
-
-const canManage = (claims: ProjectJwtClaims): boolean =>
-  claims.projectRole === PROJECT_ROLE.OWNER ||
-  claims.projectRole === PROJECT_ROLE.ADMIN;
 
 const parseBody = async (
   request: Request,
@@ -99,7 +87,7 @@ apiKeysRouter.post('/', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const body = await parseBody(c.req.raw);
   const decoded = Schema.decodeUnknownEither(CreateApiKeyRequestSchema)(body);
@@ -142,7 +130,7 @@ apiKeysRouter.post('/:apiKeyId/rotate', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { apiKeyId: id } = c.req.param();
 
@@ -169,7 +157,7 @@ apiKeysRouter.post('/:apiKeyId/revoke', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { apiKeyId: id } = c.req.param();
 
@@ -191,7 +179,7 @@ apiKeysRouter.delete('/:apiKeyId', async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
-  if (!canManage(claims)) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
 
   const { apiKeyId: id } = c.req.param();
 

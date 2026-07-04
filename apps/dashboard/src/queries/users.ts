@@ -1,5 +1,7 @@
 import { usePaginatedQuery, type PagedResponse } from '@repo/pagination';
 
+import { apiFetch } from '../lib/apiFetch';
+
 export type UserListItem = {
   id: string;
   name: string;
@@ -23,14 +25,14 @@ export const useUsers = (search: string) =>
       });
       if (search) params.set('search', search);
 
-      const res = await fetch(`/api/users?${params.toString()}`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         users: UserListItem[];
         total: number;
         page: number;
         limit: number;
-      };
+      }>({
+        path: `/api/users?${params.toString()}`,
+      });
       return {
         items: data.users,
         total: data.total,

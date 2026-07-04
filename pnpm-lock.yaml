@@ -196,12 +196,21 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.4.0(react-hook-form@7.80.0(react@19.1.0))
+      '@repo/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@repo/bff':
         specifier: workspace:*
         version: link:../../packages/bff
+      '@repo/enums':
+        specifier: workspace:*
+        version: link:../../packages/enums
+      '@repo/exception':
+        specifier: workspace:*
+        version: link:../../packages/exception
       '@repo/pagination':
         specifier: workspace:*
         version: link:../../packages/pagination
@@ -251,6 +260,9 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../../packages/vitest-config
       '@tailwindcss/postcss':
         specifier: ^4.1.14
         version: 4.3.1
@@ -281,6 +293,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/api:
     dependencies:
@@ -316,6 +331,9 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest-config
       '@types/bcryptjs':
         specifier: ^2.4.6
         version: 2.4.6
@@ -325,6 +343,9 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/bff:
     dependencies:
@@ -404,6 +425,9 @@ importers:
 
   packages/exception:
     dependencies:
+      '@repo/enums':
+        specifier: workspace:*
+        version: link:../enums
       '@repo/utils':
         specifier: workspace:*
         version: link:../utils

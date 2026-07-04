@@ -30,3 +30,17 @@ export type AuthJwtClaims = ProjectJwtClaims | SdkJwtClaims | MeJwtClaims;
 
 export const isSdkClaims = (claims: AuthJwtClaims): claims is SdkJwtClaims =>
   'projectRole' in claims && claims.projectRole === PROJECT_ROLE.SDK_CLIENT;
+
+/** Narrows to project-scoped claims, or `null` for `MeJwtClaims`/`SdkJwtClaims`. */
+export const requireProjectClaims = (
+  claims: AuthJwtClaims,
+): ProjectJwtClaims | null => {
+  if (!('userId' in claims) || !('projectId' in claims)) return null;
+  if (isSdkClaims(claims)) return null;
+  return claims as ProjectJwtClaims;
+};
+
+/** `OWNER` and `ADMIN` project roles may create/update/delete a project's resources; `VIEWER` may not. */
+export const canManageProject = (claims: ProjectJwtClaims): boolean =>
+  claims.projectRole === PROJECT_ROLE.OWNER ||
+  claims.projectRole === PROJECT_ROLE.ADMIN;
