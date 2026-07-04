@@ -1,2 +1,2 @@
-export { ClientNotConnected } from './ClientNotConnected.js';
-export { ConnectFailed } from './ConnectFailed.js';
+export * from './ClientNotConnected.js';
+export * from './ConnectFailed.js';

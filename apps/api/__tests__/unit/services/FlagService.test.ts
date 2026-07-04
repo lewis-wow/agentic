@@ -2,14 +2,6 @@ import { prisma } from '@repo/prisma';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  cleanupProject,
-  cleanupUser,
-  createTestEnvironment,
-  createTestProject,
-  createTestUser,
-} from '../../helpers/fixtures.js';
-
-import {
   FlagKeyConflict,
   FlagKeyRequired,
   FlagNameRequired,
@@ -17,6 +9,13 @@ import {
   InvalidFlagKey,
 } from '../../../src/exceptions/index.js';
 import { FlagService } from '../../../src/services/FlagService.js';
+import {
+  cleanupProject,
+  cleanupUser,
+  createTestEnvironment,
+  createTestProject,
+  createTestUser,
+} from '../../helpers/fixtures.js';
 
 let projectId: string;
 let userId: string;
@@ -52,9 +51,13 @@ describe('FlagService.create', () => {
     expect(flag.key).toBe('dark-mode');
     expect(flag.name).toBe('Dark Mode');
 
-    const states = await prisma.flagState.findMany({ where: { flagId: flag.id } });
+    const states = await prisma.flagState.findMany({
+      where: { flagId: flag.id },
+    });
     expect(states).toHaveLength(2);
-    expect(states.every((s) => s.status === 'inactive' && s.type === 'boolean')).toBe(true);
+    expect(
+      states.every((s) => s.status === 'inactive' && s.type === 'boolean'),
+    ).toBe(true);
   });
 
   it('writes a flag.created audit event', async () => {
@@ -65,13 +68,20 @@ describe('FlagService.create', () => {
       name: 'Dark Mode',
     });
 
-    const events = await prisma.auditEvent.findMany({ where: { flagId: flag.id } });
+    const events = await prisma.auditEvent.findMany({
+      where: { flagId: flag.id },
+    });
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ action: 'flag.created', userId });
   });
 
   it('emits a flag_created event', async () => {
-    await service.create({ projectId, userId, key: 'dark-mode', name: 'Dark Mode' });
+    await service.create({
+      projectId,
+      userId,
+      key: 'dark-mode',
+      name: 'Dark Mode',
+    });
 
     expect(emitFlagEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -97,12 +107,22 @@ describe('FlagService.create', () => {
 
   it('throws InvalidFlagKey for an uppercase or otherwise invalid key', async () => {
     await expect(
-      service.create({ projectId, userId, key: 'Dark_Mode', name: 'Dark Mode' }),
+      service.create({
+        projectId,
+        userId,
+        key: 'Dark_Mode',
+        name: 'Dark Mode',
+      }),
     ).rejects.toBeInstanceOf(InvalidFlagKey);
   });
 
   it('throws FlagKeyConflict when the key already exists in the project', async () => {
-    await service.create({ projectId, userId, key: 'dark-mode', name: 'Dark Mode' });
+    await service.create({
+      projectId,
+      userId,
+      key: 'dark-mode',
+      name: 'Dark Mode',
+    });
 
     await expect(
       service.create({ projectId, userId, key: 'dark-mode', name: 'Another' }),

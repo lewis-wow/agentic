@@ -29,11 +29,15 @@ export const generateApiKey = async (
 ): Promise<GenerateApiKeyPayload> => {
   const apiKeyId = randomBytes(16).toString('hex');
   const secret = randomBytes(32).toString('hex');
+
   const slug = slugifyEnvironmentName(args.environmentName);
+
   const fullKey = slug
     ? `${slug}_${apiKeyId}.${secret}`
     : `${apiKeyId}.${secret}`;
+
   const apiKeyHash = await bcrypt.hash(secret, BCRYPT_ROUNDS);
+
   return { fullKey, apiKeyId, apiKeyHash };
 };
 
@@ -53,9 +57,11 @@ export const verifyApiKey = async (
   if (dotIndex === -1) {
     return false;
   }
+
   const secret = args.fullKey.slice(dotIndex + 1);
   if (!secret) {
     return false;
   }
+
   return bcrypt.compare(secret, args.apiKeyHash);
 };

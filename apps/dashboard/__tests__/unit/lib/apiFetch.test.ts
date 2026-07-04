@@ -1,5 +1,5 @@
-import { HttpException, UnknownError } from '@repo/exception';
 import { HttpStatusCode } from '@repo/enums';
+import { HttpException, UnknownError } from '@repo/exception';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiFetch } from '../../../src/lib/apiFetch.js';
@@ -29,7 +29,9 @@ describe('apiFetch', () => {
   });
 
   it('forwards path and init to the underlying fetch call', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }, 200));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ ok: true }, 200));
     vi.stubGlobal('fetch', fetchMock);
 
     await apiFetch({
@@ -46,12 +48,14 @@ describe('apiFetch', () => {
   it('throws a reconstructed HttpException for a structured error response', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        jsonResponse(
-          { code: 'FlagNotFound', message: 'Flag not found.' },
-          HttpStatusCode.NOT_FOUND_404,
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            { code: 'FlagNotFound', message: 'Flag not found.' },
+            HttpStatusCode.NOT_FOUND_404,
+          ),
         ),
-      ),
     );
 
     await expect(apiFetch({ path: '/api/x' })).rejects.toMatchObject({
@@ -68,7 +72,9 @@ describe('apiFetch', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(jsonResponse({ garbage: true }, HttpStatusCode.BAD_GATEWAY_502)),
+        .mockResolvedValue(
+          jsonResponse({ garbage: true }, HttpStatusCode.BAD_GATEWAY_502),
+        ),
     );
 
     await expect(apiFetch({ path: '/api/x' })).rejects.toBeInstanceOf(

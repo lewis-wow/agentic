@@ -12,8 +12,10 @@ export const createTestUser = (): Promise<User> =>
 export const createTestProject = (): Promise<Project> =>
   prisma.project.create({ data: { name: unique('project') } });
 
-export const createTestEnvironment = (projectId: string, name = 'development') =>
-  prisma.environment.create({ data: { projectId, name } });
+export const createTestEnvironment = (
+  projectId: string,
+  name = 'development',
+) => prisma.environment.create({ data: { projectId, name } });
 
 /** Deletes the project (cascades to environments, flags, flag states, audit events). */
 export const cleanupProject = (projectId: string): Promise<unknown> =>

@@ -170,6 +170,19 @@ type UserDTO = Schema.Schema.Type<typeof UserDTO>;
 const user = Schema.decodeUnknownSync(UserDTO)(rawInput);
 ```
 
+- **Barrel files always use `export * from '...'`**
+  In `index.ts` barrel files, re-export every sibling module with `export * from './module.js';`. Never cherry-pick named or type-only exports (`export { x } from ...`, `export type { X } from ...`) in a barrel — a source module either belongs in the barrel or it doesn't. This keeps barrels mechanically regenerable (see `pnpm barrels`) and consistent regardless of what a module happens to export today.
+
+```typescript
+// Correct
+export * from './Exception.js';
+export * from './HttpException.js';
+
+// Incorrect
+export { Exception } from './Exception.js';
+export type { AnyException } from './Exception.js';
+```
+
 - **Define env schema using createEnv from @repo/utils package**
 
 ```typescript

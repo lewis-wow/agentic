@@ -1,12 +1,5 @@
-export {
-  resolveTrustedProxyUser,
-  type ResolveTrustedProxyUserArgs,
-} from './trustedProxy.js';
-export {
-  resolveProjectRole,
-  type ResolveProjectRoleArgs,
-  type DashboardProjectRole,
-} from './projectRole.js';
+export * from './trustedProxy.js';
+export * from './projectRole.js';
 
 const proxyRequest = async (
   request: Request,
