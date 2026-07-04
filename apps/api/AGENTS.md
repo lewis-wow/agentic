@@ -52,15 +52,15 @@ Non-project-scoped routes (`/projects` list+create, `/users`) receive a `MeJwtCl
   - **Service methods throw `Exception` subclasses directly**, same as route handlers do today — there is no Effect failure channel involved in the service layer. Effect is used in this app only for `Schema` validation (request bodies, env vars), not for service composition or control flow.
   - **Route handlers call the service inside a `try`/`catch`** (or let the thrown `Exception` propagate to the shared error-handling middleware, whichever is already wired) and call `.toResponse()` on it, exactly as they do today for exceptions thrown inline.
 
-- **Every mutating request body is decoded through an Effect `Schema.Struct`** defined in `packages/api` (the sibling package) — see `CreateProjectRequestSchema`, `CreateEnvironmentRequestSchema`, `AddMemberRequestSchema` for the pattern (`Schema.decodeUnknownEither`, branch on `Either.isLeft`). Never define inline types for request bodies. **Paginated list GET responses are encoded through their `PaginatedResponseSchema`** (see `packages/api/src/schemas/pagination.ts`) via `Schema.encodeSync` before `c.json(...)` — see `users.ts`, `apiKeys.ts`, `environments.ts`, `members.ts`, and the list/audit-log handlers in `flags.ts` for the pattern. Single-resource GET responses (flag detail, project detail, etc.) still return plain typed Prisma projections until they adopt a schema too — match whichever style the endpoint you're touching already uses.
+- **Every route's input (JSON body, query string, path params) is validated with `validate(target, schema)`** (`src/validation.ts`) using a schema imported from `@repo/api`, and read back with `c.req.valid(target)` — never `c.req.json()`/`c.req.query()`/`c.req.param()` directly, and never a `Schema.Struct` declared inline in a route file. **Every response — including single-resource GETs — is run through `Schema.encodeSync`/`Schema.decodeUnknownSync` before `c.json(...)`**, using a `<Thing>FromPrisma` `Schema.transform` when the Prisma row needs reshaping (dates, flattened relations). See [Effect Schema for Requests and Responses](../../docs/specification/effect-schema.md) for the full convention and the `IsoDateFromPrisma` helper.
 - **Every error is an `Exception` subclass** from `src/exceptions/`. Never call `c.json()` directly with a status code. Use `exception.toResponse()` or `throw exception` outside a service; inside a service, fail the `Effect` with it instead.
 
 ## Adding a New Route
 
-1. Define the request/response schemas in `packages/api/src/` and re-export from its barrel.
+1. Define the request/response schemas (including path param and query string schemas) in `packages/api/src/` and re-export from its barrel — see [Effect Schema for Requests and Responses](../../docs/specification/effect-schema.md).
 2. Add or extend the resource's service class in `src/services/` with the operation's logic (validation, Prisma access, transactions, audit events, SSE emission).
-3. Add the Hono route handler in `src/routes/`: narrow auth claims, decode the request body via Effect Schema, call the service method, and return its result (or `.toResponse()` on a thrown `Exception`).
-4. Add any new error cases as `Exception` subclasses in `src/exceptions/`.
+3. Add the Hono route handler in `src/routes/`: `validate(target, schema)` for every input, narrow auth claims, call the service method, and encode the result through its response schema (or return `.toResponse()` on a thrown `Exception`).
+4. Add any new error cases as `Exception` subclasses in `src/exceptions/` — only for conditions a schema can't express (see the linked doc).
 
 ## Adding a New Service
 
@@ -69,7 +69,7 @@ Create `src/services/<Resource>Service.ts` as a plain class taking one `Options`
 ```ts
 import type { PrismaClient } from '@repo/prisma';
 
-import { FlagNotFound, InvalidRollout } from '../exceptions/index.js';
+import { FlagKeyConflict, FlagNotFound } from '../exceptions/index.js';
 
 export type FlagServiceOptions = {
   prisma: PrismaClient;

@@ -1,35 +1,34 @@
-import { ApiKeyListPageSchema, CreateApiKeyRequestSchema } from '@repo/api';
+import {
+  ApiKeyIdParamSchema,
+  ApiKeyListItemFromPrisma,
+  ApiKeyListPageSchema,
+  ApiKeyListQuerySchema,
+  CreateApiKeyRequestSchema,
+  CreateApiKeyResponseFromPrisma,
+  RevokeApiKeyResponseFromPrisma,
+  RotateApiKeyResponseSchema,
+} from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { generateApiKey } from '@repo/auth/api-key';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
-import { Either, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
 import {
   ApiKeyAlreadyRevoked,
-  ApiKeyNameRequired,
   ApiKeyNotFound,
   EnvironmentNotFound,
   Forbidden,
 } from '../exceptions/index.js';
+import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
-const parseBody = async (
-  request: Request,
-): Promise<Record<string, unknown>> => {
-  try {
-    return (await request.json()) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-};
-
 export const apiKeysRouter = new Hono<AppEnv>();
 
-apiKeysRouter.get('/', async (c) => {
+apiKeysRouter.get('/', validate('query', ApiKeyListQuerySchema), async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
@@ -39,7 +38,8 @@ apiKeysRouter.get('/', async (c) => {
   );
   const { skip, take } = buildPrismaPage(page, limit);
 
-  const search = c.req.query('search')?.trim() ?? '';
+  const { search: searchParam } = c.req.valid('query');
+  const search = searchParam?.trim() ?? '';
   const where = {
     environment: { projectId: claims.projectId },
     ...(search
@@ -68,15 +68,9 @@ apiKeysRouter.get('/', async (c) => {
   ]);
 
   const encoded = Schema.encodeSync(ApiKeyListPageSchema)({
-    items: apiKeys.map((key) => ({
-      id: key.id,
-      name: key.name,
-      apiKeyId: key.apiKeyId,
-      environmentId: key.environment.id,
-      environmentName: key.environment.name,
-      revokedAt: key.revokedAt ? key.revokedAt.toISOString() : null,
-      createdAt: key.createdAt.toISOString(),
-    })),
+    items: apiKeys.map((key) =>
+      Schema.decodeUnknownSync(ApiKeyListItemFromPrisma)(key),
+    ),
     total,
     page,
     limit,
@@ -84,110 +78,116 @@ apiKeysRouter.get('/', async (c) => {
   return c.json(encoded);
 });
 
-apiKeysRouter.post('/', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+apiKeysRouter.post(
+  '/',
+  validate('json', CreateApiKeyRequestSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const body = await parseBody(c.req.raw);
-  const decoded = Schema.decodeUnknownEither(CreateApiKeyRequestSchema)(body);
-  if (Either.isLeft(decoded)) {
-    return new ApiKeyNameRequired().toResponse();
-  }
-  const { name, environmentId } = decoded.right;
+    const { name, environmentId } = c.req.valid('json');
 
-  const environment = await prisma.environment.findUnique({
-    where: { id: environmentId, projectId: claims.projectId },
-  });
-  if (!environment) return new EnvironmentNotFound().toResponse();
+    const environment = await prisma.environment.findUnique({
+      where: { id: environmentId, projectId: claims.projectId },
+    });
+    if (!environment) return new EnvironmentNotFound().toResponse();
 
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
-    environmentName: environment.name,
-  });
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+      environmentName: environment.name,
+    });
 
-  const apiKey = await prisma.apiKey.create({
-    data: { name: name.trim(), apiKeyId, apiKeyHash, environmentId },
-  });
+    const apiKey = await prisma.apiKey.create({
+      data: { name: name.trim(), apiKeyId, apiKeyHash, environmentId },
+    });
 
-  return c.json(
-    {
-      apiKey: {
-        id: apiKey.id,
-        name: apiKey.name,
-        apiKeyId: apiKey.apiKeyId,
-        environmentId: environment.id,
-        environmentName: environment.name,
-        revokedAt: apiKey.revokedAt,
-        createdAt: apiKey.createdAt,
-      },
+    const encoded = Schema.decodeUnknownSync(CreateApiKeyResponseFromPrisma)({
+      apiKey: { ...apiKey, environment },
       fullKey,
-    },
-    201,
-  );
-});
+    });
 
-apiKeysRouter.post('/:apiKeyId/rotate', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+    return c.json(encoded, 201);
+  },
+);
 
-  const { apiKeyId: id } = c.req.param();
+apiKeysRouter.post(
+  '/:apiKeyId/rotate',
+  validate('param', ApiKeyIdParamSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const existing = await prisma.apiKey.findFirst({
-    where: { id, environment: { projectId: claims.projectId } },
-    include: { environment: { select: { name: true } } },
-  });
-  if (!existing) return new ApiKeyNotFound().toResponse();
-  if (existing.revokedAt) return new ApiKeyAlreadyRevoked().toResponse();
+    const { apiKeyId: id } = c.req.valid('param');
 
-  const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
-    environmentName: existing.environment.name,
-  });
+    const existing = await prisma.apiKey.findFirst({
+      where: { id, environment: { projectId: claims.projectId } },
+      include: { environment: { select: { name: true } } },
+    });
+    if (!existing) return new ApiKeyNotFound().toResponse();
+    if (existing.revokedAt) return new ApiKeyAlreadyRevoked().toResponse();
 
-  await prisma.apiKey.update({
-    where: { id },
-    data: { apiKeyId, apiKeyHash },
-  });
+    const { fullKey, apiKeyId, apiKeyHash } = await generateApiKey({
+      environmentName: existing.environment.name,
+    });
 
-  return c.json({ fullKey });
-});
+    await prisma.apiKey.update({
+      where: { id },
+      data: { apiKeyId, apiKeyHash },
+    });
 
-apiKeysRouter.post('/:apiKeyId/revoke', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+    const encoded = Schema.encodeSync(RotateApiKeyResponseSchema)({ fullKey });
+    return c.json(encoded);
+  },
+);
 
-  const { apiKeyId: id } = c.req.param();
+apiKeysRouter.post(
+  '/:apiKeyId/revoke',
+  validate('param', ApiKeyIdParamSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const existing = await prisma.apiKey.findFirst({
-    where: { id, environment: { projectId: claims.projectId } },
-  });
-  if (!existing) return new ApiKeyNotFound().toResponse();
-  if (existing.revokedAt) return new ApiKeyAlreadyRevoked().toResponse();
+    const { apiKeyId: id } = c.req.valid('param');
 
-  const apiKey = await prisma.apiKey.update({
-    where: { id },
-    data: { revokedAt: new Date() },
-  });
+    const existing = await prisma.apiKey.findFirst({
+      where: { id, environment: { projectId: claims.projectId } },
+    });
+    if (!existing) return new ApiKeyNotFound().toResponse();
+    if (existing.revokedAt) return new ApiKeyAlreadyRevoked().toResponse();
 
-  return c.json({ apiKey: { id: apiKey.id, revokedAt: apiKey.revokedAt } });
-});
+    const apiKey = await prisma.apiKey.update({
+      where: { id },
+      data: { revokedAt: new Date() },
+    });
 
-apiKeysRouter.delete('/:apiKeyId', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+    const encoded = Schema.decodeUnknownSync(RevokeApiKeyResponseFromPrisma)({
+      apiKey,
+    });
+    return c.json(encoded);
+  },
+);
 
-  const { apiKeyId: id } = c.req.param();
+apiKeysRouter.delete(
+  '/:apiKeyId',
+  validate('param', ApiKeyIdParamSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const result = await prisma.apiKey.deleteMany({
-    where: { id, environment: { projectId: claims.projectId } },
-  });
-  if (result.count === 0) return new ApiKeyNotFound().toResponse();
+    const { apiKeyId: id } = c.req.valid('param');
 
-  return new Response(null, { status: 204 });
-});
+    const result = await prisma.apiKey.deleteMany({
+      where: { id, environment: { projectId: claims.projectId } },
+    });
+    if (result.count === 0) return new ApiKeyNotFound().toResponse();
+
+    return new Response(null, { status: 204 });
+  },
+);

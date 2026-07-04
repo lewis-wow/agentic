@@ -47,6 +47,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.0.0
         version: 1.19.14(hono@4.12.27)
+      '@hono/standard-validator':
+        specifier: ^0.2.2
+        version: 0.2.2(@standard-schema/spec@1.1.0)(hono@4.12.27)
       '@prisma/adapter-pg':
         specifier: ^7.8.0
         version: 7.8.0

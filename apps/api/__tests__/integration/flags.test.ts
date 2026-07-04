@@ -220,7 +220,7 @@ describe('GET /projects/:projectId/flags', () => {
         projectId: PROJECT_ID,
         createdAt: new Date(),
         updatedAt: new Date(),
-        states: [{ status: 'active' }],
+        states: [{ status: 'active', type: 'boolean', rollout: 0 }],
       },
     ] as never);
     mockPrisma.flag.count.mockResolvedValue(1 as never);
@@ -299,6 +299,9 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
           id: 'state-1',
           environment: { id: 'env-1', name: 'production' },
           status: 'active',
+          type: 'boolean',
+          rollout: 0,
+          rules: [],
         },
       ],
     } as never);
@@ -327,6 +330,7 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
           id: 'state-1',
           type: 'percentage_rollout',
           rollout: 42,
+          rules: [],
           environment: { id: 'env-1', name: 'production' },
           status: 'active',
         },
@@ -364,6 +368,8 @@ describe('PATCH /projects/:projectId/flags/:flagId (rename)', () => {
       key: 'my-flag',
       name: 'Old Name',
       projectId: PROJECT_ID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     mockPrisma.flag.findUnique.mockResolvedValue(existing as never);
 
@@ -431,6 +437,9 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       flagId: 'flag-1',
       environmentId: 'env-1',
       status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [],
     };
     mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
 
@@ -510,6 +519,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
         status: 'active',
         type: 'percentage_rollout',
         rollout: 42,
+        rules: [],
       },
     ] as never);
 
@@ -531,7 +541,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
     expect(body.flagState.rollout).toBe(42);
   });
 
-  it('returns 400 InvalidFlagType for a truly unknown type value', async () => {
+  it('returns 400 RequestValidationFailed for a truly unknown type value', async () => {
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
       {
@@ -546,7 +556,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.code).toBe('InvalidFlagType');
+    expect(body.code).toBe('RequestValidationFailed');
   });
 
   it('accepts targeted type with valid rules and writes them', async () => {
@@ -735,7 +745,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
     );
   });
 
-  it('returns 400 InvalidRollout when rollout is outside 0–100', async () => {
+  it('returns 400 RequestValidationFailed when rollout is outside 0–100', async () => {
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
       {
@@ -750,10 +760,10 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.code).toBe('InvalidRollout');
+    expect(body.code).toBe('RequestValidationFailed');
   });
 
-  it('returns 400 InvalidRollout when rollout is not an integer', async () => {
+  it('returns 400 RequestValidationFailed when rollout is not an integer', async () => {
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
       {
@@ -768,7 +778,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.code).toBe('InvalidRollout');
+    expect(body.code).toBe('RequestValidationFailed');
   });
 
   it('returns 400 when body is empty (no fields provided)', async () => {
@@ -806,6 +816,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
         status: 'active',
         type: 'percentage_rollout',
         rollout: 25,
+        rules: [],
       },
     ] as never);
 
@@ -861,6 +872,9 @@ describe('POST /projects/:projectId/flags/:flagId/archive', () => {
           id: 'state-1',
           environment: { id: 'env-1', name: 'production' },
           status: 'archived',
+          type: 'boolean',
+          rollout: 0,
+          rules: [],
         },
       ],
     };
@@ -931,6 +945,9 @@ describe('POST /projects/:projectId/flags/:flagId/unarchive', () => {
           id: 'state-1',
           environment: { id: 'env-1', name: 'production' },
           status: 'inactive',
+          type: 'boolean',
+          rollout: 0,
+          rules: [],
         },
       ],
     };
@@ -1050,6 +1067,7 @@ describe('flag event emission', () => {
         status: 'active',
         type: 'boolean',
         rollout: 0,
+        rules: [],
       },
     ] as never);
 
@@ -1121,12 +1139,16 @@ describe('flag event emission', () => {
       updatedAt: new Date(),
       states: [
         {
+          id: 'state-1',
+          status: 'inactive',
           type: 'boolean',
           rollout: 0,
           rules: [],
           environment: { id: 'env-1', name: 'Production' },
         },
         {
+          id: 'state-2',
+          status: 'inactive',
           type: 'percentage_rollout',
           rollout: 50,
           rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
@@ -1197,7 +1219,14 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
     } as never);
     mockPrisma.$transaction.mockResolvedValue([
-      { id: 'flag-1', key: 'my-flag', name: 'New Name', projectId: PROJECT_ID },
+      {
+        id: 'flag-1',
+        key: 'my-flag',
+        name: 'New Name',
+        projectId: PROJECT_ID,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ] as never);
 
     await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
@@ -1332,6 +1361,7 @@ describe('flag.toggled write-path includes environmentName', () => {
         status: 'active',
         type: 'boolean',
         rollout: 0,
+        rules: [],
       },
     ] as never);
 
@@ -1381,6 +1411,7 @@ describe('flag.rollout_updated write-path includes environmentName', () => {
         status: 'active',
         type: 'percentage_rollout',
         rollout: 40,
+        rules: [],
       },
     ] as never);
 

@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.0.0",
+    "@hono/standard-validator": "^0.2.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@repo/api": "workspace:*",

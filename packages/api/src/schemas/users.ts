@@ -14,3 +14,7 @@ export type UserListItem = Schema.Schema.Type<typeof UserListItemSchema>;
 export const UserListPageSchema = PaginatedResponseSchema(UserListItemSchema);
 
 export type UserListPage = Schema.Schema.Type<typeof UserListPageSchema>;
+
+export const UserListQuerySchema = Schema.Struct({
+  search: Schema.optional(Schema.String),
+});

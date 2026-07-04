@@ -1,35 +1,33 @@
-import { AddMemberRequestSchema, MemberListPageSchema } from '@repo/api';
+import {
+  AddableUsersQuerySchema,
+  AddableUsersResponseSchema,
+  AddMemberRequestSchema,
+  MemberIdParamSchema,
+  MemberListItemSchema,
+  MemberListPageSchema,
+  MemberListQuerySchema,
+} from '@repo/api';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
-import { isMembershipRole, SYSTEM_ROLE } from '@repo/auth/roles';
+import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
-import { Either, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
 import {
   CannotAddOwnerAsMember,
   Forbidden,
-  InvalidMembershipRole,
   MemberNotFound,
   UserNotFound,
 } from '../exceptions/index.js';
+import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
-const parseBody = async (
-  request: Request,
-): Promise<Record<string, unknown>> => {
-  try {
-    return (await request.json()) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-};
-
 export const membersRouter = new Hono<AppEnv>();
 
-membersRouter.get('/', async (c) => {
+membersRouter.get('/', validate('query', MemberListQuerySchema), async (c) => {
   const auth = c.get('auth');
   const claims = requireProjectClaims(auth);
   if (!claims) return new Forbidden().toResponse();
@@ -39,7 +37,8 @@ membersRouter.get('/', async (c) => {
   );
   const { skip, take } = buildPrismaPage(page, limit);
 
-  const search = c.req.query('search')?.trim() ?? '';
+  const { search: searchParam } = c.req.valid('query');
+  const search = searchParam?.trim() ?? '';
   const where = {
     projectId: claims.projectId,
     ...(search
@@ -69,9 +68,9 @@ membersRouter.get('/', async (c) => {
     }),
   ]);
 
-  const encoded = Schema.encodeSync(MemberListPageSchema)({
+  const encoded = Schema.decodeUnknownSync(MemberListPageSchema)({
     owner,
-    items: members.map((m) => ({ id: m.id, role: m.role, user: m.user })),
+    items: members,
     total,
     page,
     limit,
@@ -79,47 +78,51 @@ membersRouter.get('/', async (c) => {
   return c.json(encoded);
 });
 
-membersRouter.get('/addable', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+membersRouter.get(
+  '/addable',
+  validate('query', AddableUsersQuerySchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const query = c.req.query('query')?.trim() ?? '';
-  if (!query) return c.json({ users: [] });
-
-  const users = await prisma.user.findMany({
-    where: {
-      role: { not: SYSTEM_ROLE.OWNER },
-      projectMembers: { none: { projectId: claims.projectId } },
-      OR: [
-        { name: { contains: query, mode: 'insensitive' } },
-        { email: { contains: query, mode: 'insensitive' } },
-      ],
-    },
-    select: { id: true, name: true, email: true },
-    take: 10,
-    orderBy: { name: 'asc' },
-  });
-
-  return c.json({ users });
-});
-
-membersRouter.post('/', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
-
-  const body = await parseBody(c.req.raw);
-  const decoded = Schema.decodeUnknownEither(AddMemberRequestSchema)(body);
-  if (Either.isLeft(decoded)) {
-    if (!isMembershipRole(body['role'])) {
-      return new InvalidMembershipRole().toResponse();
+    const { query: queryParam } = c.req.valid('query');
+    const query = queryParam?.trim() ?? '';
+    if (!query) {
+      return c.json(
+        Schema.encodeSync(AddableUsersResponseSchema)({ users: [] }),
+      );
     }
-    return new UserNotFound().toResponse();
-  }
-  const { userId, role } = decoded.right;
+
+    const users = await prisma.user.findMany({
+      where: {
+        role: { not: SYSTEM_ROLE.OWNER },
+        projectMembers: { none: { projectId: claims.projectId } },
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true, name: true, email: true },
+      take: 10,
+      orderBy: { name: 'asc' },
+    });
+
+    const encoded = Schema.decodeUnknownSync(AddableUsersResponseSchema)({
+      users,
+    });
+    return c.json(encoded);
+  },
+);
+
+membersRouter.post('/', validate('json', AddMemberRequestSchema), async (c) => {
+  const auth = c.get('auth');
+  const claims = requireProjectClaims(auth);
+  if (!claims) return new Forbidden().toResponse();
+  if (!canManageProject(claims)) return new Forbidden().toResponse();
+
+  const { userId, role } = c.req.valid('json');
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) return new UserNotFound().toResponse();
@@ -134,24 +137,27 @@ membersRouter.post('/', async (c) => {
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
-  return c.json(
-    { member: { id: member.id, role: member.role, user: member.user } },
-    201,
-  );
+  const encoded = Schema.decodeUnknownSync(MemberListItemSchema)(member);
+
+  return c.json({ member: encoded }, 201);
 });
 
-membersRouter.delete('/:memberId', async (c) => {
-  const auth = c.get('auth');
-  const claims = requireProjectClaims(auth);
-  if (!claims) return new Forbidden().toResponse();
-  if (!canManageProject(claims)) return new Forbidden().toResponse();
+membersRouter.delete(
+  '/:memberId',
+  validate('param', MemberIdParamSchema),
+  async (c) => {
+    const auth = c.get('auth');
+    const claims = requireProjectClaims(auth);
+    if (!claims) return new Forbidden().toResponse();
+    if (!canManageProject(claims)) return new Forbidden().toResponse();
 
-  const { memberId } = c.req.param();
+    const { memberId } = c.req.valid('param');
 
-  const result = await prisma.projectMember.deleteMany({
-    where: { id: memberId, projectId: claims.projectId },
-  });
-  if (result.count === 0) return new MemberNotFound().toResponse();
+    const result = await prisma.projectMember.deleteMany({
+      where: { id: memberId, projectId: claims.projectId },
+    });
+    if (result.count === 0) return new MemberNotFound().toResponse();
 
-  return new Response(null, { status: 204 });
-});
+    return new Response(null, { status: 204 });
+  },
+);

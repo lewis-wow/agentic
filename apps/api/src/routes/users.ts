@@ -1,4 +1,4 @@
-import { UserListPageSchema } from '@repo/api';
+import { UserListPageSchema, UserListQuerySchema } from '@repo/api';
 import type { AuthJwtClaims } from '@repo/auth';
 import { isSdkClaims } from '@repo/auth';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
 import { Forbidden } from '../exceptions/index.js';
+import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -21,7 +22,7 @@ const requireOwnerClaims = (auth: AuthJwtClaims): { userId: string } | null => {
 
 export const usersRouter = new Hono<AppEnv>();
 
-usersRouter.get('/', async (c) => {
+usersRouter.get('/', validate('query', UserListQuerySchema), async (c) => {
   const auth = c.get('auth');
   const claims = requireOwnerClaims(auth);
   if (!claims) return new Forbidden().toResponse();
@@ -31,7 +32,8 @@ usersRouter.get('/', async (c) => {
   );
   const { skip, take } = buildPrismaPage(page, limit);
 
-  const search = c.req.query('search')?.trim() ?? '';
+  const { search: searchParam } = c.req.valid('query');
+  const search = searchParam?.trim() ?? '';
   const where: Prisma.UserWhereInput = search
     ? {
         OR: [
