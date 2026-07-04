@@ -7,3 +7,4 @@ export * from './schemas/apiKeys.js';
 export * from './schemas/environments.js';
 export * from './schemas/members.js';
 export * from './openapi.js';
+export * from './scalarReference.js';

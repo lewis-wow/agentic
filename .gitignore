@@ -5,6 +5,7 @@ dist
 coverage
 *.tsbuildinfo
 packages/prisma/src/generated
+apps/api/src/generated
 
 .devcontainer/.claude/
 .pnpm-store/

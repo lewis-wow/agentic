@@ -73,4 +73,6 @@ app.all('/projects/:projectId/*', (c) =>
 app.all('/me', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
 app.all('/v1/*', (c) => forwardWithJwt(c.req.raw, c.get('jwt'), env.API_URL));
 
-serve({ fetch: app.fetch, port: env.BFF_PORT });
+serve({ fetch: app.fetch, port: env.BFF_PORT }, (info) => {
+  console.log(`BFF listening at http://localhost:${info.port}`);
+});

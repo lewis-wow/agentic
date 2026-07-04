@@ -46,7 +46,7 @@
     "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
 
-  "forwardPorts": [3000, 5432, 6080],
+  "forwardPorts": [3000, 3001, 3002, 5432, 6080],
 
   // Commands that run after the container is successfully built
   // pnpm store prune saves disk space and pnpm install prepares dependencies

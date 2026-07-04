@@ -119,7 +119,7 @@ Extend `HttpException` (not the plain `Exception` base) — it adds `.toResponse
 
 ## API Documentation (OpenAPI)
 
-`GET /openapi.json` and `GET /docs` are wired in `src/index.ts`, but the document itself is generated entirely in `packages/api/src/openapi.ts` — see [OpenAPI Generation](../../docs/specification/openapi.md) for the full convention, including how to add a new endpoint and how to produce a standalone static bundle (`pnpm build:openapi-static`).
+`GET /openapi.json` and `GET /docs` are wired in `src/index.ts`, but the document itself is generated ahead of time by `src/scripts/generate-openapi.ts` (which calls into `packages/api/src/openapi.ts`) into `src/generated/openapi.json` (gitignored) — the running server only imports and serves that static file, it never calls the generator itself. See [OpenAPI Generation](../../docs/specification/openapi.md) for the full convention, including how to add a new endpoint and how to produce a standalone static bundle (`pnpm build:openapi-static`).
 
 ## Environment Variables
 

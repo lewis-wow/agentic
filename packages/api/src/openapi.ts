@@ -161,6 +161,10 @@ const jsonContent = (schema: Schema.Schema.Any) => ({
 
 export type OpenApiDocument = Record<string, unknown>;
 
+// Only called by apps/api/src/scripts/generate-openapi.ts — never imported
+// by the running server, so this module's `effect` (Schema/JSONSchema) cost
+// never ships in the runtime bundle. See docs/specification/openapi.md.
+
 export const generateOpenApiDocument = (): OpenApiDocument => {
   const paths: Record<string, Record<string, unknown>> = {};
   const tags = new Set<string>();
@@ -214,20 +218,3 @@ export const generateOpenApiDocument = (): OpenApiDocument => {
     paths,
   };
 };
-
-// Scalar's documented static-HTML embed — no build step, no npm package,
-// works both as a live route (served relative to /openapi.json) and copied
-// as a standalone file next to a generated openapi.json.
-export const SCALAR_REFERENCE_HTML = `<!doctype html>
-<html>
-  <head>
-    <title>Feature Flag Service API Reference</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body>
-    <script id="api-reference" data-url="./openapi.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-  </body>
-</html>
-`;

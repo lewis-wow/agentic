@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import { generateOpenApiDocument, SCALAR_REFERENCE_HTML } from '@repo/api';
+import { SCALAR_REFERENCE_HTML } from '@repo/api';
 import { decodeBase64Pem } from '@repo/auth/jwt';
 import { Hono } from 'hono';
 
@@ -8,6 +8,7 @@ import {
   createJwtVerifyMiddleware,
 } from './auth/middleware.js';
 import { env } from './env.js';
+import openApiDocument from './generated/openapi.json' with { type: 'json' };
 import { apiKeysRouter } from './routes/apiKeys.js';
 import { environmentsRouter } from './routes/environments.js';
 import { flagsRouter } from './routes/flags.js';
@@ -24,7 +25,7 @@ const app = new Hono<AppEnv>();
 
 app.get('/', (c) => c.json({ status: 'ok' }));
 
-app.get('/openapi.json', (c) => c.json(generateOpenApiDocument()));
+app.get('/openapi.json', (c) => c.json(openApiDocument));
 app.get('/docs', (c) => c.html(SCALAR_REFERENCE_HTML));
 
 const jwtAuth = createJwtVerifyMiddleware({ publicKeyPem });
@@ -46,4 +47,6 @@ app.route('/projects/:projectId/api-keys', apiKeysRouter);
 app.route('/users', usersRouter);
 app.route('/v1', sdkRouter);
 
-serve({ fetch: app.fetch, port: env.API_PORT });
+serve({ fetch: app.fetch, port: env.API_PORT }, (info) => {
+  console.log(`API listening at http://localhost:${info.port}`);
+});
