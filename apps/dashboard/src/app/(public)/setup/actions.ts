@@ -1,6 +1,5 @@
 'use server';
 
-import { generateApiKey } from '@repo/auth/api-key';
 import { SYSTEM_ROLE } from '@repo/auth/roles';
 import { prisma } from '@repo/prisma';
 import { redirect } from 'next/navigation';
@@ -32,37 +31,11 @@ export const setupAction = async (
     return { error: 'Setup has already been completed.' };
   }
 
-  const [devKey, prodKey] = await Promise.all([
-    generateApiKey({ environmentName: 'development' }),
-    generateApiKey({ environmentName: 'production' }),
-  ]);
-
   await prisma.project.create({
     data: {
       name: projectName.trim(),
       environments: {
-        create: [
-          {
-            name: 'development',
-            apiKeys: {
-              create: {
-                name: 'Default',
-                apiKeyId: devKey.apiKeyId,
-                apiKeyHash: devKey.apiKeyHash,
-              },
-            },
-          },
-          {
-            name: 'production',
-            apiKeys: {
-              create: {
-                name: 'Default',
-                apiKeyId: prodKey.apiKeyId,
-                apiKeyHash: prodKey.apiKeyHash,
-              },
-            },
-          },
-        ],
+        create: [{ name: 'development' }, { name: 'production' }],
       },
     },
   });
