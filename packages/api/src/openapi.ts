@@ -7,15 +7,12 @@ import {
   FlagListPageSchema,
   FlagSnapshotResponseSchema,
 } from './schemas/flags.dto.js';
-import { MemberListPageSchema } from './schemas/members.dto.js';
 import {
-  AddMemberRequestSchema,
   CreateApiKeyRequestSchema,
   CreateEnvironmentRequestSchema,
   CreateProjectRequestSchema,
   RenameProjectRequestSchema,
 } from './schemas/projects.dto.js';
-import { UserListPageSchema } from './schemas/users.dto.js';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
 
@@ -43,13 +40,6 @@ type OpenApiRouteDefinition = {
 // duplicated. Endpoints that still parse request bodies by hand or return
 // ad hoc JSON shapes are intentionally absent until they adopt a schema.
 const ROUTES: readonly OpenApiRouteDefinition[] = [
-  {
-    method: 'get',
-    path: '/users',
-    tag: 'Users',
-    summary: 'List users (owner only)',
-    response: { schema: UserListPageSchema },
-  },
   {
     method: 'post',
     path: '/projects',
@@ -92,21 +82,6 @@ const ROUTES: readonly OpenApiRouteDefinition[] = [
     tag: 'Environments',
     summary: 'Create an environment',
     request: { schema: CreateEnvironmentRequestSchema },
-    response: { status: 201, description: 'Created' },
-  },
-  {
-    method: 'get',
-    path: '/projects/{projectId}/members',
-    tag: 'Members',
-    summary: 'List project members',
-    response: { schema: MemberListPageSchema },
-  },
-  {
-    method: 'post',
-    path: '/projects/{projectId}/members',
-    tag: 'Members',
-    summary: 'Add or update a project member',
-    request: { schema: AddMemberRequestSchema },
     response: { status: 201, description: 'Created' },
   },
   {

@@ -3,17 +3,13 @@ import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
 import { PROJECT_ROLE, SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
 import { resolveProjectRole, resolveTrustedProxyUser } from '@repo/bff';
-import type { ProjectMember, User } from '@repo/prisma';
+import type { User } from '@repo/prisma';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
 import { JWT_TTL_SECONDS, TRUSTED_PROXY_SECRET_HEADER } from '../consts.js';
 
-type MembershipLookup = (
-  userId: string,
-  projectId: string,
-) => Promise<ProjectMember | null>;
 type UpsertUser = (args: { email: string; role: SystemRole }) => Promise<User>;
 
 export type ApiKeyLookupResult = {
@@ -31,10 +27,6 @@ type TrustedProxyOptions = {
   expectedSecret: string;
   designatedOwnerEmail: string;
   identityHeaderName: string;
-};
-
-type TrustedProxyProjectOptions = TrustedProxyOptions & {
-  findMembership: MembershipLookup;
 };
 
 type SdkMiddlewareOptions = {
@@ -105,30 +97,27 @@ const createTrustedProxyMiddleware = <
  * Project-scoped Trusted Proxy Authentication: resolves the caller's role for
  * `:projectId` and mints an RS256 project JWT.
  *
- * - Owner bypasses membership → `projectRole: 'owner'`.
- * - Member must have a `ProjectMember` row → `projectRole: 'admin' | 'viewer'`.
- * - Missing/invalid secret or identity header → 401. No membership → 403.
+ * - Owner → `projectRole: 'owner'`. Project access is owner-only.
+ * - Missing/invalid secret or identity header → 401. Non-owner → 403.
  */
 export const createTrustedProxyProjectAuthMiddleware = (
-  options: TrustedProxyProjectOptions,
+  options: TrustedProxyOptions,
 ) =>
-  createTrustedProxyMiddleware<ProjectJwtClaims>(options, async (c, user) => {
+  createTrustedProxyMiddleware<ProjectJwtClaims>(options, (c, user) => {
     const projectId = c.req.param('projectId');
     if (!projectId) {
-      return c.json({ error: 'Missing project id' }, 400);
+      return Promise.resolve(c.json({ error: 'Missing project id' }, 400));
     }
 
-    const projectRole = await resolveProjectRole({
-      user: { id: user.id, role: user.role as SystemRole },
-      projectId,
-      findMembership: options.findMembership,
+    const projectRole = resolveProjectRole({
+      user: { role: user.role as SystemRole },
     });
 
     if (!projectRole) {
-      return c.json({ error: 'Forbidden' }, 403);
+      return Promise.resolve(c.json({ error: 'Forbidden' }, 403));
     }
 
-    return {
+    return Promise.resolve({
       userId: user.id,
       systemRole:
         user.role === SYSTEM_ROLE.OWNER
@@ -136,7 +125,7 @@ export const createTrustedProxyProjectAuthMiddleware = (
           : SYSTEM_ROLE.MEMBER,
       projectId,
       projectRole,
-    };
+    });
   });
 
 /**

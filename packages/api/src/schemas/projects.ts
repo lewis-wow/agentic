@@ -1,7 +1,6 @@
 import { Schema } from 'effect';
 
 import { EnvironmentSchema } from './environments.js';
-import { MemberListItemSchema, UserSummarySchema } from './members.js';
 import { IsoDateFromPrisma } from './prisma.js';
 
 // Bare project row, no nested resources — returned by create/rename.
@@ -60,25 +59,20 @@ export const ProjectDetailSchema = Schema.Struct({
   createdAt: Schema.String,
   updatedAt: Schema.String,
   environments: Schema.Array(EnvironmentSchema),
-  members: Schema.Array(MemberListItemSchema),
-  owner: Schema.NullOr(UserSummarySchema),
 });
 
 export type ProjectDetail = Schema.Schema.Type<typeof ProjectDetailSchema>;
 
 // Raw shape: matches `prisma.project.findUnique` with
-// `include: { environments: true, members: { include: { user: {...} } } }`
-// (full rows — excess columns like `projectId`/timestamps on environments
-// and members are dropped automatically by `EnvironmentSchema`/
-// `MemberListItemSchema` during decode) plus the separately-queried owner.
+// `include: { environments: true } }` (full rows — excess columns like
+// `projectId`/timestamps on environments are dropped automatically by
+// `EnvironmentSchema` during decode).
 const ProjectDetailFromPrismaRawSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   createdAt: IsoDateFromPrisma,
   updatedAt: IsoDateFromPrisma,
   environments: Schema.Array(EnvironmentSchema),
-  members: Schema.Array(MemberListItemSchema),
-  owner: Schema.NullOr(UserSummarySchema),
 });
 
 export const ProjectDetailFromPrisma = Schema.transform(

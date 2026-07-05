@@ -1,6 +1,5 @@
 export * from './ApiKeyAlreadyRevoked.js';
 export * from './ApiKeyNotFound.js';
-export * from './CannotAddOwnerAsMember.js';
 export * from './EnvironmentNameConflict.js';
 export * from './EnvironmentNotFound.js';
 export * from './FlagIsArchived.js';
@@ -10,8 +9,6 @@ export * from './FlagNameRequired.js';
 export * from './FlagNotFound.js';
 export * from './Forbidden.js';
 export * from './InvalidFlagKey.js';
-export * from './MemberNotFound.js';
 export * from './ProjectNotFound.js';
 export * from './RequestValidationFailed.js';
 export * from './Unauthorized.js';
-export * from './UserNotFound.js';

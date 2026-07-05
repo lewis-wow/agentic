@@ -5,7 +5,7 @@ import { PROJECT_ROLE, type ProjectRole, type SystemRole } from './roles.js';
  * `apps/api` trusts these claims entirely — it has no auth DB dependency.
  */
 
-/** Project-scoped token for a dashboard user (owner or member). */
+/** Project-scoped token for a dashboard user (owner-only). */
 export type ProjectJwtClaims = {
   userId: string;
   systemRole: SystemRole;
@@ -40,7 +40,6 @@ export const requireProjectClaims = (
   return claims as ProjectJwtClaims;
 };
 
-/** `OWNER` and `ADMIN` project roles may create/update/delete a project's resources; `VIEWER` may not. */
+/** The `OWNER` project role may create/update/delete a project's resources — the only non-SDK role that exists. */
 export const canManageProject = (claims: ProjectJwtClaims): boolean =>
-  claims.projectRole === PROJECT_ROLE.OWNER ||
-  claims.projectRole === PROJECT_ROLE.ADMIN;
+  claims.projectRole === PROJECT_ROLE.OWNER;

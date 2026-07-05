@@ -68,8 +68,8 @@ export const DeleteProjectDialog = ({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this project?</AlertDialogTitle>
               <AlertDialogDescription>
-                <strong>{projectName}</strong> and all of its environments,
-                flags, and members will be permanently removed. Type{' '}
+                <strong>{projectName}</strong> and all of its environments and
+                flags will be permanently removed. Type{' '}
                 <span className="font-mono font-semibold text-foreground">
                   {projectName}
                 </span>{' '}

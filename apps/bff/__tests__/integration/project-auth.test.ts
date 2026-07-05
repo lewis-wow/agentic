@@ -7,11 +7,7 @@ import {
   type AuthVariables,
   createTrustedProxyProjectAuthMiddleware,
 } from '../../src/auth/middleware.js';
-import {
-  generateTestKeys,
-  makeMembership,
-  makeUser,
-} from '../helpers/factories.js';
+import { generateTestKeys, makeUser } from '../helpers/factories.js';
 
 const { privateKey, publicKey } = generateTestKeys();
 
@@ -20,7 +16,6 @@ const OWNER_EMAIL = 'owner@example.com';
 
 type AppDeps = {
   upsertUser: ReturnType<typeof vi.fn>;
-  findMembership: ReturnType<typeof vi.fn>;
 };
 
 const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
@@ -29,7 +24,6 @@ const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
     '/projects/:projectId/*',
     createTrustedProxyProjectAuthMiddleware({
       upsertUser: deps.upsertUser,
-      findMembership: deps.findMembership,
       privateKeyPem: privateKey,
       expectedSecret: EXPECTED_SECRET,
       designatedOwnerEmail: OWNER_EMAIL,
@@ -48,14 +42,13 @@ const trustedHeaders = (email: string): Record<string, string> => ({
 });
 
 describe('trusted proxy project auth middleware', () => {
-  it('mints an owner JWT without a membership lookup', async () => {
+  it('mints an owner JWT', async () => {
     const upsertUser = vi
       .fn()
       .mockResolvedValue(
         makeUser({ id: 'owner-1', email: OWNER_EMAIL, role: 'OWNER' }),
       );
-    const findMembership = vi.fn();
-    const app = buildApp({ upsertUser, findMembership });
+    const app = buildApp({ upsertUser });
 
     const res = await app.request('/projects/project-1/flags', {
       headers: trustedHeaders(OWNER_EMAIL),
@@ -73,49 +66,18 @@ describe('trusted proxy project auth middleware', () => {
       email: OWNER_EMAIL,
       role: 'OWNER' satisfies SystemRole,
     });
-    // Owner bypasses ProjectMember entirely.
-    expect(findMembership).not.toHaveBeenCalled();
 
     const verified = verifyRs256({ token: body.jwt, publicKeyPem: publicKey });
     expect(verified.projectRole).toBe('owner');
   });
 
-  it('mints an admin JWT for a member with the admin role', async () => {
-    const upsertUser = vi.fn().mockResolvedValue(
-      makeUser({
-        id: 'member-1',
-        email: 'member@example.com',
-        role: 'MEMBER',
-      }),
-    );
-    const findMembership = vi
-      .fn()
-      .mockResolvedValue(makeMembership({ userId: 'member-1', role: 'admin' }));
-    const app = buildApp({ upsertUser, findMembership });
-
-    const res = await app.request('/projects/project-1/flags', {
-      headers: trustedHeaders('member@example.com'),
-    });
-
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.claims).toMatchObject({
-      userId: 'member-1',
-      systemRole: 'MEMBER',
-      projectId: 'project-1',
-      projectRole: 'admin',
-    });
-    expect(findMembership).toHaveBeenCalledWith('member-1', 'project-1');
-  });
-
-  it('returns 403 for a member with no ProjectMember row', async () => {
+  it('returns 403 for a non-owner — project access is owner-only', async () => {
     const upsertUser = vi
       .fn()
       .mockResolvedValue(
         makeUser({ email: 'member@example.com', role: 'MEMBER' }),
       );
-    const findMembership = vi.fn().mockResolvedValue(null);
-    const app = buildApp({ upsertUser, findMembership });
+    const app = buildApp({ upsertUser });
 
     const res = await app.request('/projects/project-1/flags', {
       headers: trustedHeaders('member@example.com'),
@@ -126,8 +88,7 @@ describe('trusted proxy project auth middleware', () => {
 
   it('returns 401 when the trusted proxy secret is missing', async () => {
     const upsertUser = vi.fn();
-    const findMembership = vi.fn();
-    const app = buildApp({ upsertUser, findMembership });
+    const app = buildApp({ upsertUser });
 
     const res = await app.request('/projects/project-1/flags', {
       headers: { 'X-Forwarded-Email': 'member@example.com' },
@@ -139,8 +100,7 @@ describe('trusted proxy project auth middleware', () => {
 
   it('returns 401 when the trusted proxy secret does not match', async () => {
     const upsertUser = vi.fn();
-    const findMembership = vi.fn();
-    const app = buildApp({ upsertUser, findMembership });
+    const app = buildApp({ upsertUser });
 
     const res = await app.request('/projects/project-1/flags', {
       headers: {
@@ -155,8 +115,7 @@ describe('trusted proxy project auth middleware', () => {
 
   it('returns 401 when the identity header is missing', async () => {
     const upsertUser = vi.fn();
-    const findMembership = vi.fn();
-    const app = buildApp({ upsertUser, findMembership });
+    const app = buildApp({ upsertUser });
 
     const res = await app.request('/projects/project-1/flags', {
       headers: { 'X-Trusted-Proxy-Secret': EXPECTED_SECRET },

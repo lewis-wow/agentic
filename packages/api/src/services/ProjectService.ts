@@ -14,7 +14,6 @@ export type ProjectServiceOptions = {
 };
 
 export type ListProjectsArgs = {
-  userId: string;
   systemRole: SystemRole;
 };
 
@@ -38,24 +37,23 @@ export type RemoveProjectArgs = {
 export class ProjectService {
   constructor(private readonly options: ProjectServiceOptions) {}
 
+  // Project access is owner-only (no per-project membership) — a non-owner
+  // has no projects to list.
   async list(args: ListProjectsArgs) {
-    const { userId, systemRole } = args;
-    const environmentsInclude = {
-      orderBy: { createdAt: 'asc' as const },
-      select: { id: true, name: true },
-    };
+    const { systemRole } = args;
+    if (systemRole !== SYSTEM_ROLE.OWNER) {
+      return { projects: [] };
+    }
 
-    const projects =
-      systemRole === SYSTEM_ROLE.OWNER
-        ? await this.options.prisma.project.findMany({
-            orderBy: { createdAt: 'asc' },
-            include: { environments: environmentsInclude },
-          })
-        : await this.options.prisma.project.findMany({
-            where: { members: { some: { userId } } },
-            orderBy: { createdAt: 'asc' },
-            include: { environments: environmentsInclude },
-          });
+    const projects = await this.options.prisma.project.findMany({
+      orderBy: { createdAt: 'asc' },
+      include: {
+        environments: {
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, name: true },
+        },
+      },
+    });
 
     return {
       projects: projects.map((project) =>
@@ -79,24 +77,12 @@ export class ProjectService {
       where: { id: projectId },
       include: {
         environments: { orderBy: { createdAt: 'asc' } },
-        members: {
-          include: { user: { select: { id: true, name: true, email: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
       },
     });
     if (!project) throw new ProjectNotFound();
 
-    const owner = await this.options.prisma.user.findFirst({
-      where: { role: SYSTEM_ROLE.OWNER },
-      select: { id: true, name: true, email: true },
-    });
-
     return {
-      project: Schema.decodeUnknownSync(ProjectDetailFromPrisma)({
-        ...project,
-        owner,
-      }),
+      project: Schema.decodeUnknownSync(ProjectDetailFromPrisma)(project),
     };
   }
 

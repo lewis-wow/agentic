@@ -22,7 +22,6 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Users,
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
@@ -34,7 +33,6 @@ import { SiteHeader } from '../../SiteHeader';
 import { ApiKeysPanel } from './ApiKeysPanel';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { EnvironmentsPanel } from './EnvironmentsPanel';
-import { MembersPanel } from './MembersPanel';
 import { RenameProjectDialog } from './RenameProjectDialog';
 import { FlagsClient } from './flags/FlagsClient';
 
@@ -148,10 +146,6 @@ export const ProjectDetail = ({
               <KeyRound />
               API Keys
             </TabsTrigger>
-            <TabsTrigger value="members">
-              <Users />
-              Members
-            </TabsTrigger>
           </TabsList>
           <TabsContent value="flags" className="pt-4">
             <FlagsClient
@@ -165,9 +159,6 @@ export const ProjectDetail = ({
           </TabsContent>
           <TabsContent value="api-keys" className="pt-4">
             <ApiKeysPanel projectId={projectId} canManage={canManage} />
-          </TabsContent>
-          <TabsContent value="members" className="pt-4">
-            <MembersPanel projectId={projectId} canManage={canManage} />
           </TabsContent>
         </Tabs>
 

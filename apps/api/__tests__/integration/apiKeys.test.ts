@@ -62,18 +62,6 @@ const ownerToken = (projectId: string): string =>
     expiresInSeconds: 60,
   });
 
-const viewerToken = (projectId: string): string =>
-  signRs256({
-    payload: {
-      userId: 'user-viewer',
-      systemRole: SYSTEM_ROLE.MEMBER,
-      projectId,
-      projectRole: PROJECT_ROLE.VIEWER,
-    } satisfies ProjectJwtClaims,
-    privateKeyPem: privateKey,
-    expiresInSeconds: 60,
-  });
-
 const bearer = (token: string): Record<string, string> => ({
   Authorization: `Bearer ${token}`,
 });
@@ -157,19 +145,6 @@ describe('POST /projects/:projectId/api-keys', () => {
     const body = await res.json();
     expect(body.fullKey).toBe('production_abc123.secretvalue');
     expect(body.apiKey.environmentName).toBe('production');
-  });
-
-  it('returns 403 for a viewer', async () => {
-    const res = await app.request(`/projects/${PROJECT_ID}/api-keys`, {
-      method: 'POST',
-      headers: {
-        ...bearer(viewerToken(PROJECT_ID)),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: 'Server key', environmentId: 'env-1' }),
-    });
-
-    expect(res.status).toBe(403);
   });
 
   it('returns 400 when name is missing', async () => {
@@ -314,14 +289,5 @@ describe('DELETE /projects/:projectId/api-keys/:apiKeyId', () => {
     });
 
     expect(res.status).toBe(404);
-  });
-
-  it('returns 403 for a viewer', async () => {
-    const res = await app.request(`/projects/${PROJECT_ID}/api-keys/key-1`, {
-      method: 'DELETE',
-      headers: bearer(viewerToken(PROJECT_ID)),
-    });
-
-    expect(res.status).toBe(403);
   });
 });

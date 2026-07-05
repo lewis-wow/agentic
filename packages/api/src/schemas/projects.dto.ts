@@ -30,15 +30,6 @@ export type CreateEnvironmentRequest = Schema.Schema.Type<
   typeof CreateEnvironmentRequestSchema
 >;
 
-export const AddMemberRequestSchema = Schema.Struct({
-  userId: Schema.String.pipe(Schema.minLength(1)),
-  role: Schema.Literal('admin', 'viewer'),
-});
-
-export type AddMemberRequest = Schema.Schema.Type<
-  typeof AddMemberRequestSchema
->;
-
 export const CreateApiKeyRequestSchema = Schema.Struct({
   name: NonBlankName,
   environmentId: Schema.String.pipe(Schema.minLength(1)),

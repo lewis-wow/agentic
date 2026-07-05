@@ -36,7 +36,6 @@ projectsRouter.get('/', async (c) => {
   if (!claims) return new Forbidden().toResponse();
 
   const result = await projectService.list({
-    userId: claims.userId,
     systemRole: claims.systemRole,
   });
 

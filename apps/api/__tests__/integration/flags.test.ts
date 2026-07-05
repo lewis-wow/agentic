@@ -66,18 +66,6 @@ const ownerToken = (projectId: string): string =>
     expiresInSeconds: 60,
   });
 
-const viewerToken = (projectId: string): string =>
-  signRs256({
-    payload: {
-      userId: 'user-viewer',
-      systemRole: SYSTEM_ROLE.MEMBER,
-      projectId,
-      projectRole: PROJECT_ROLE.VIEWER,
-    } satisfies ProjectJwtClaims,
-    privateKeyPem: privateKey,
-    expiresInSeconds: 60,
-  });
-
 const bearer = (token: string): Record<string, string> => ({
   Authorization: `Bearer ${token}`,
 });
@@ -192,19 +180,6 @@ describe('POST /projects/:projectId/flags', () => {
 
     expect(res.status).toBe(400);
   });
-
-  it('returns 403 when a viewer tries to create a flag', async () => {
-    const res = await app.request(`/projects/${PROJECT_ID}/flags`, {
-      method: 'POST',
-      headers: {
-        ...bearer(viewerToken(PROJECT_ID)),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ key: 'my-flag', name: 'My Flag' }),
-    });
-
-    expect(res.status).toBe(403);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -227,7 +202,7 @@ describe('GET /projects/:projectId/flags', () => {
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags?environmentId=env-1&status=active`,
-      { headers: bearer(viewerToken(PROJECT_ID)) },
+      { headers: bearer(ownerToken(PROJECT_ID)) },
     );
 
     expect(res.status).toBe(200);
@@ -261,7 +236,7 @@ describe('GET /projects/:projectId/flags', () => {
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags?environmentId=env-1`,
-      { headers: bearer(viewerToken(PROJECT_ID)) },
+      { headers: bearer(ownerToken(PROJECT_ID)) },
     );
 
     expect(res.status).toBe(200);
@@ -275,7 +250,7 @@ describe('GET /projects/:projectId/flags', () => {
 
   it('returns 400 when environmentId is missing', async () => {
     const res = await app.request(`/projects/${PROJECT_ID}/flags`, {
-      headers: bearer(viewerToken(PROJECT_ID)),
+      headers: bearer(ownerToken(PROJECT_ID)),
     });
 
     expect(res.status).toBe(400);
@@ -307,7 +282,7 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
     } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
-      headers: bearer(viewerToken(PROJECT_ID)),
+      headers: bearer(ownerToken(PROJECT_ID)),
     });
 
     expect(res.status).toBe(200);
@@ -338,7 +313,7 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
     } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
-      headers: bearer(viewerToken(PROJECT_ID)),
+      headers: bearer(ownerToken(PROJECT_ID)),
     });
 
     expect(res.status).toBe(200);
@@ -351,7 +326,7 @@ describe('GET /projects/:projectId/flags/:flagId', () => {
     mockPrisma.flag.findUnique.mockResolvedValue(null);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/missing`, {
-      headers: bearer(viewerToken(PROJECT_ID)),
+      headers: bearer(ownerToken(PROJECT_ID)),
     });
 
     expect(res.status).toBe(404);
@@ -402,19 +377,6 @@ describe('PATCH /projects/:projectId/flags/:flagId (rename)', () => {
     });
 
     expect(res.status).toBe(400);
-  });
-
-  it('returns 403 for a viewer', async () => {
-    const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
-      method: 'PATCH',
-      headers: {
-        ...bearer(viewerToken(PROJECT_ID)),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: 'New Name' }),
-    });
-
-    expect(res.status).toBe(403);
   });
 });
 
@@ -907,18 +869,6 @@ describe('POST /projects/:projectId/flags/:flagId/archive', () => {
 
     expect(res.status).toBe(404);
   });
-
-  it('returns 403 for a viewer', async () => {
-    const res = await app.request(
-      `/projects/${PROJECT_ID}/flags/flag-1/archive`,
-      {
-        method: 'POST',
-        headers: bearer(viewerToken(PROJECT_ID)),
-      },
-    );
-
-    expect(res.status).toBe(403);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1000,15 +950,6 @@ describe('DELETE /projects/:projectId/flags/:flagId', () => {
     });
 
     expect(res.status).toBe(404);
-  });
-
-  it('returns 403 for a viewer', async () => {
-    const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
-      method: 'DELETE',
-      headers: bearer(viewerToken(PROJECT_ID)),
-    });
-
-    expect(res.status).toBe(403);
   });
 });
 
@@ -1261,7 +1202,7 @@ describe('GET /projects/:projectId/flags/:flagId/audit-log', () => {
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/audit-log`,
-      { headers: bearer(viewerToken(PROJECT_ID)) },
+      { headers: bearer(ownerToken(PROJECT_ID)) },
     );
 
     expect(res.status).toBe(200);
@@ -1284,7 +1225,7 @@ describe('GET /projects/:projectId/flags/:flagId/audit-log', () => {
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/audit-log?page=2&limit=25`,
-      { headers: bearer(viewerToken(PROJECT_ID)) },
+      { headers: bearer(ownerToken(PROJECT_ID)) },
     );
 
     expect(res.status).toBe(200);
@@ -1329,7 +1270,7 @@ describe('GET /:flagId no longer includes auditLog', () => {
     } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
-      headers: bearer(viewerToken(PROJECT_ID)),
+      headers: bearer(ownerToken(PROJECT_ID)),
     });
 
     expect(res.status).toBe(200);

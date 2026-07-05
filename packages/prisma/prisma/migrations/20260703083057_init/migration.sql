@@ -28,18 +28,6 @@ CREATE TABLE "Project" (
 );
 
 -- CreateTable
-CREATE TABLE "ProjectMember" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "role" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ProjectMember_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Environment" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -108,9 +96,6 @@ CREATE TABLE "AuditEvent" (
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ProjectMember_userId_projectId_key" ON "ProjectMember"("userId", "projectId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Environment_projectId_name_key" ON "Environment"("projectId", "name");
 
 -- CreateIndex
@@ -121,12 +106,6 @@ CREATE UNIQUE INDEX "Flag_projectId_key_key" ON "Flag"("projectId", "key");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "FlagState_flagId_environmentId_key" ON "FlagState"("flagId", "environmentId");
-
--- AddForeignKey
-ALTER TABLE "ProjectMember" ADD CONSTRAINT "ProjectMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ProjectMember" ADD CONSTRAINT "ProjectMember_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Environment" ADD CONSTRAINT "Environment_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;

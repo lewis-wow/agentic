@@ -13,22 +13,12 @@ export type ProjectListItem = {
   environments: { id: string; name: string }[];
 };
 
-export type ProjectMember = {
-  id: string;
-  role: string;
-  user: { id: string; name: string; email: string };
-};
-
-export type ProjectOwner = { id: string; name: string; email: string } | null;
-
 export type ProjectDetail = {
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
   environments: Environment[];
-  members: ProjectMember[];
-  owner: ProjectOwner;
 };
 
 export const projectKeys = {

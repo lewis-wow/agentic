@@ -1,4 +1,4 @@
-import { SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
+import type { SystemRole } from '@repo/auth/roles';
 import {
   type DashboardProjectRole,
   resolveProjectRole,
@@ -72,41 +72,16 @@ export const requireSession = async (): Promise<AuthedUser> => {
   return user;
 };
 
-/** Gate an owner-only route. Non-owners receive a 403. */
-export const requireOwner = async (): Promise<AuthedUser> => {
-  const user = await requireSession();
-
-  if (user.role !== SYSTEM_ROLE.OWNER) {
-    forbidden();
-  }
-
-  return user;
-};
-
 export type ProjectAccess = {
   user: AuthedUser;
   projectRole: DashboardProjectRole;
 };
 
-/**
- * Resolve the current user's access to a project.
- * - OWNER bypasses membership and gets `owner`.
- * - Otherwise the `ProjectMember` row determines `admin` | `viewer`.
- * - No membership → 403.
- */
-export const requireProjectAccess = async (
-  projectId: string,
-): Promise<ProjectAccess> => {
+/** Resolve the current user's access to a project. Project access is owner-only — a non-owner gets 403. */
+export const requireProjectAccess = async (): Promise<ProjectAccess> => {
   const user = await requireSession();
 
-  const projectRole = await resolveProjectRole({
-    user: { id: user.id, role: user.role },
-    projectId,
-    findMembership: (userId, pid) =>
-      prisma.projectMember.findUnique({
-        where: { userId_projectId: { userId, projectId: pid } },
-      }),
-  });
+  const projectRole = resolveProjectRole({ user: { role: user.role } });
 
   if (!projectRole) {
     forbidden();

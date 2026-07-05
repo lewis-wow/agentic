@@ -13,11 +13,10 @@ export default async function ProjectPage({
   params,
 }: Props): Promise<React.ReactNode> {
   const { projectId } = await params;
-  const { user, projectRole } = await requireProjectAccess(projectId);
+  const { user, projectRole } = await requireProjectAccess();
 
   const isOwner = user.role === SYSTEM_ROLE.OWNER;
-  const canManage =
-    projectRole === PROJECT_ROLE.OWNER || projectRole === PROJECT_ROLE.ADMIN;
+  const canManage = projectRole === PROJECT_ROLE.OWNER;
 
   return (
     <ProjectDetail

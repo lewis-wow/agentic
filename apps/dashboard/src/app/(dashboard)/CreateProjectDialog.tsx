@@ -73,8 +73,7 @@ export const CreateProjectDialog = ({
             <DialogHeader>
               <DialogTitle>Create project</DialogTitle>
               <DialogDescription>
-                Projects group environments, feature flags, and members
-                together.
+                Projects group environments and feature flags together.
               </DialogDescription>
             </DialogHeader>
             <FieldGroup className="py-4">

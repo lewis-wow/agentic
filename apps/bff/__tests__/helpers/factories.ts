@@ -1,4 +1,4 @@
-import type { Environment, ProjectMember, User } from '@repo/prisma';
+import type { Environment, User } from '@repo/prisma';
 import { generateKeyPairSync } from 'node:crypto';
 
 import type { ApiKeyLookupResult } from '../../src/auth/middleware.js';
@@ -22,18 +22,6 @@ export const makeUser = (overrides: Partial<User> = {}): User => ({
   emailVerified: true,
   image: null,
   role: 'MEMBER',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
-
-export const makeMembership = (
-  overrides: Partial<ProjectMember> = {},
-): ProjectMember => ({
-  id: 'member-1',
-  userId: 'user-1',
-  projectId: 'project-1',
-  role: 'viewer',
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

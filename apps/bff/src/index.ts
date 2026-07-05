@@ -35,13 +35,8 @@ const trustedProxyOptions = {
     }),
 };
 
-const projectAuth = createTrustedProxyProjectAuthMiddleware({
-  ...trustedProxyOptions,
-  findMembership: (userId, projectId) =>
-    prisma.projectMember.findUnique({
-      where: { userId_projectId: { userId, projectId } },
-    }),
-});
+const projectAuth =
+  createTrustedProxyProjectAuthMiddleware(trustedProxyOptions);
 
 const meAuth = createTrustedProxyMeAuthMiddleware(trustedProxyOptions);
 

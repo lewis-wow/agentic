@@ -7,9 +7,9 @@ describe('requireProjectClaims', () => {
   it('narrows project-scoped claims', () => {
     const claims = {
       userId: 'u1',
-      systemRole: SYSTEM_ROLE.MEMBER,
+      systemRole: SYSTEM_ROLE.OWNER,
       projectId: 'p1',
-      projectRole: PROJECT_ROLE.ADMIN,
+      projectRole: PROJECT_ROLE.OWNER,
     };
 
     expect(requireProjectClaims(claims)).toEqual(claims);
@@ -42,27 +42,5 @@ describe('canManageProject', () => {
         projectRole: PROJECT_ROLE.OWNER,
       }),
     ).toBe(true);
-  });
-
-  it('allows ADMIN', () => {
-    expect(
-      canManageProject({
-        userId: 'u1',
-        systemRole: SYSTEM_ROLE.MEMBER,
-        projectId: 'p1',
-        projectRole: PROJECT_ROLE.ADMIN,
-      }),
-    ).toBe(true);
-  });
-
-  it('denies VIEWER', () => {
-    expect(
-      canManageProject({
-        userId: 'u1',
-        systemRole: SYSTEM_ROLE.MEMBER,
-        projectId: 'p1',
-        projectRole: PROJECT_ROLE.VIEWER,
-      }),
-    ).toBe(false);
   });
 });

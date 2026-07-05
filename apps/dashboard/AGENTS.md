@@ -17,8 +17,8 @@ Before writing, refactoring, or reviewing any code here, read:
 
 - **Client components use TanStack Query** (`useQuery` / `useMutation`) to call the Next.js API routes at `/api/...`. Never fetch from client components directly to `apps/api` or `apps/bff`.
 - **The catch-all route does no authentication of its own.** `src/app/api/[...path]/route.ts` forwards the incoming request unchanged (all headers intact, via `@repo/bff`'s `forwardRequest`) to `apps/bff`, which validates the Trusted Proxy Authentication headers (set by the operator's reverse proxy — oauth2-proxy, Authelia, Pomerium, ...), mints the RS256 JWT, and forwards on to `apps/api`. No business logic, no credential exchange, here. Adding a new `apps/api` resource never requires a new Next.js route file — it proxies automatically once the resource exists server-side and a `src/queries/<resource>.ts` hook calls `/api/<path>`.
-- **No server actions for data.** All business-data reads and writes (projects, environments, members, users, flags, ...) go through TanStack Query + the catch-all proxy. Never introduce a server action (`'use server'`, `useActionState`) for data fetching or mutation.
-- **No direct Prisma access for business data.** Never import `@repo/prisma` to read or write projects, environments, members, users, flags, or any other domain data.
+- **No server actions for data.** All business-data reads and writes (projects, environments, flags, ...) go through TanStack Query + the catch-all proxy. Never introduce a server action (`'use server'`, `useActionState`) for data fetching or mutation.
+- **No direct Prisma access for business data.** Never import `@repo/prisma` to read or write projects, environments, flags, or any other domain data.
 
 ### The one sanctioned Prisma exception: Trusted Proxy Authentication
 
@@ -115,7 +115,7 @@ const RenameForm = ({ projectId, flagId, currentName }: Props) => {
 
 ## Query Conventions
 
-Existing resource files: `src/queries/flags.ts`, `projects.ts`, `environments.ts`, `members.ts`, `users.ts`. Add a new one per resource rather than growing an existing file across domains.
+Existing resource files: `src/queries/flags.ts`, `projects.ts`, `environments.ts`, `apiKeys.ts`. Add a new one per resource rather than growing an existing file across domains.
 
 **All fetching goes through `apiFetch` in `src/lib/apiFetch.ts`** — never call `fetch` directly inside a `queryFn`/`mutationFn`, and never write `if (!res.ok) throw new Error(await res.text())` by hand:
 

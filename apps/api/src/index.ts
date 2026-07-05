@@ -13,10 +13,8 @@ import openApiDocument from './generated/openapi.json' with { type: 'json' };
 import { apiKeysRouter } from './routes/apiKeys.js';
 import { environmentsRouter } from './routes/environments.js';
 import { flagsRouter } from './routes/flags.js';
-import { membersRouter } from './routes/members.js';
 import { projectsRouter } from './routes/projects.js';
 import { sdkRouter } from './routes/sdk.js';
-import { usersRouter } from './routes/users.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
@@ -34,7 +32,6 @@ const jwtAuth = createJwtVerifyMiddleware({ publicKeyPem });
 app.use('/projects', jwtAuth);
 app.use('/projects/:projectId', jwtAuth);
 app.use('/projects/:projectId/*', jwtAuth);
-app.use('/users', jwtAuth);
 app.use('/me', jwtAuth);
 app.use('/v1/*', jwtAuth);
 
@@ -43,9 +40,7 @@ app.get('/me', (c) => c.json({ auth: c.get('auth') }));
 app.route('/projects', projectsRouter);
 app.route('/projects/:projectId/flags', flagsRouter);
 app.route('/projects/:projectId/environments', environmentsRouter);
-app.route('/projects/:projectId/members', membersRouter);
 app.route('/projects/:projectId/api-keys', apiKeysRouter);
-app.route('/users', usersRouter);
 app.route('/v1', sdkRouter);
 
 // Route handlers either return `exception.toResponse()` directly, or (the
