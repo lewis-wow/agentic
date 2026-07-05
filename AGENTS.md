@@ -64,9 +64,9 @@ Do not report a task as complete if any of these commands exit with a non-zero s
 
 ```bash
 # Development
-pnpm dev                    # Start all apps in watch mode
-pnpm dev:proxy              # Stand-in reverse proxy for Trusted Proxy Auth (see docs/adr/0014-trusted-proxy-authentication.md) —
-                             # visit http://localhost:4000 instead of :3000 directly
+pnpm dev                    # Start all apps + the Trusted Proxy Auth stand-in (see docs/adr/0014-trusted-proxy-authentication.md) —
+                             # visit http://localhost:4000, not :3000 directly, to get an identity
+pnpm dev:proxy              # Just the proxy stand-in on its own, e.g. if the apps are already running elsewhere
 pnpm build                  # Build all packages/apps (Turborepo)
 pnpm lint                   # Lint all packages/apps
 pnpm check-types            # TypeScript type-check all packages/apps
