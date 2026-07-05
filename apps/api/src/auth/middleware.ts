@@ -1,3 +1,4 @@
+// JWT verification middleware — applied to all routes.
 import { Unauthorized } from '@repo/api/exceptions';
 import type { AuthJwtClaims } from '@repo/auth';
 import { JwtError, verifyRs256 } from '@repo/auth/jwt';

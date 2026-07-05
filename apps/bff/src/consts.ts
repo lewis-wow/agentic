@@ -1,3 +1,4 @@
+// App-scoped constants (UPPER_SNAKE_CASE).
 export const JWT_TTL_SECONDS = 60;
 
 /** Fixed header name the reverse proxy must set with the shared Trusted Proxy Secret. */

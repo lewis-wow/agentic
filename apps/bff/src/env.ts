@@ -2,6 +2,7 @@ import { NodeEnv } from '@repo/enums';
 import { createEnv } from '@repo/utils';
 import { Schema } from 'effect';
 
+// Effect Schema env validation (validated at startup).
 export const env = createEnv({
   schema: {
     NODE_ENV: Schema.optionalWith(Schema.Enums(NodeEnv), {

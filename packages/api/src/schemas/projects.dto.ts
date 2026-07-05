@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { ProjectListItemSchema } from './projects.js';
 
+// Project/environment/API-key request schemas.
 const NonBlankName = Schema.String.pipe(
   Schema.filter((value) => value.trim().length > 0),
 );

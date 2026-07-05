@@ -3,6 +3,7 @@ import { Schema } from 'effect';
 
 import { IsoDateFromPrisma } from './prisma.js';
 
+// Flag schemas, flag event schemas, FLAG_TYPE/FLAG_STATUS const enums, and their FromPrisma transforms.
 export const FLAG_TYPE = {
   BOOLEAN: 'boolean',
   PERCENTAGE_ROLLOUT: 'percentage_rollout',

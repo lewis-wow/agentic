@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { IsoDateFromPrisma } from './prisma.js';
 
+// Audit log entry schema + its FromPrisma transform.
 export const AuditLogEntrySchema = Schema.Struct({
   id: Schema.String,
   action: Schema.String,

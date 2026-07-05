@@ -1,3 +1,4 @@
+// Hono app entry point.
 import { serve } from '@hono/node-server';
 import { SCALAR_REFERENCE_HTML } from '@repo/api';
 import { decodeBase64Pem } from '@repo/auth/jwt';

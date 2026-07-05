@@ -1,3 +1,4 @@
+// Hono app entry point (@hono/node-server).
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
 import type { SystemRole } from '@repo/auth/roles';

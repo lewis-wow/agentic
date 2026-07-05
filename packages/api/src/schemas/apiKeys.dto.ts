@@ -7,6 +7,7 @@ import {
 import { PaginatedResponseSchema } from './pagination.js';
 import { IsoDateFromPrisma } from './prisma.js';
 
+// API key request/response schemas, route param/query schemas.
 export const ApiKeyListPageSchema =
   PaginatedResponseSchema(ApiKeyListItemSchema);
 

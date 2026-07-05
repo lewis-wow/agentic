@@ -1,3 +1,4 @@
+// Bearer token validation → RS256 JWT minting.
 import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
 import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';

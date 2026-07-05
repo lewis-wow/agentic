@@ -15,17 +15,6 @@ Before writing, refactoring, or reviewing any code here, read:
 - @docs/standards/effect.md
 - @docs/standards/prisma.md
 
-## Source Layout
-
-```text
-src/
-  auth/middleware.ts   # JWT verification middleware — applied to all routes
-  routes/              # Hono route handlers — thin: auth narrowing, call a service, return its result
-  validation.ts        # validate(target, schema) — Hono-specific sValidator wiring around @repo/api schemas
-  env.ts               # Effect Schema env validation (validated at startup)
-  index.ts             # Hono app entry point
-```
-
 Exceptions (`@repo/api/exceptions`) and business-logic services (`@repo/api/services`) live in `packages/api`, not here — see `packages/api/AGENTS.md`.
 
 Routes: `flags.ts` (mounted at `/projects/:projectId/flags`), `projects.ts` (mounted at `/projects` — list/create are non-project-scoped, detail/delete are project-scoped), `environments.ts` (mounted at `/projects/:projectId/environments`), `apiKeys.ts` (mounted at `/projects/:projectId/api-keys`), `sdk.ts` (mounted at `/v1`, for SDK clients).

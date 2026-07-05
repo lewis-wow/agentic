@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 
+// PaginatedResponseSchema helper — the standard { items, total, page, limit } envelope.
 export const PageMetaFields = {
   total: Schema.Number,
   page: Schema.Number,

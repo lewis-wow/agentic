@@ -1,3 +1,4 @@
+// Exception subclasses — see docs/specification/error-handling.md.
 export * from './ApiKeyAlreadyRevoked.js';
 export * from './ApiKeyNotFound.js';
 export * from './EnvironmentNameConflict.js';

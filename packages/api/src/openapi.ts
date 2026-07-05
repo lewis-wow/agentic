@@ -1,3 +1,4 @@
+// Generates the OpenAPI document from the schemas below — see docs/specification/openapi.md.
 import { JSONSchema, Schema } from 'effect';
 
 import { ApiKeyListPageSchema } from './schemas/apiKeys.dto.js';

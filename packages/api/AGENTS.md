@@ -27,34 +27,7 @@ This package has multiple entry points (`package.json`'s `exports` map), matchin
 
 **The root `.` export stays dependency-free on purpose** (no `@repo/prisma`, no `@repo/auth`) — it's imported by the dashboard and SDK packages, which have no business needing a database client type in their dependency graph. `./services`, `./exceptions`, and `./events` _do_ depend on `@repo/prisma`/`@repo/enums`/`@repo/exception` — that's fine, because nothing outside `apps/api` imports those subpaths.
 
-## Source Layout
-
-Every resource's schemas split across `<name>.ts` (main models + their `FromPrisma` transforms) and `<name>.dto.ts` (request bodies, path params, query strings, endpoint response envelopes) — see [Schema File Organization](../../docs/specification/schema-file-organization.md).
-
-```text
-src/
-  schemas/
-    pagination.ts     # PaginatedResponseSchema helper — the standard { items, total, page, limit } envelope
-    prisma.ts         # IsoDateFromPrisma — shared Date<->ISO-string transform for *FromPrisma schemas
-    flags.ts          # Flag schemas, flag event schemas, FLAG_TYPE/FLAG_STATUS const enums, their FromPrisma transforms
-    flags.dto.ts       # Flag request bodies, route param/query schemas, paginated flag list schema
-    auditLog.ts        # Audit log entry schema + its FromPrisma transform
-    auditLog.dto.ts    # Paginated audit log schema
-    apiKeys.ts         # API key list item schema + its FromPrisma transform
-    apiKeys.dto.ts     # API key request/response schemas, route param/query schemas
-    environments.ts    # Environment schema
-    environments.dto.ts # Paginated environment list schema, route param/query schemas
-    projects.ts        # Project schemas + their FromPrisma transforms
-    projects.dto.ts    # Project/environment/API-key request schemas
-  events/
-    flagEmitter.ts # flagEmitter singleton + FlagStreamEvent type — live SSE broadcast, no dependencies
-                    # FlagEventService lives in services/ (it's Prisma-backed, like the others)
-  exceptions/      # Exception subclasses — see docs/specification/error-handling.md
-  services/        # Business-logic service classes — see "Services" below
-  validation/
-    decode.ts      # decodeOrThrow(schema) — Effect Schema decode that throws RequestValidationFailed
-  openapi.ts       # Generates the OpenAPI document from the schemas above — see docs/specification/openapi.md
-```
+Every resource's schemas split across `<name>.ts` (main models + their `FromPrisma` transforms) and `<name>.dto.ts` (request bodies, path params, query strings, endpoint response envelopes) — see [Schema File Organization](../../docs/specification/schema-file-organization.md). Per-file/directory purpose is documented as a comment at the top of each file, not here — see the root `AGENTS.md`'s "No Source Layout sections" rule.
 
 ## Rules — Schemas (`.`)
 

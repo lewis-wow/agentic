@@ -3,6 +3,7 @@ import { Schema } from 'effect';
 import { EnvironmentSchema } from './environments.js';
 import { IsoDateFromPrisma } from './prisma.js';
 
+// Project schemas + their FromPrisma transforms.
 // Bare project row, no nested resources — returned by create/rename.
 export const ProjectSchema = Schema.Struct({
   id: Schema.String,

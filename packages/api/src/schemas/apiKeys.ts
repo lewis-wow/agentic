@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { IsoDateFromPrisma } from './prisma.js';
 
+// API key list item schema + its FromPrisma transform.
 export const ApiKeyListItemSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,

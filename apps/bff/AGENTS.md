@@ -12,16 +12,6 @@ Before writing, refactoring, or reviewing any code here, read:
 - @docs/standards/hono.md
 - @docs/standards/effect.md
 
-## Source Layout
-
-```text
-src/
-  auth/middleware.ts   # Bearer token validation → RS256 JWT minting
-  consts.ts            # App-scoped constants (UPPER_SNAKE_CASE)
-  env.ts               # Effect Schema env validation (validated at startup)
-  index.ts             # Hono app entry point (@hono/node-server)
-```
-
 ## Rules
 
 - **No business logic.** The only work done here is authentication (parse Bearer token, verify API key, mint JWT) and proxying the request to `apps/api` via `@repo/bff`'s `forwardWithJwt`.

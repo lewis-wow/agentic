@@ -9,6 +9,7 @@ import {
 } from './flags.js';
 import { PaginatedResponseSchema } from './pagination.js';
 
+// Flag request bodies, route param/query schemas, and the paginated flag list schema.
 export const FlagSnapshotResponseSchema = Schema.Struct({
   flags: Schema.Array(FlagConfigSchema),
 });

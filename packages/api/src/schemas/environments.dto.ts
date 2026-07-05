@@ -3,6 +3,7 @@ import { Schema } from 'effect';
 import { EnvironmentSchema } from './environments.js';
 import { PaginatedResponseSchema } from './pagination.js';
 
+// Paginated environment list schema, route param/query schemas.
 export const EnvironmentListPageSchema =
   PaginatedResponseSchema(EnvironmentSchema);
 
