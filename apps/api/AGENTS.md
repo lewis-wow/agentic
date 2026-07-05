@@ -21,7 +21,6 @@ Before writing, refactoring, or reviewing any code here, read:
 src/
   auth/middleware.ts   # JWT verification middleware — applied to all routes
   routes/              # Hono route handlers — thin: auth narrowing, call a service, return its result
-  events/              # Internal event emitter (app-specific runtime infra — not in packages/api, see below)
   validation.ts        # validate(target, schema) — Hono-specific sValidator wiring around @repo/api schemas
   env.ts               # Effect Schema env validation (validated at startup)
   index.ts             # Hono app entry point

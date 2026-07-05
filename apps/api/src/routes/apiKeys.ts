@@ -56,7 +56,7 @@ apiKeysRouter.get('/', validate('query', ApiKeyListQuerySchema), async (c) => {
       : {}),
   };
 
-  const [apiKeys, total] = await Promise.all([
+  const [apiKeys, total] = await prisma.$transaction([
     prisma.apiKey.findMany({
       where,
       include: { environment: { select: { id: true, name: true } } },

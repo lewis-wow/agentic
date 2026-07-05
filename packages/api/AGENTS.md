@@ -17,14 +17,15 @@ This is also the **contract layer** between `apps/api` (producer) and its consum
 
 This package has multiple entry points (`package.json`'s `exports` map), matching `@repo/auth`'s `./roles`/`./jwt` convention — import the specific subpath you need rather than only the root:
 
-| Import                 | Source                    | Contents                                                                                              |
-| ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `@repo/api`            | `src/index.ts`            | Request/response/param/query schemas — the contract layer. Zero runtime dependencies beyond `effect`. |
-| `@repo/api/exceptions` | `src/exceptions/index.ts` | `Exception` subclasses thrown by services and routes.                                                 |
-| `@repo/api/services`   | `src/services/index.ts`   | Business-logic service classes (DI-based, one per resource).                                          |
-| `@repo/api/validation` | `src/validation/index.ts` | Framework-agnostic decode helpers (`decodeOrThrow`), usable outside Hono.                             |
+| Import                 | Source                    | Contents                                                                                                                                                                                        |
+| ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/api`            | `src/index.ts`            | Request/response/param/query schemas — the contract layer. Zero runtime dependencies beyond `effect`.                                                                                           |
+| `@repo/api/events`     | `src/events/index.ts`     | `flagEmitter` (live SSE broadcast singleton), its `FlagStreamEvent` type, and `FlagEventService` (durable replay). See [ADR-0021](../../docs/adr/0021-flag-event-bus-lives-in-packages-api.md). |
+| `@repo/api/exceptions` | `src/exceptions/index.ts` | `Exception` subclasses thrown by services and routes.                                                                                                                                           |
+| `@repo/api/services`   | `src/services/index.ts`   | Business-logic service classes (DI-based, one per resource).                                                                                                                                    |
+| `@repo/api/validation` | `src/validation/index.ts` | Framework-agnostic decode helpers (`decodeOrThrow`), usable outside Hono.                                                                                                                       |
 
-**The root `.` export stays dependency-free on purpose** (no `@repo/prisma`, no `@repo/auth`) — it's imported by the dashboard and SDK packages, which have no business needing a database client type in their dependency graph. `./services` and `./exceptions` _do_ depend on `@repo/prisma`/`@repo/enums`/`@repo/exception` — that's fine, because nothing outside `apps/api` imports those subpaths.
+**The root `.` export stays dependency-free on purpose** (no `@repo/prisma`, no `@repo/auth`) — it's imported by the dashboard and SDK packages, which have no business needing a database client type in their dependency graph. `./services`, `./exceptions`, and `./events` _do_ depend on `@repo/prisma`/`@repo/enums`/`@repo/exception` — that's fine, because nothing outside `apps/api` imports those subpaths.
 
 ## Source Layout
 
@@ -45,6 +46,9 @@ src/
     environments.dto.ts # Paginated environment list schema, route param/query schemas
     projects.ts        # Project schemas + their FromPrisma transforms
     projects.dto.ts    # Project/environment/API-key request schemas
+  events/
+    flagEmitter.ts # flagEmitter singleton + FlagStreamEvent type — live SSE broadcast, no dependencies
+                    # FlagEventService lives in services/ (it's Prisma-backed, like the others)
   exceptions/      # Exception subclasses — see docs/specification/error-handling.md
   services/        # Business-logic service classes — see "Services" below
   validation/

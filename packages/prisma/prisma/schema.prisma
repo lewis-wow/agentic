@@ -19,12 +19,13 @@ model User {
 }
 
 model Project {
-  id           String        @id @default(cuid())
-  name         String
-  environments Environment[]
-  flags        Flag[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  environments  Environment[]
+  flags         Flag[]
+  flagDeletions FlagDeletion[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Environment {
@@ -76,10 +77,29 @@ model FlagState {
   type          FlagType    @default(boolean)
   rollout       Int         @default(0)
   rules         Json        @default("[]")
+  // SSE replay cursor — see docs/adr/0020-durable-sse-replay-via-postgres.md.
+  // Shares one Postgres sequence with FlagDeletion.id so ids stay comparable
+  // for merge-and-sort replay across both sources.
+  eventId       BigInt      @default(dbgenerated("nextval('flag_stream_id_seq')"))
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   @@unique([flagId, environmentId])
+  @@index([environmentId, eventId])
+}
+
+// Tombstone recording that a flag key was deleted — see
+// docs/adr/0020-durable-sse-replay-via-postgres.md. Kept permanently, never
+// pruned; deletion isn't environment-scoped, so there's no environmentId.
+model FlagDeletion {
+  id        BigInt   @id @default(dbgenerated("nextval('flag_stream_id_seq')"))
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  key       String
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, key])
+  @@index([projectId, id])
 }
 
 model AuditEvent {

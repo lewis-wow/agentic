@@ -23,6 +23,9 @@ vi.mock('@repo/prisma', () => ({
       deleteMany: vi.fn(),
     },
     environment: { findUnique: vi.fn() },
+    // The list route batches findMany+count through $transaction (see
+    // docs/standards/prisma.md's Query Rules) instead of Promise.all.
+    $transaction: vi.fn((queries: Promise<unknown>[]) => Promise.all(queries)),
   },
 }));
 

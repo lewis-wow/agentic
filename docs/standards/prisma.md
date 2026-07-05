@@ -1,6 +1,6 @@
 # Prisma Best Practices
 
-This guide defines the conventions for writing Prisma schema models in this project.
+This guide defines the conventions for writing Prisma schema models and querying them in this project.
 
 ## Core Rules
 
@@ -94,3 +94,23 @@ model Flag {
   updatedAt DateTime    @updatedAt
 }
 ```
+
+## Query Rules
+
+- **Multiple Prisma queries that run together always go through `prisma.$transaction`, never `Promise.all`.** `Promise.all` runs each query as its own independent round trip, so one query can observe a database state the others didn't — a write landing between them produces a torn read (e.g. a paginated list and its `count` disagreeing). `$transaction` (the array form is enough for a batch of independent reads — no callback needed) runs every query against one consistent snapshot.
+
+```ts
+// Wrong — each query can see a different snapshot
+const [items, total] = await Promise.all([
+  prisma.flag.findMany({ where, skip, take }),
+  prisma.flag.count({ where }),
+]);
+
+// Correct — one consistent snapshot
+const [items, total] = await prisma.$transaction([
+  prisma.flag.findMany({ where, skip, take }),
+  prisma.flag.count({ where }),
+]);
+```
+
+This applies whenever two or more Prisma calls are combined for one logical read or write — pagination's `findMany` + `count` pair is the most common case, but the same rule covers any other multi-query combination. `Promise.all` remains fine for combining non-Prisma work (e.g. an external API call alongside a Prisma query has nothing to gain from a DB transaction).

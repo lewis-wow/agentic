@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./events": "./src/events/index.ts",
     "./exceptions": "./src/exceptions/index.ts",
     "./services": "./src/services/index.ts",
     "./validation": "./src/validation/index.ts"

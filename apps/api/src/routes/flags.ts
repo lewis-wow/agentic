@@ -14,12 +14,14 @@ import {
   RenameFlagRequestSchema,
   UpdateFlagStateRequestSchema,
 } from '@repo/api';
+import { emitFlagEvent } from '@repo/api/events';
 import {
   FlagIsArchived,
   FlagKeyConflict,
   FlagNotFound,
   Forbidden,
 } from '@repo/api/exceptions';
+import { nextEventId } from '@repo/api/services';
 import { canManageProject, requireProjectClaims } from '@repo/auth';
 import { buildPrismaPage, parsePaginationParams } from '@repo/pagination';
 import { prisma } from '@repo/prisma';
@@ -27,7 +29,6 @@ import { Schema } from 'effect';
 import { Hono } from 'hono';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import { emitFlagEvent } from '../events/emitter.js';
 import { validate } from '../validation.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
@@ -67,22 +68,25 @@ flagsRouter.post(
     });
     if (!flag) return new FlagNotFound().toResponse();
 
-    await prisma.$transaction([
-      prisma.flagState.updateMany({
+    const eventId = await prisma.$transaction(async (tx) => {
+      const eventId = await nextEventId(tx);
+      await tx.flagState.updateMany({
         where: { flagId },
-        data: { status: 'archived' },
-      }),
-      prisma.auditEvent.create({
+        data: { status: 'archived', eventId },
+      });
+      await tx.auditEvent.create({
         data: {
           flagId,
           userId: claims.userId,
           action: 'flag.archived',
           meta: {},
         },
-      }),
-    ]);
+      });
+      return eventId;
+    });
 
     emitFlagEvent({
+      id: eventId,
       projectId: claims.projectId,
       environmentId: null,
       type: 'flag_archived',
@@ -119,20 +123,22 @@ flagsRouter.post(
     });
     if (!flag) return new FlagNotFound().toResponse();
 
-    await prisma.$transaction([
-      prisma.flagState.updateMany({
+    const eventId = await prisma.$transaction(async (tx) => {
+      const eventId = await nextEventId(tx);
+      await tx.flagState.updateMany({
         where: { flagId },
-        data: { status: 'inactive' },
-      }),
-      prisma.auditEvent.create({
+        data: { status: 'inactive', eventId },
+      });
+      await tx.auditEvent.create({
         data: {
           flagId,
           userId: claims.userId,
           action: 'flag.unarchived',
           meta: {},
         },
-      }),
-    ]);
+      });
+      return eventId;
+    });
 
     const updated = await prisma.flag.findUniqueOrThrow({
       where: { id: flagId },
@@ -145,6 +151,7 @@ flagsRouter.post(
 
     for (const state of updated.states) {
       emitFlagEvent({
+        id: eventId,
         projectId: claims.projectId,
         environmentId: state.environment.id,
         type: 'flag_unarchived',
@@ -192,20 +199,27 @@ flagsRouter.patch(
       return new FlagIsArchived().toResponse();
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (status !== undefined) updateData['status'] = status;
-    if (type !== undefined) updateData['type'] = type;
-    if (rollout !== undefined) updateData['rollout'] = rollout;
-    if (rules !== undefined) updateData['rules'] = rules;
-
     const isRolloutChange = type !== undefined || rollout !== undefined;
     const finalType = type ?? flagState.type;
     const finalRollout = rollout ?? flagState.rollout;
 
     const environmentName = flagState.environment.name;
 
-    const auditEvents = [
-      prisma.auditEvent.create({
+    const { updated, eventId } = await prisma.$transaction(async (tx) => {
+      const eventId = await nextEventId(tx);
+
+      const updateData: Record<string, unknown> = { eventId };
+      if (status !== undefined) updateData['status'] = status;
+      if (type !== undefined) updateData['type'] = type;
+      if (rollout !== undefined) updateData['rollout'] = rollout;
+      if (rules !== undefined) updateData['rules'] = rules;
+
+      const updated = await tx.flagState.update({
+        where: { flagId_environmentId: { flagId, environmentId } },
+        data: updateData,
+      });
+
+      await tx.auditEvent.create({
         data: {
           flagId,
           userId: claims.userId,
@@ -219,35 +233,28 @@ flagsRouter.patch(
               }
             : { environmentId, environmentName, status },
         },
-      }),
-    ];
+      });
 
-    if (rules !== undefined) {
-      auditEvents.push(
-        prisma.auditEvent.create({
+      if (rules !== undefined) {
+        await tx.auditEvent.create({
           data: {
             flagId,
             userId: claims.userId,
             action: 'flag.rules_updated',
             meta: JSON.parse(JSON.stringify({ environmentId, rules })),
           },
-        }),
-      );
-    }
+        });
+      }
 
-    const [updated] = await prisma.$transaction([
-      prisma.flagState.update({
-        where: { flagId_environmentId: { flagId, environmentId } },
-        data: updateData,
-      }),
-      ...auditEvents,
-    ]);
+      return { updated, eventId };
+    });
 
     const updatedRules: unknown[] = rules
       ? [...rules]
       : (flagState.rules as unknown[]);
 
     emitFlagEvent({
+      id: eventId,
       projectId: claims.projectId,
       environmentId,
       type: 'flag_updated',
@@ -284,7 +291,7 @@ flagsRouter.get(
     );
     const { skip, take } = buildPrismaPage(page, limit);
 
-    const [events, total] = await Promise.all([
+    const [events, total] = await prisma.$transaction([
       prisma.auditEvent.findMany({
         where: { flagId },
         orderBy: { createdAt: 'desc' },
@@ -383,9 +390,15 @@ flagsRouter.delete(
     });
     if (!flag) return new FlagNotFound().toResponse();
 
-    await prisma.flag.delete({ where: { id: flagId } });
+    const deletion = await prisma.$transaction(async (tx) => {
+      await tx.flag.delete({ where: { id: flagId } });
+      return tx.flagDeletion.create({
+        data: { projectId: claims.projectId, key: flag.key },
+      });
+    });
 
     emitFlagEvent({
+      id: deletion.id,
       projectId: claims.projectId,
       environmentId: null,
       type: 'flag_deleted',
@@ -426,7 +439,7 @@ flagsRouter.get('/', validate('query', FlagListQuerySchema), async (c) => {
       : {}),
   };
 
-  const [flagsWithStates, total] = await Promise.all([
+  const [flagsWithStates, total] = await prisma.$transaction([
     prisma.flag.findMany({
       where,
       include: {
@@ -474,29 +487,35 @@ flagsRouter.post('/', validate('json', CreateFlagRequestSchema), async (c) => {
     select: { id: true },
   });
 
-  const flag = await prisma.flag.create({
-    data: {
-      projectId: claims.projectId,
-      key,
-      name,
-      states: {
-        create: environments.map((e) => ({
-          environmentId: e.id,
-          status: 'inactive',
-          type: 'boolean',
-        })),
-      },
-      auditLog: {
-        create: {
-          userId: claims.userId,
-          action: 'flag.created',
-          meta: { key, name },
+  const { flag, eventId } = await prisma.$transaction(async (tx) => {
+    const eventId = await nextEventId(tx);
+    const flag = await tx.flag.create({
+      data: {
+        projectId: claims.projectId,
+        key,
+        name,
+        states: {
+          create: environments.map((e) => ({
+            environmentId: e.id,
+            status: 'inactive',
+            type: 'boolean',
+            eventId,
+          })),
+        },
+        auditLog: {
+          create: {
+            userId: claims.userId,
+            action: 'flag.created',
+            meta: { key, name },
+          },
         },
       },
-    },
+    });
+    return { flag, eventId };
   });
 
   emitFlagEvent({
+    id: eventId,
     projectId: claims.projectId,
     environmentId: null,
     type: 'flag_created',

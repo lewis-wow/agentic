@@ -1,20 +1,17 @@
+import { flagEmitter, type FlagStreamEvent } from '@repo/api/events';
 import { Forbidden } from '@repo/api/exceptions';
-import { SdkService } from '@repo/api/services';
+import { FlagEventService, SdkService } from '@repo/api/services';
 import { isSdkClaims } from '@repo/auth';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
 import type { ApiAuthVariables } from '../auth/middleware.js';
-import {
-  flagEmitter,
-  getRingBuffer,
-  type FlagStreamEvent,
-} from '../events/emitter.js';
 
 type AppEnv = { Variables: ApiAuthVariables };
 
 const sdkService = new SdkService({ prisma });
+const flagEventService = new FlagEventService({ prisma });
 
 export const sdkRouter = new Hono<AppEnv>();
 
@@ -24,17 +21,18 @@ sdkRouter.get('/flags/stream', async (c) => {
 
   return streamSSE(c, async (stream) => {
     const lastEventIdHeader = c.req.header('Last-Event-ID');
-    const lastEventId = lastEventIdHeader
-      ? parseInt(lastEventIdHeader, 10)
-      : NaN;
+    const lastEventId =
+      lastEventIdHeader && /^\d+$/.test(lastEventIdHeader)
+        ? BigInt(lastEventIdHeader)
+        : undefined;
 
     // Subscribe-first: register the listener before writing a single byte.
     // A concurrently-running reader can observe bytes we've written before
     // our own `await stream.write(...)` continuation resumes, so any event
-    // emitted in that window would otherwise never reach `handler` (the
-    // ring buffer is only consulted on replay, i.e. when Last-Event-ID is
-    // set — a fresh connect has no other safety net). Registering first
-    // closes that window entirely.
+    // emitted in that window would otherwise never reach `handler` (durable
+    // replay is only consulted when Last-Event-ID is set — a fresh connect
+    // has no other safety net). Registering first closes that window
+    // entirely.
     const buffered: FlagStreamEvent[] = [];
     let buffering = true;
 
@@ -82,19 +80,18 @@ sdkRouter.get('/flags/stream', async (c) => {
     try {
       await stream.write('retry: 1000\n\n');
 
-      // Replay path: valid Last-Event-ID that exists in the ring buffer
-      if (!isNaN(lastEventId)) {
-        const ringBuffer = getRingBuffer(auth.projectId);
-        const toReplay = ringBuffer.filter(
-          (e) => e.id > lastEventId && passesEnvFilter(e),
-        );
+      // Replay path: valid Last-Event-ID — see
+      // docs/adr/0020-durable-sse-replay-via-postgres.md. Durable, so
+      // there's no "stale" case to detect: an empty result just means
+      // nothing changed (falls through to the snapshot path below).
+      if (lastEventId !== undefined) {
+        const toReplay = await flagEventService.getReplayEvents({
+          projectId: auth.projectId,
+          environmentId: auth.environmentId,
+          sinceId: lastEventId,
+        });
 
-        const oldestBufferedId = ringBuffer[0]?.id;
-
-        const isStale =
-          oldestBufferedId !== undefined && lastEventId < oldestBufferedId;
-
-        if (toReplay.length > 0 && !isStale) {
+        if (toReplay.length > 0) {
           for (const event of toReplay) {
             await stream.writeSSE({
               id: String(event.id),
@@ -111,7 +108,7 @@ sdkRouter.get('/flags/stream', async (c) => {
         }
       }
 
-      // Snapshot path (fresh connect or stale/absent Last-Event-ID)
+      // Snapshot path (fresh connect or nothing to replay)
       const encoded = await sdkService.getFlagSnapshot({
         projectId: auth.projectId,
         environmentId: auth.environmentId,

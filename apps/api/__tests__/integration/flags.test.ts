@@ -1,3 +1,4 @@
+import { emitFlagEvent } from '@repo/api/events';
 import type { ProjectJwtClaims } from '@repo/auth';
 import { signRs256 } from '@repo/auth/jwt';
 import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
@@ -9,7 +10,6 @@ import {
   type ApiAuthVariables,
   createJwtVerifyMiddleware,
 } from '../../src/auth/middleware.js';
-import { emitFlagEvent } from '../../src/events/emitter.js';
 import { flagsRouter } from '../../src/routes/flags.js';
 import { generateTestKeys } from '../helpers/keys.js';
 
@@ -30,16 +30,16 @@ vi.mock('@repo/prisma', () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    flagDeletion: { create: vi.fn() },
     auditEvent: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
 
-vi.mock('../../src/events/emitter.js', () => ({
+vi.mock('@repo/api/events', () => ({
   emitFlagEvent: vi.fn(),
   flagEmitter: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-  getRingBuffer: vi.fn().mockReturnValue([]),
-  _resetForTesting: vi.fn(),
 }));
 
 const { privateKey, publicKey } = generateTestKeys();
@@ -77,6 +77,17 @@ const mockPrisma = vi.mocked(prisma);
 
 beforeEach(() => {
   vi.clearAllMocks();
+
+  // Supports both transaction shapes still in use: the array form (rename)
+  // and the interactive callback form (everything that stamps an eventId —
+  // see docs/adr/0020-durable-sse-replay-via-postgres.md). The callback is
+  // invoked with mockPrisma itself as `tx`, so tests configure the same
+  // per-call mocks (e.g. mockPrisma.flagState.update) either way.
+  mockPrisma.$transaction.mockImplementation(((arg: unknown) =>
+    typeof arg === 'function'
+      ? (arg as (tx: typeof mockPrisma) => unknown)(mockPrisma)
+      : Promise.all(arg as unknown[])) as never);
+  mockPrisma.$queryRaw.mockResolvedValue([{ nextval: 1n }] as never);
 });
 
 // ---------------------------------------------------------------------------
@@ -403,7 +414,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [],
     };
-    mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
+    mockPrisma.flagState.update.mockResolvedValue(updatedState as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -473,17 +484,15 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'percentage_rollout',
-        rollout: 42,
-        rules: [],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'percentage_rollout',
+      rollout: 42,
+      rules: [],
+    } as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -542,7 +551,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
     };
-    mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
+    mockPrisma.flagState.update.mockResolvedValue(updatedState as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -632,7 +641,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       rollout: 0,
       rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
     };
-    mockPrisma.$transaction.mockResolvedValue([updatedState] as never);
+    mockPrisma.flagState.update.mockResolvedValue(updatedState as never);
 
     const res = await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -668,17 +677,15 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'targeted',
-        rollout: 0,
-        rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'targeted',
+      rollout: 0,
+      rules: [{ attribute: 'plan', operator: 'EQ', value: ['pro'] }],
+    } as never);
 
     const mockEmit = vi.mocked(emitFlagEvent);
 
@@ -770,17 +777,15 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'percentage_rollout',
-        rollout: 25,
-        rules: [],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'percentage_rollout',
+      rollout: 25,
+      rules: [],
+    } as never);
 
     const mockEmit = vi.mocked(emitFlagEvent);
 
@@ -797,6 +802,7 @@ describe('PATCH /projects/:projectId/flags/:flagId/environments/:environmentId',
     );
 
     expect(mockEmit).toHaveBeenCalledWith({
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: 'env-1',
       type: 'flag_updated',
@@ -819,8 +825,6 @@ describe('POST /projects/:projectId/flags/:flagId/archive', () => {
       id: 'flag-1',
       projectId: PROJECT_ID,
     } as never);
-
-    mockPrisma.$transaction.mockResolvedValue([] as never);
 
     const archivedFlag = {
       id: 'flag-1',
@@ -881,8 +885,6 @@ describe('POST /projects/:projectId/flags/:flagId/unarchive', () => {
       projectId: PROJECT_ID,
     } as never);
 
-    mockPrisma.$transaction.mockResolvedValue([] as never);
-
     const unarchivedFlag = {
       id: 'flag-1',
       key: 'my-flag',
@@ -926,9 +928,15 @@ describe('DELETE /projects/:projectId/flags/:flagId', () => {
   it('deletes the flag and returns 204', async () => {
     mockPrisma.flag.findUnique.mockResolvedValue({
       id: 'flag-1',
+      key: 'my-flag',
       projectId: PROJECT_ID,
     } as never);
     mockPrisma.flag.delete.mockResolvedValue({} as never);
+    mockPrisma.flagDeletion.create.mockResolvedValue({
+      id: 1n,
+      projectId: PROJECT_ID,
+      key: 'my-flag',
+    } as never);
 
     const res = await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
       method: 'DELETE',
@@ -982,6 +990,7 @@ describe('flag event emission', () => {
 
     expect(mockEmit).toHaveBeenCalledOnce();
     expect(mockEmit).toHaveBeenCalledWith({
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: null,
       type: 'flag_created',
@@ -1000,17 +1009,15 @@ describe('flag event emission', () => {
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'boolean',
-        rollout: 0,
-        rules: [],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [],
+    } as never);
 
     await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -1026,6 +1033,7 @@ describe('flag event emission', () => {
 
     expect(mockEmit).toHaveBeenCalledOnce();
     expect(mockEmit).toHaveBeenCalledWith({
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: 'env-1',
       type: 'flag_updated',
@@ -1039,7 +1047,6 @@ describe('flag event emission', () => {
       key: 'my-flag',
       projectId: PROJECT_ID,
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([] as never);
     mockPrisma.flag.findUniqueOrThrow.mockResolvedValue({
       id: 'flag-1',
       key: 'my-flag',
@@ -1057,6 +1064,7 @@ describe('flag event emission', () => {
 
     expect(mockEmit).toHaveBeenCalledOnce();
     expect(mockEmit).toHaveBeenCalledWith({
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: null,
       type: 'flag_archived',
@@ -1070,7 +1078,6 @@ describe('flag event emission', () => {
       key: 'my-flag',
       projectId: PROJECT_ID,
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([] as never);
     mockPrisma.flag.findUniqueOrThrow.mockResolvedValue({
       id: 'flag-1',
       key: 'my-flag',
@@ -1105,6 +1112,7 @@ describe('flag event emission', () => {
 
     expect(mockEmit).toHaveBeenCalledTimes(2);
     expect(mockEmit).toHaveBeenNthCalledWith(1, {
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: 'env-1',
       type: 'flag_unarchived',
@@ -1117,6 +1125,7 @@ describe('flag event emission', () => {
       },
     });
     expect(mockEmit).toHaveBeenNthCalledWith(2, {
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: 'env-2',
       type: 'flag_unarchived',
@@ -1137,6 +1146,11 @@ describe('flag event emission', () => {
       projectId: PROJECT_ID,
     } as never);
     mockPrisma.flag.delete.mockResolvedValue({} as never);
+    mockPrisma.flagDeletion.create.mockResolvedValue({
+      id: 1n,
+      projectId: PROJECT_ID,
+      key: 'my-flag',
+    } as never);
 
     await app.request(`/projects/${PROJECT_ID}/flags/flag-1`, {
       method: 'DELETE',
@@ -1145,6 +1159,7 @@ describe('flag event emission', () => {
 
     expect(mockEmit).toHaveBeenCalledOnce();
     expect(mockEmit).toHaveBeenCalledWith({
+      id: 1n,
       projectId: PROJECT_ID,
       environmentId: null,
       type: 'flag_deleted',
@@ -1294,17 +1309,15 @@ describe('flag.toggled write-path includes environmentName', () => {
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'boolean',
-        rollout: 0,
-        rules: [],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'boolean',
+      rollout: 0,
+      rules: [],
+    } as never);
 
     await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,
@@ -1318,9 +1331,7 @@ describe('flag.toggled write-path includes environmentName', () => {
       },
     );
 
-    const transactionArgs = mockPrisma.$transaction.mock
-      .calls[0]?.[0] as unknown[];
-    expect(transactionArgs).toBeDefined();
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
     expect(mockPrisma.auditEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -1344,17 +1355,15 @@ describe('flag.rollout_updated write-path includes environmentName', () => {
       flag: { projectId: PROJECT_ID, key: 'my-flag' },
       environment: { id: 'env-1', name: 'production' },
     } as never);
-    mockPrisma.$transaction.mockResolvedValue([
-      {
-        id: 'state-1',
-        flagId: 'flag-1',
-        environmentId: 'env-1',
-        status: 'active',
-        type: 'percentage_rollout',
-        rollout: 40,
-        rules: [],
-      },
-    ] as never);
+    mockPrisma.flagState.update.mockResolvedValue({
+      id: 'state-1',
+      flagId: 'flag-1',
+      environmentId: 'env-1',
+      status: 'active',
+      type: 'percentage_rollout',
+      rollout: 40,
+      rules: [],
+    } as never);
 
     await app.request(
       `/projects/${PROJECT_ID}/flags/flag-1/environments/env-1`,

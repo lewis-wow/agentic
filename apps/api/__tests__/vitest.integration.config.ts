@@ -6,5 +6,6 @@ export default mergeConfig(integrationConfig, {
   test: {
     name: 'api:integration',
     root: path.resolve(import.meta.dirname, '..'),
+    setupFiles: ['./__tests__/setup.ts'],
   },
 });

@@ -42,7 +42,7 @@ export class EnvironmentService {
         : {}),
     };
 
-    const [environments, total] = await Promise.all([
+    const [environments, total] = await this.options.prisma.$transaction([
       this.options.prisma.environment.findMany({
         where,
         select: { id: true, name: true },

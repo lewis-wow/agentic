@@ -4,6 +4,12 @@ CREATE TYPE "FlagStatus" AS ENUM ('active', 'inactive', 'archived');
 -- CreateEnum
 CREATE TYPE "FlagType" AS ENUM ('boolean', 'percentage_rollout', 'targeted');
 
+-- CreateSequence
+-- Shared across FlagState.eventId and FlagDeletion.id so ids stay comparable
+-- for merge-and-sort SSE replay across both sources — see
+-- docs/adr/0020-durable-sse-replay-via-postgres.md.
+CREATE SEQUENCE "flag_stream_id_seq";
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -73,10 +79,21 @@ CREATE TABLE "FlagState" (
     "type" "FlagType" NOT NULL DEFAULT 'boolean',
     "rollout" INTEGER NOT NULL DEFAULT 0,
     "rules" JSONB NOT NULL DEFAULT '[]',
+    "eventId" BIGINT NOT NULL DEFAULT nextval('flag_stream_id_seq'),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "FlagState_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FlagDeletion" (
+    "id" BIGINT NOT NULL DEFAULT nextval('flag_stream_id_seq'),
+    "projectId" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FlagDeletion_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -107,6 +124,15 @@ CREATE UNIQUE INDEX "Flag_projectId_key_key" ON "Flag"("projectId", "key");
 -- CreateIndex
 CREATE UNIQUE INDEX "FlagState_flagId_environmentId_key" ON "FlagState"("flagId", "environmentId");
 
+-- CreateIndex
+CREATE INDEX "FlagState_environmentId_eventId_idx" ON "FlagState"("environmentId", "eventId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "FlagDeletion_projectId_key_key" ON "FlagDeletion"("projectId", "key");
+
+-- CreateIndex
+CREATE INDEX "FlagDeletion_projectId_id_idx" ON "FlagDeletion"("projectId", "id");
+
 -- AddForeignKey
 ALTER TABLE "Environment" ADD CONSTRAINT "Environment_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -121,6 +147,9 @@ ALTER TABLE "FlagState" ADD CONSTRAINT "FlagState_flagId_fkey" FOREIGN KEY ("fla
 
 -- AddForeignKey
 ALTER TABLE "FlagState" ADD CONSTRAINT "FlagState_environmentId_fkey" FOREIGN KEY ("environmentId") REFERENCES "Environment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FlagDeletion" ADD CONSTRAINT "FlagDeletion_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditEvent" ADD CONSTRAINT "AuditEvent_flagId_fkey" FOREIGN KEY ("flagId") REFERENCES "Flag"("id") ON DELETE CASCADE ON UPDATE CASCADE;

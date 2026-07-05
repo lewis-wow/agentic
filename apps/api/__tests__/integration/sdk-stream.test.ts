@@ -1,3 +1,4 @@
+import { emitFlagEvent } from '@repo/api/events';
 import type { SdkJwtClaims, ProjectJwtClaims } from '@repo/auth';
 import { signRs256 } from '@repo/auth/jwt';
 import { PROJECT_ROLE, SYSTEM_ROLE } from '@repo/auth/roles';
@@ -9,13 +10,17 @@ import {
   type ApiAuthVariables,
   createJwtVerifyMiddleware,
 } from '../../src/auth/middleware.js';
-import { _resetForTesting, emitFlagEvent } from '../../src/events/emitter.js';
 import { sdkRouter } from '../../src/routes/sdk.js';
 import { generateTestKeys } from '../helpers/keys.js';
 
 vi.mock('@repo/prisma', () => ({
   prisma: {
     flag: { findMany: vi.fn() },
+    flagState: { findMany: vi.fn().mockResolvedValue([]) },
+    flagDeletion: { findMany: vi.fn().mockResolvedValue([]) },
+    // Replay batches both findMany calls through $transaction (see
+    // docs/standards/prisma.md's Query Rules) instead of Promise.all.
+    $transaction: vi.fn((queries: Promise<unknown>[]) => Promise.all(queries)),
   },
 }));
 
@@ -93,7 +98,6 @@ const makeReader = (
 describe('GET /v1/flags/stream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    _resetForTesting();
   });
 
   it('returns 401 when Authorization header is missing', async () => {
@@ -219,6 +223,7 @@ describe('GET /v1/flags/stream', () => {
     await readUntil((t) => t.includes('event: snapshot'));
 
     emitFlagEvent({
+      id: 1n,
       projectId: 'proj-1',
       environmentId: null,
       type: 'flag_created',
@@ -265,6 +270,7 @@ describe('GET /v1/flags/stream', () => {
 
     // Emit flag_updated scoped to env-1
     emitFlagEvent({
+      id: 1n,
       projectId: 'proj-1',
       environmentId: 'env-1',
       type: 'flag_updated',
@@ -303,6 +309,7 @@ describe('GET /v1/flags/stream', () => {
     await readUntil((t) => t.includes('retry: 1000'));
 
     emitFlagEvent({
+      id: 1n,
       projectId: 'proj-1',
       environmentId: null,
       type: 'flag_created',
@@ -332,12 +339,14 @@ describe('GET /v1/flags/stream', () => {
     await readUntil((t) => t.includes('event: snapshot'));
 
     emitFlagEvent({
+      id: 1n,
       projectId: 'proj-1',
       environmentId: null,
       type: 'flag_created',
       payload: { key: 'flag-a', enabled: false },
     });
     emitFlagEvent({
+      id: 2n,
       projectId: 'proj-1',
       environmentId: null,
       type: 'flag_archived',
@@ -354,55 +363,11 @@ describe('GET /v1/flags/stream', () => {
     }
   });
 
-  it('replays only events with id > Last-Event-ID, without sending a snapshot', async () => {
-    // Pre-populate ring buffer with 3 events before any client connects
-    emitFlagEvent({
-      projectId: 'proj-1',
-      environmentId: null,
-      type: 'flag_created',
-      payload: { key: 'flag-a', enabled: false },
-    });
-    emitFlagEvent({
-      projectId: 'proj-1',
-      environmentId: null,
-      type: 'flag_created',
-      payload: { key: 'flag-b', enabled: false },
-    });
-    emitFlagEvent({
-      projectId: 'proj-1',
-      environmentId: null,
-      type: 'flag_created',
-      payload: { key: 'flag-c', enabled: false },
-    });
-
-    // Connect with Last-Event-ID = 1 → should replay events 2 and 3 only
-    const app = buildApp();
-    const res = await app.request('/v1/flags/stream', {
-      headers: {
-        Authorization: `Bearer ${sdkToken('proj-1', 'env-1')}`,
-        'Last-Event-ID': '1',
-      },
-    });
-
-    const { readUntil, cancel } = makeReader(res.body!);
-    // Wait until both replayed events appear
-    const text = await readUntil(
-      (t) => (t.match(/^event: flag_created/gm) ?? []).length >= 2,
-    );
-    await cancel();
-
-    // No snapshot sent
-    expect(text).not.toContain('event: snapshot');
-
-    // Events flag-b (id=2) and flag-c (id=3) replayed; flag-a (id=1) not replayed
-    const keys = [...text.matchAll(/^data:\s*(.+)$/gm)].map((m) => {
-      const parsed = JSON.parse(m[1]) as { key: string };
-      return parsed.key;
-    });
-    expect(keys).not.toContain('flag-a');
-    expect(keys).toContain('flag-b');
-    expect(keys).toContain('flag-c');
-  });
+  // Durable replay (Last-Event-ID against real Postgres state, not an
+  // in-memory buffer) is covered end-to-end in sdk-stream-replay.test.ts —
+  // see docs/adr/0020-durable-sse-replay-via-postgres.md. This file mocks
+  // @repo/prisma entirely, so it can't exercise real replay; it only covers
+  // live in-process broadcast, which is unaffected by that change.
 
   it('falls back to snapshot when Last-Event-ID is absent', async () => {
     vi.mocked(prisma.flag.findMany).mockResolvedValue([] as never);
@@ -420,32 +385,14 @@ describe('GET /v1/flags/stream', () => {
     expect(text).toContain('event: snapshot');
   });
 
-  it('falls back to snapshot when Last-Event-ID is older than the oldest buffered event', async () => {
+  it('falls back to snapshot when there is nothing to replay for a given Last-Event-ID', async () => {
     vi.mocked(prisma.flag.findMany).mockResolvedValue([] as never);
-
-    // Fill the buffer with events 1-3, then connect with Last-Event-ID=0
-    // which would be before event 1, but if we've already cleared/overflowed,
-    // we simulate by providing an ID older than what's in the buffer
-    emitFlagEvent({
-      projectId: 'proj-1',
-      environmentId: null,
-      type: 'flag_created',
-      payload: { key: 'flag-x', enabled: false },
-    });
-    // Buffer has event id=1. Connect with Last-Event-ID that yields zero
-    // replay candidates but is "stale" — here we use a negative/very-old scenario.
-    // We simulate stale by using Last-Event-ID=0 but the buffer only starts at 1.
-    // The stale check: lastEventId < oldestBufferedId
-    // With events [id=1] in buffer and lastEventId=-1, that's stale (but parseInt('-1')=-1).
-    // For a cleaner test: emit nothing more and use Last-Event-ID that's clearly before the buffer start.
-    // Actually with our current logic: if toReplay.length === 0 we fall through to snapshot.
-    // Let's just verify Last-Event-ID=0 with buffer having only id=1 → toReplay is empty → snapshot.
 
     const app = buildApp();
     const res = await app.request('/v1/flags/stream', {
       headers: {
         Authorization: `Bearer ${sdkToken('proj-1', 'env-1')}`,
-        'Last-Event-ID': '0',
+        'Last-Event-ID': '999',
       },
     });
 
