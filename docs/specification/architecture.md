@@ -1,9 +1,15 @@
 # Architecture
 
+This platform is a self-hosted feature flag service: a dashboard for managing flags/environments/projects, an API that serves flag evaluations to SDKs, and a BFF that exchanges credentials (proxy-asserted user identity, or an environment API key) for short-lived JWTs.
+
 This is a **Turborepo monorepo** with two workspace groups:
 
 - `apps/*` — runnable services
 - `packages/*` — shared internal tooling (not published)
+
+## Domain Language
+
+See [Environment API Keys](./api-keys.md) for the `Environment API Key` and `Key Prefix` vocabulary.
 
 ## Data Flow — API is the Single Source of Truth
 
