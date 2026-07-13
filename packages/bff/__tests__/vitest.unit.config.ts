@@ -6,5 +6,6 @@ export default mergeConfig(unitConfig, {
   test: {
     name: 'repo-bff:unit',
     root: path.resolve(import.meta.dirname, '..'),
+    setupFiles: ['./__tests__/setup.ts'],
   },
 });

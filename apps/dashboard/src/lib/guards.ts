@@ -3,6 +3,7 @@ import {
   type DashboardProjectRole,
   resolveProjectRole,
   resolveTrustedProxyUser,
+  UserService,
 } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { headers } from 'next/headers';
@@ -19,12 +20,7 @@ export type AuthedUser = {
   role: SystemRole;
 };
 
-const upsertUser = ({ email, role }: { email: string; role: SystemRole }) =>
-  prisma.user.upsert({
-    where: { email },
-    create: { email, name: email, role },
-    update: {},
-  });
+const userService = new UserService({ prisma });
 
 /**
  * Resolves the current request's identity via Trusted Proxy Authentication —
@@ -48,7 +44,7 @@ export const resolveAuthedUser = cache(async (): Promise<AuthedUser | null> => {
     email: requestHeaders.get(env.TRUSTED_PROXY_IDENTITY_HEADER) ?? undefined,
     expectedSecret: env.TRUSTED_PROXY_SECRET,
     designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
-    upsertUser,
+    upsertUser: (args) => userService.upsert(args),
   });
 
   if (!user) return null;

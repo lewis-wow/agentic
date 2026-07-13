@@ -2,7 +2,7 @@
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
 import type { SystemRole } from '@repo/auth/roles';
-import { forwardWithJwt } from '@repo/bff';
+import { forwardWithJwt, UserService } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
@@ -23,17 +23,15 @@ const app = new Hono<AppEnv>();
 app.get('/', (c) => c.json({ status: 'ok' }));
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
+const userService = new UserService({ prisma });
+
 const trustedProxyOptions = {
   privateKeyPem,
   expectedSecret: env.TRUSTED_PROXY_SECRET,
   designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
   identityHeaderName: env.TRUSTED_PROXY_IDENTITY_HEADER,
-  upsertUser: ({ email, role }: { email: string; role: SystemRole }) =>
-    prisma.user.upsert({
-      where: { email },
-      create: { email, name: email, role },
-      update: {},
-    }),
+  upsertUser: (args: { email: string; role: SystemRole }) =>
+    userService.upsert(args),
 };
 
 const projectAuth =

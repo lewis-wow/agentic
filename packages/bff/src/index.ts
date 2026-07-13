@@ -1,5 +1,6 @@
 export * from './trustedProxy.js';
 export * from './projectRole.js';
+export * from './services/index.js';
 
 const proxyRequest = async (
   request: Request,
