@@ -21,6 +21,11 @@ export type CreateProjectArgs = {
   name: string;
 };
 
+export type CreateWithEnvironmentsArgs = {
+  name: string;
+  environmentNames: string[];
+};
+
 export type GetProjectArgs = {
   projectId: string;
 };
@@ -77,6 +82,24 @@ export class ProjectService {
     });
 
     return { project: Schema.decodeUnknownSync(ProjectFromPrisma)(project) };
+  }
+
+  // A single nested-write `project.create` call is already atomic — no
+  // explicit `$transaction` needed to preserve that.
+  async createWithEnvironments(args: CreateWithEnvironmentsArgs) {
+    const { name, environmentNames } = args;
+
+    const project = await this.options.prisma.project.create({
+      data: {
+        name: name.trim(),
+        environments: { create: environmentNames.map((name) => ({ name })) },
+      },
+      include: { environments: true },
+    });
+
+    return {
+      project: Schema.decodeUnknownSync(ProjectDetailFromPrisma)(project),
+    };
   }
 
   async get(args: GetProjectArgs) {

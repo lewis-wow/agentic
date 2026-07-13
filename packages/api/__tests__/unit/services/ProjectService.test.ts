@@ -22,3 +22,40 @@ describe('ProjectService.exists', () => {
     }
   });
 });
+
+describe('ProjectService.createWithEnvironments', () => {
+  it('creates a project with all given environments in one call', async () => {
+    const service = new ProjectService({ prisma });
+    const name = `setup-project-${Date.now()}`;
+
+    const { project } = await service.createWithEnvironments({
+      name,
+      environmentNames: ['development', 'production'],
+    });
+
+    try {
+      expect(project.name).toBe(name);
+      expect(project.environments.map((e) => e.name).sort()).toEqual([
+        'development',
+        'production',
+      ]);
+    } finally {
+      await cleanupProject(project.id);
+    }
+  });
+
+  it('rolls back project creation when an environment name collides', async () => {
+    const service = new ProjectService({ prisma });
+    const name = `setup-rollback-${Date.now()}`;
+
+    await expect(
+      service.createWithEnvironments({
+        name,
+        environmentNames: ['development', 'development'],
+      }),
+    ).rejects.toThrow();
+
+    const projects = await prisma.project.findMany({ where: { name } });
+    expect(projects).toHaveLength(0);
+  });
+});
