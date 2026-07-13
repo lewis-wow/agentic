@@ -1,8 +1,7 @@
 // Hono app entry point (@hono/node-server).
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
-import type { SystemRole } from '@repo/auth/roles';
-import { forwardWithJwt, UserService } from '@repo/bff';
+import { forwardWithJwt, type UpsertUserArgs, UserService } from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
@@ -30,8 +29,7 @@ const trustedProxyOptions = {
   expectedSecret: env.TRUSTED_PROXY_SECRET,
   designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
   identityHeaderName: env.TRUSTED_PROXY_IDENTITY_HEADER,
-  upsertUser: (args: { email: string; role: SystemRole }) =>
-    userService.upsert(args),
+  upsertUser: (args: UpsertUserArgs) => userService.upsert(args),
 };
 
 const projectAuth =
