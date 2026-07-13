@@ -10,3 +10,6 @@ apps/api/src/generated
 .devcontainer/.claude/
 .pnpm-store/
 .ralph
+
+# Claude Code Bot GH Token
+.env.claude
