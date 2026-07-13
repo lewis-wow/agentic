@@ -1,15 +1,14 @@
 import { SYSTEM_ROLE } from '@repo/auth/roles';
-import { prisma } from '@repo/prisma';
 import { redirect, unauthorized } from 'next/navigation';
 
-import { resolveAuthedUser } from '../../../lib/guards';
+import { projectsExist, resolveAuthedUser } from '../../../lib/guards';
 import { SetupForm } from './SetupForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SetupPage(): Promise<React.ReactNode> {
-  const projectCount = await prisma.project.count();
-  if (projectCount > 0) {
+  const exists = await projectsExist();
+  if (exists) {
     redirect('/dashboard');
   }
 

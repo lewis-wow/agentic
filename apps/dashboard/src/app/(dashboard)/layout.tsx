@@ -1,10 +1,9 @@
 import { SYSTEM_ROLE } from '@repo/auth/roles';
-import { prisma } from '@repo/prisma';
 import { SidebarInset, SidebarProvider } from '@repo/ui/components/ui/sidebar';
 import { redirect } from 'next/navigation';
 
 import { env } from '../../env';
-import { requireSession } from '../../lib/guards';
+import { projectsExist, requireSession } from '../../lib/guards';
 import { AppSidebar } from './AppSidebar';
 import { Providers } from './providers';
 
@@ -15,8 +14,8 @@ export default async function DashboardLayout({
 }): Promise<React.ReactNode> {
   const user = await requireSession();
 
-  const projectCount = await prisma.project.count();
-  if (projectCount === 0) {
+  const exists = await projectsExist();
+  if (!exists) {
     redirect('/setup');
   }
 

@@ -37,6 +37,15 @@ export type RemoveProjectArgs = {
 export class ProjectService {
   constructor(private readonly options: ProjectServiceOptions) {}
 
+  // Role-agnostic "has any project been created yet" check — deliberately
+  // unscoped by systemRole (unlike list(), which returns [] for non-owners),
+  // since "is this installation initialized" must answer the same way for
+  // every caller.
+  async exists(): Promise<boolean> {
+    const count = await this.options.prisma.project.count();
+    return count > 0;
+  }
+
   // Project access is owner-only (no per-project membership) — a non-owner
   // has no projects to list.
   async list(args: ListProjectsArgs) {

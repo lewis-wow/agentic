@@ -1,3 +1,4 @@
+import { ProjectService } from '@repo/api/services';
 import type { SystemRole } from '@repo/auth/roles';
 import {
   type DashboardProjectRole,
@@ -21,6 +22,17 @@ export type AuthedUser = {
 };
 
 const userService = new UserService({ prisma });
+const projectService = new ProjectService({ prisma });
+
+/**
+ * Role-agnostic "has any project been created yet" check, used to redirect
+ * to `/setup` on a fresh install. Wrapped in `cache()` for the same reason as
+ * `resolveAuthedUser` — a layout and its page can independently need this
+ * within one request, and it should only run one query.
+ */
+export const projectsExist = cache(
+  (): Promise<boolean> => projectService.exists(),
+);
 
 /**
  * Resolves the current request's identity via Trusted Proxy Authentication —
