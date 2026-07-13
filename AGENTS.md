@@ -60,6 +60,14 @@ pnpm build         # build all applications
 
 Do not report a task as complete if any of these commands exit with a non-zero status. Fix the root cause; do not suppress errors with ignore comments or skip flags.
 
+## Issue Resolution Workflow
+
+- A reference like `#<int>` (e.g. `#5`) means issue number `<int>` on GitHub in this repo.
+- When a referenced issue has subissues, use the `gh` CLI to look up its subissues before starting work (e.g. `gh issue view <int> --json subIssues`, falling back to `gh api` if the field isn't available in the installed `gh` version).
+- Every issue that gets solved — parent or subissue — must have its own dedicated commit; do not bundle fixes for multiple issues into one commit.
+- For a parent issue with subissues, solve and commit each subissue individually first, one commit per subissue immediately after it's solved.
+- Every commit produced by this workflow must use the `CLAUDE: ` prefix per the GitHub activity rule above.
+
 ## Commands
 
 ```bash
