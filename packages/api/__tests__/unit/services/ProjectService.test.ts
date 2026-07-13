@@ -1,6 +1,7 @@
 import { prisma } from '@repo/prisma';
 import { describe, expect, it } from 'vitest';
 
+import { EnvironmentNameConflict } from '../../../src/exceptions/index.js';
 import { ProjectService } from '../../../src/services/ProjectService.js';
 import { cleanupProject, createTestProject } from '../../helpers/fixtures.js';
 
@@ -44,7 +45,7 @@ describe('ProjectService.createWithEnvironments', () => {
     }
   });
 
-  it('rolls back project creation when an environment name collides', async () => {
+  it('rejects duplicate environment names without creating the project', async () => {
     const service = new ProjectService({ prisma });
     const name = `setup-rollback-${Date.now()}`;
 
@@ -53,7 +54,7 @@ describe('ProjectService.createWithEnvironments', () => {
         name,
         environmentNames: ['development', 'development'],
       }),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(EnvironmentNameConflict);
 
     const projects = await prisma.project.findMany({ where: { name } });
     expect(projects).toHaveLength(0);

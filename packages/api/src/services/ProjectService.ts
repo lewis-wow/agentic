@@ -2,7 +2,10 @@ import { SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
 import type { PrismaClient } from '@repo/prisma';
 import { Schema } from 'effect';
 
-import { ProjectNotFound } from '../exceptions/index.js';
+import {
+  EnvironmentNameConflict,
+  ProjectNotFound,
+} from '../exceptions/index.js';
 import {
   ProjectDetailFromPrisma,
   ProjectFromPrisma,
@@ -88,11 +91,19 @@ export class ProjectService {
   // explicit `$transaction` needed to preserve that.
   async createWithEnvironments(args: CreateWithEnvironmentsArgs) {
     const { name, environmentNames } = args;
+    const trimmedNames = environmentNames.map((n) => n.trim());
+
+    // Prisma's unique constraint would catch this too, but only after
+    // partially writing the project — reject it up front so the failure is
+    // an Exception subclass, not a raw driver error.
+    if (new Set(trimmedNames).size !== trimmedNames.length) {
+      throw new EnvironmentNameConflict();
+    }
 
     const project = await this.options.prisma.project.create({
       data: {
         name: name.trim(),
-        environments: { create: environmentNames.map((name) => ({ name })) },
+        environments: { create: trimmedNames.map((name) => ({ name })) },
       },
       include: { environments: true },
     });
