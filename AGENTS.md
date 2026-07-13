@@ -67,6 +67,7 @@ Do not report a task as complete if any of these commands exit with a non-zero s
 - Every issue that gets solved — parent or subissue — must have its own dedicated commit; do not bundle fixes for multiple issues into one commit.
 - For a parent issue with subissues, solve and commit each subissue individually first, one commit per subissue immediately after it's solved.
 - Every commit produced by this workflow must use the `CLAUDE: ` prefix per the GitHub activity rule above.
+- After an issue's commit exists, push it to the remote, then post a `CLAUDE: ` comment on that issue linking to the commit (`https://github.com/<owner>/<repo>/commit/<sha>`) — do not close the issue. Once every subissue of a parent is done this way, post the same kind of comment on the parent linking to all of its subissues' commits.
 
 ## Commands
 
