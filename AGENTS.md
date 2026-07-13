@@ -9,7 +9,7 @@
 - node_modules are stored in root node_modules/ folder
 - All GitHub activity performed by Claude Code must be prefixed with `CLAUDE: ` — this includes issue titles, issue comments, close descriptions, PR titles/descriptions, and any other content posted to GitHub. The same `CLAUDE: ` prefix applies to git commit messages.
 - **No "Source Layout" sections in any `AGENTS.md`.** A file tree with per-file/per-directory descriptions goes stale the moment a file is added, renamed, or moved, and duplicates what belongs next to the code. Document a file's purpose as a short comment at the top of that file (or, for a directory, its barrel/index file) instead.
-- **Never create or use a `CONTEXT.md` file.** Domain vocabulary and platform context live in [Architecture & Data Flow](docs/specification/architecture.md) instead.
+- **[`CONTEXT.md`](CONTEXT.md) (root) is the living glossary and domain model for this project.** It defines precise domain terms — services, entities, auth/role vocabulary, flag-evaluation concepts, contract/schema terminology — each cross-linked to the ADR or spec doc that's the source of truth for it, so AI coding agents don't drift on project jargon. Read it before working on unfamiliar domain code. Whenever a term is coined, renamed, or redefined, update its entry there in the same change.
 
 ## Required Context Loading
 
@@ -31,7 +31,6 @@ Strictly follow the guidelines found inside these files for every task.
 
 Repo-wide conventions live in `docs/specification/`. Read the relevant file before touching the area it covers:
 
-- [Architecture & Data Flow](docs/specification/architecture.md)
 - [Environment API Keys](docs/specification/api-keys.md)
 - [Testing Convention](docs/specification/testing.md)
 - [Environment Variables](docs/specification/environment-variables.md)
@@ -44,7 +43,7 @@ Repo-wide conventions live in `docs/specification/`. Read the relevant file befo
 - [Enums and Constants](docs/specification/enums-and-constants.md)
 - [Error Handling with Exception Classes](docs/specification/error-handling.md)
 
-Decision history lives in [`docs/adr/`](docs/adr/); domain vocabulary lives in [Architecture & Data Flow](docs/specification/architecture.md).
+Decision history lives in [`docs/adr/`](docs/adr/); domain vocabulary and architecture live in [CONTEXT.md](CONTEXT.md).
 
 ## Post-Modification Checklist
 
@@ -89,9 +88,4 @@ To run tests for a single app, `cd` into the app directory and run `vitest run` 
 
 ## Architecture
 
-This is a **Turborepo monorepo** with two workspace groups:
-
-- `apps/*` — runnable services
-- `packages/*` — shared internal tooling (not published)
-
-**`apps/api` is the only service that reads or writes data.** Each layer has its own `AGENTS.md` with layer-specific rules — read the relevant one before working in that layer.
+See [CONTEXT.md](CONTEXT.md) for the full architecture overview and domain glossary. In short: this is a **Turborepo monorepo** (`apps/*` — runnable services; `packages/*` — shared internal tooling, not published), and `apps/api` is the only service that reads or writes data. Each layer has its own `AGENTS.md` with layer-specific rules — read the relevant one before working in that layer.

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The **framework-agnostic core** for `apps/api`: domain schemas, business-logic services, exceptions, and validation helpers — everything about `apps/api`'s behavior that has no dependency on Hono. `apps/api` itself is only the Hono wiring on top: routes, middleware, and the server entrypoint. See [Architecture & Data Flow](../../docs/specification/architecture.md).
+The **framework-agnostic core** for `apps/api`: domain schemas, business-logic services, exceptions, and validation helpers — everything about `apps/api`'s behavior that has no dependency on Hono. `apps/api` itself is only the Hono wiring on top: routes, middleware, and the server entrypoint. See [CONTEXT.md](../../CONTEXT.md).
 
 This is also the **contract layer** between `apps/api` (producer) and its consumers (`apps/dashboard`, `packages/sdk-node`, etc.) for the `.` (schemas) export specifically.
 
