@@ -1,6 +1,7 @@
 import { ProjectService } from '@repo/api/services';
 import type { SystemRole } from '@repo/auth/roles';
 import {
+  createTrustedProxyJwtVerifier,
   type DashboardProjectRole,
   resolveProjectRole,
   resolveTrustedProxyUser,
@@ -11,7 +12,6 @@ import { headers } from 'next/headers';
 import { forbidden, unauthorized } from 'next/navigation';
 import { cache } from 'react';
 
-import { TRUSTED_PROXY_SECRET_HEADER } from '../consts';
 import { env } from '../env';
 
 export type AuthedUser = {
@@ -23,6 +23,14 @@ export type AuthedUser = {
 
 const userService = new UserService({ prisma });
 const projectService = new ProjectService({ prisma });
+
+// Built once per process — owns an in-memory JWKS key cache, never rebuild per request.
+const trustedProxyVerify = createTrustedProxyJwtVerifier({
+  jwksUrl: env.TRUSTED_PROXY_JWKS_URL,
+  issuer: env.TRUSTED_PROXY_JWT_ISSUER,
+  audience: env.TRUSTED_PROXY_JWT_AUDIENCE,
+  algorithms: env.TRUSTED_PROXY_JWT_ALGORITHM,
+});
 
 /**
  * Role-agnostic "has any project been created yet" check, used to redirect
@@ -36,9 +44,9 @@ export const projectsExist = cache(
 
 /**
  * Resolves the current request's identity via Trusted Proxy Authentication —
- * the Trusted Proxy Secret + Identity Header set by the operator's reverse
- * proxy (oauth2-proxy, Authelia, Pomerium, ...). Returns `null` when either
- * header is missing or the secret doesn't match; does not redirect or throw,
+ * verifies the Proxy Identity JWT set by the operator's reverse proxy
+ * (Pomerium, or any other proxy that can present one). Returns `null` when
+ * the header is missing or verification fails; does not redirect or throw,
  * so callers can decide what to render (e.g. `/setup` shows a different state
  * than a normal guarded page).
  *
@@ -52,9 +60,9 @@ export const resolveAuthedUser = cache(async (): Promise<AuthedUser | null> => {
   const requestHeaders = await headers();
 
   const user = await resolveTrustedProxyUser({
-    secret: requestHeaders.get(TRUSTED_PROXY_SECRET_HEADER) ?? undefined,
-    email: requestHeaders.get(env.TRUSTED_PROXY_IDENTITY_HEADER) ?? undefined,
-    expectedSecret: env.TRUSTED_PROXY_SECRET,
+    jwt: requestHeaders.get(env.TRUSTED_PROXY_JWT_HEADER) ?? undefined,
+    verify: trustedProxyVerify,
+    emailClaimPath: env.TRUSTED_PROXY_JWT_EMAIL_CLAIM,
     designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
     upsertUser: (args) => userService.upsert(args),
   });
