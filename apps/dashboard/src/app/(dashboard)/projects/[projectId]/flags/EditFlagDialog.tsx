@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@repo/ui/components/ui/select';
 import { Skeleton } from '@repo/ui/components/ui/skeleton';
+import { addChips, TagInput } from '@repo/ui/components/ui/tag-input';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -383,6 +384,8 @@ type RuleBuilderSectionProps = {
   state: FlagState;
 };
 
+const parseValueList = (raw: string): string[] => addChips([], raw);
+
 const toDraftRule = (rule: TargetingRule): RuleFormValues => ({
   attribute: rule.attribute,
   operator: rule.operator,
@@ -392,10 +395,7 @@ const toDraftRule = (rule: TargetingRule): RuleFormValues => ({
 const toTargetingRule = (draft: RuleFormValues): TargetingRule => ({
   attribute: draft.attribute,
   operator: draft.operator,
-  value: draft.valueRaw
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0),
+  value: parseValueList(draft.valueRaw),
 });
 
 const BLANK_RULE: RuleFormValues = {
@@ -503,22 +503,35 @@ const RuleBuilderSection = ({
                   <FormField
                     control={form.control}
                     name={`rules.${i}.valueRaw`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl>
-                          <Input
-                            placeholder={
-                              operator === 'IN' || operator === 'NOT_IN'
-                                ? 'value1, value2'
-                                : 'value'
-                            }
-                            disabled={busy}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) =>
+                      operator === 'IN' || operator === 'NOT_IN' ? (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <TagInput
+                              value={parseValueList(field.value)}
+                              onChange={(next) =>
+                                field.onChange(next.join(', '))
+                              }
+                              placeholder="value1, value2"
+                              disabled={busy}
+                              aria-label="Rule values"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      ) : (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Input
+                              placeholder="value"
+                              disabled={busy}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )
+                    }
                   />
                   <Button
                     type="button"

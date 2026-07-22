@@ -749,6 +749,9 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@repo/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest-config
       '@tailwindcss/postcss':
         specifier: ^4.1.14
         version: 4.3.1
@@ -764,6 +767,9 @@ importers:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@20.19.43)(@vitest/ui@3.2.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/utils:
     dependencies:
