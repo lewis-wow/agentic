@@ -2,6 +2,7 @@
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { slugifyEnvironmentName } from '@repo/auth/key-prefix';
+import { DisabledButtonTooltip } from '@repo/ui/components/DisabledButtonTooltip';
 import { TablePagination } from '@repo/ui/components/TablePagination';
 import {
   AlertDialog,
@@ -301,6 +302,7 @@ const CreateApiKeyDialog = ({
   const { data: project } = useProject(projectId);
   const environments = project?.environments ?? [];
   const createMutation = useCreateApiKey(projectId);
+  const disabled = environments.length === 0;
 
   const form = useForm<CreateApiKeyFormValues>({
     resolver: effectTsResolver(CreateApiKeyFormSchema),
@@ -321,13 +323,32 @@ const CreateApiKeyDialog = ({
     });
   };
 
+  const buttonContent = (
+    <>
+      <Plus />
+      New API key
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <DisabledButtonTooltip reason="Create an environment first.">
+        <Button
+          size="sm"
+          tabIndex={-1}
+          aria-disabled="true"
+          className="pointer-events-none opacity-50"
+        >
+          {buttonContent}
+        </Button>
+      </DisabledButtonTooltip>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" disabled={environments.length === 0}>
-          <Plus />
-          New API key
-        </Button>
+        <Button size="sm">{buttonContent}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <Form {...form}>

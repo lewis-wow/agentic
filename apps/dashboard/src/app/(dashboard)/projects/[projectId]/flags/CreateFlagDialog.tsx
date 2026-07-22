@@ -1,6 +1,7 @@
 'use client';
 
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { DisabledButtonTooltip } from '@repo/ui/components/DisabledButtonTooltip';
 import { Button } from '@repo/ui/components/ui/button';
 import {
   Dialog,
@@ -19,12 +20,6 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@repo/ui/components/ui/tooltip';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -51,7 +46,7 @@ type Props = {
 export const CreateFlagDialog = ({
   projectId,
   disabled = false,
-  disabledReason,
+  disabledReason = '',
 }: Props): React.ReactNode => {
   const [open, setOpen] = useState(false);
   const [keyTouched, setKeyTouched] = useState(false);
@@ -86,23 +81,16 @@ export const CreateFlagDialog = ({
 
   if (disabled) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0} className="inline-flex">
-              <Button
-                size="sm"
-                tabIndex={-1}
-                aria-disabled="true"
-                className="pointer-events-none opacity-50"
-              >
-                {buttonContent}
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{disabledReason}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DisabledButtonTooltip reason={disabledReason}>
+        <Button
+          size="sm"
+          tabIndex={-1}
+          aria-disabled="true"
+          className="pointer-events-none opacity-50"
+        >
+          {buttonContent}
+        </Button>
+      </DisabledButtonTooltip>
     );
   }
 
