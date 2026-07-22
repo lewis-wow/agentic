@@ -29,6 +29,9 @@ importers:
       eslint:
         specifier: ^9.34.0
         version: 9.39.4(jiti@2.7.0)
+      jose:
+        specifier: ^6.2.4
+        version: 6.2.4
       prettier:
         specifier: ^3.6.2
         version: 3.8.5
