@@ -39,12 +39,12 @@ _Avoid_: Frontend, client (ambiguous with SDK client — say "the dashboard").
 
 ## Identity & Access
 
-**Trusted Proxy Authentication**: The platform's only auth mechanism — there is no built-in login, password, or session. An operator-supplied reverse proxy (oauth2-proxy, Authelia, Pomerium) authenticates the user and asserts identity via a header; the platform verifies a shared secret and trusts the header. See [ADR-0014](docs/adr/0014-trusted-proxy-authentication.md).
+**Trusted Proxy Authentication**: The platform's only auth mechanism — there is no built-in login, password, or session. An operator-supplied reverse proxy (Pomerium, or any other proxy that can present a signed JWT identity assertion) authenticates the user and asserts identity via a Proxy Identity JWT, which the platform cryptographically verifies rather than trusting blindly. See [ADR-0014](docs/adr/0014-trusted-proxy-authentication.md) (delegating auth to a proxy at all) and [ADR-0024](docs/adr/0024-jwt-verified-trusted-proxy-identity.md) (JWT verification, superseding 0014's shared-secret/plain-header mechanism). Proxies that can't present a signed JWT (plain oauth2-proxy/Authelia header-only setups) are not directly supported — an operator on one of those puts a JWT-issuing proxy in front instead.
 _Avoid_: Login, auth system (implies the platform owns credential storage — it deliberately doesn't).
 
-**Trusted Proxy Secret**: The shared secret header that guards against a client reaching the app directly and forging the Identity Header. Validated only by `resolveTrustedProxyUser` in `packages/bff`.
+**Proxy Identity JWT**: The signed JWT the reverse proxy sets on a configurable header (e.g. Pomerium's `X-Pomerium-Jwt-Assertion`) asserting the authenticated user's identity. Verified via JWKS Verification before any claim in it is trusted. Replaces the old Trusted Proxy Secret + Identity Header pair — see [ADR-0024](docs/adr/0024-jwt-verified-trusted-proxy-identity.md).
 
-**Identity Header**: The header the reverse proxy sets to assert the authenticated user's identity (email), read alongside the Trusted Proxy Secret.
+**JWKS Verification**: How a Proxy Identity JWT is checked — signature against a key fetched from an operator-configured JWKS URL (via `jose`'s `createRemoteJWKSet`), `alg` restricted to an operator-configured allow-list, `iss`/`aud` matched against operator-configured expected values, `exp` not elapsed, and the email resolved at an operator-configured claim path. Any failure fails closed (401), with no fallback. Implemented only by `resolveTrustedProxyUser` in `packages/bff`. See [ADR-0024](docs/adr/0024-jwt-verified-trusted-proxy-identity.md).
 
 **JWT claims**: The decoded payload of the RS256 JWTs the API's auth middleware accepts. Three variants, all part of the `AuthJwtClaims` union (`packages/auth`):
 

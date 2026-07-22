@@ -14,8 +14,14 @@
   "remoteUser": "node",
 
   "features": {
-    "ghcr.io/devcontainers/features/desktop-lite:1": {},
+    "ghcr.io/devcontainers/features/desktop-lite:1.2.10": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "DISABLE_AUTOUPDATER": "1",
+    "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "1"
   },
 
   // Settings specific to the editor and AI tools
@@ -40,10 +46,6 @@
         "bradlc.vscode-tailwindcss"
       ]
     }
-  },
-
-  "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
 
   "forwardPorts": [3000, 3001, 3002, 5432, 6080],
