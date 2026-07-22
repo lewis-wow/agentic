@@ -10,11 +10,17 @@ import { type EventSourceFetchInit, EventSource } from 'eventsource';
 import { ClientNotConnected } from './exceptions/ClientNotConnected.js';
 import { ConnectFailed } from './exceptions/ConnectFailed.js';
 
-export type SdkClientOptions = {
+export type SdkClientOptions<TDeps = undefined> = {
   apiUrl: string;
   apiKey: string;
   connectTimeout?: number;
+  deps?: TDeps;
 };
+
+export type CustomRuleHandler<TDeps> = (
+  context: Record<string, string>,
+  deps: TDeps | undefined,
+) => boolean | Promise<boolean>;
 
 export type FlagChangeDetail = { key: string };
 
@@ -33,40 +39,24 @@ type SSEPayload = {
   rules?: unknown[];
 };
 
-const evaluateRule = (
-  rule: TargetingRule,
-  context: Record<string, string>,
-): boolean => {
-  const actual = context[rule.attribute];
-  if (actual === undefined) return false;
-
-  switch (rule.operator) {
-    case 'EQ':
-      return actual === rule.value[0];
-    case 'NEQ':
-      return actual !== rule.value[0];
-    case 'IN':
-      return rule.value.includes(actual);
-    case 'NOT_IN':
-      return !rule.value.includes(actual);
-    case 'CONTAINS':
-      return actual.includes(rule.value[0] ?? '');
-  }
-};
-
 const toFlagType = (raw: string | undefined): FlagType => {
   if (raw === 'percentage_rollout') return 'percentage_rollout';
   if (raw === 'targeted') return 'targeted';
   return 'boolean';
 };
 
-export class SdkClient extends EventTarget {
+export class SdkClient<TDeps = undefined> extends EventTarget {
   private es: InstanceType<typeof EventSource> | null = null;
   private flags: Map<string, FlagEntry> = new Map();
   private connected: boolean = false;
+  private customRules: Map<string, CustomRuleHandler<TDeps>> = new Map();
 
-  constructor(private readonly options: SdkClientOptions) {
+  constructor(private readonly options: SdkClientOptions<TDeps>) {
     super();
+  }
+
+  registerCustomRule(name: string, handler: CustomRuleHandler<TDeps>): void {
+    this.customRules.set(name, handler);
   }
 
   connect(): Promise<void> {
@@ -198,7 +188,11 @@ export class SdkClient extends EventTarget {
 
     if (flag.type === FLAG_TYPE.TARGETED) {
       if (flag.rules.length === 0) return false;
-      return flag.rules.every((rule) => evaluateRule(rule, context ?? {}));
+      for (const rule of flag.rules) {
+        const passed = await this.evaluateRule(rule, context ?? {});
+        if (!passed) return false;
+      }
+      return true;
     }
 
     if (flag.type === FLAG_TYPE.PERCENTAGE_ROLLOUT) {
@@ -208,6 +202,37 @@ export class SdkClient extends EventTarget {
     }
 
     return flag.enabled;
+  }
+
+  private async evaluateRule(
+    rule: TargetingRule,
+    context: Record<string, string>,
+  ): Promise<boolean> {
+    if (rule.operator === 'CUSTOM') {
+      const handler = this.customRules.get(rule.value[0] ?? '');
+      if (!handler) return false;
+      try {
+        return await handler(context, this.options.deps);
+      } catch {
+        return false;
+      }
+    }
+
+    const actual = context[rule.attribute];
+    if (actual === undefined) return false;
+
+    switch (rule.operator) {
+      case 'EQ':
+        return actual === rule.value[0];
+      case 'NEQ':
+        return actual !== rule.value[0];
+      case 'IN':
+        return rule.value.includes(actual);
+      case 'NOT_IN':
+        return !rule.value.includes(actual);
+      case 'CONTAINS':
+        return actual.includes(rule.value[0] ?? '');
+    }
   }
 }
 

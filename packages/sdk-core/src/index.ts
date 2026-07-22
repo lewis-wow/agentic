@@ -5,7 +5,8 @@ export * from './SdkClient.js';
 export * from './exceptions/ClientNotConnected.js';
 export * from './exceptions/ConnectFailed.js';
 
-export type CreateClientArgs = SdkClientOptions;
+export type CreateClientArgs<TDeps = undefined> = SdkClientOptions<TDeps>;
 
-export const createClient = (args: CreateClientArgs): SdkClient =>
-  new SdkClient(args);
+export const createClient = <TDeps = undefined>(
+  args: CreateClientArgs<TDeps>,
+): SdkClient<TDeps> => new SdkClient<TDeps>(args);

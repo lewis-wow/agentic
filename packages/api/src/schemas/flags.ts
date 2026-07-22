@@ -31,6 +31,7 @@ export const RULE_OPERATOR = {
   IN: 'IN',
   NOT_IN: 'NOT_IN',
   CONTAINS: 'CONTAINS',
+  CUSTOM: 'CUSTOM',
 } as const;
 
 export type RuleOperator = ValueOfEnum<typeof RULE_OPERATOR>;

@@ -10,12 +10,13 @@ import {
 } from '../../src/index.js';
 
 describe('RULE_OPERATOR', () => {
-  it('exposes EQ, NEQ, IN, NOT_IN, CONTAINS as const values', () => {
+  it('exposes EQ, NEQ, IN, NOT_IN, CONTAINS, CUSTOM as const values', () => {
     expect(RULE_OPERATOR.EQ).toBe('EQ');
     expect(RULE_OPERATOR.NEQ).toBe('NEQ');
     expect(RULE_OPERATOR.IN).toBe('IN');
     expect(RULE_OPERATOR.NOT_IN).toBe('NOT_IN');
     expect(RULE_OPERATOR.CONTAINS).toBe('CONTAINS');
+    expect(RULE_OPERATOR.CUSTOM).toBe('CUSTOM');
   });
 });
 
@@ -53,6 +54,12 @@ describe('TargetingRuleSchema', () => {
       operator: 'IN',
       value: ['US', 'CA', 'GB'],
     };
+    const result = Schema.decodeUnknownSync(TargetingRuleSchema)(raw);
+    expect(result).toEqual(raw);
+  });
+
+  it('decodes a valid CUSTOM rule with an empty attribute and a handler name as the value', () => {
+    const raw = { attribute: '', operator: 'CUSTOM', value: ['isBetaTester'] };
     const result = Schema.decodeUnknownSync(TargetingRuleSchema)(raw);
     expect(result).toEqual(raw);
   });

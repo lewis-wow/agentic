@@ -67,8 +67,11 @@ vi.mock('eventsource', () => ({ EventSource: mockES.MockEventSource }));
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const makeClient = (opts?: { connectTimeout?: number }) =>
-  createClient({
+const makeClient = <TDeps = undefined>(opts?: {
+  connectTimeout?: number;
+  deps?: TDeps;
+}) =>
+  createClient<TDeps>({
     apiUrl: 'http://api:3001',
     apiKey: 'env_test.secret',
     ...opts,
@@ -424,5 +427,121 @@ describe("'change' CustomEvent", () => {
 
     expect(changes).toEqual(['gone-flag']);
     expect(await client.isEnabled('gone-flag')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isEnabled() — targeted flag with a CUSTOM rule
+// ---------------------------------------------------------------------------
+describe('isEnabled() — targeted flag with CUSTOM rule', () => {
+  const connectWithCustomRule = async () => {
+    const client = makeClient<{ label: string }>({
+      deps: { label: 'prod-deps' },
+    });
+    const cp = client.connect();
+    await Promise.resolve();
+    mockES.current!.fireEvent(
+      'snapshot',
+      makeSnapshot([
+        {
+          key: 'beta',
+          enabled: true,
+          type: 'targeted',
+          rollout: 0,
+          rules: [{ attribute: '', operator: 'CUSTOM', value: ['isVip'] }],
+        },
+      ]),
+    );
+    await cp;
+    return client;
+  };
+
+  it('invokes the registered handler with context and the constructed deps, sync boolean result', async () => {
+    const client = await connectWithCustomRule();
+    const handler = vi.fn().mockReturnValue(true);
+    client.registerCustomRule('isVip', handler);
+
+    expect(await client.isEnabled('beta', { userId: 'u1' })).toBe(true);
+    expect(handler).toHaveBeenCalledWith(
+      { userId: 'u1' },
+      { label: 'prod-deps' },
+    );
+  });
+
+  it('invokes the registered handler and awaits an async boolean result', async () => {
+    const client = await connectWithCustomRule();
+    client.registerCustomRule('isVip', async () => {
+      await Promise.resolve();
+      return true;
+    });
+
+    expect(await client.isEnabled('beta')).toBe(true);
+  });
+
+  it('evaluates to false when the handler returns false', async () => {
+    const client = await connectWithCustomRule();
+    client.registerCustomRule('isVip', () => false);
+
+    expect(await client.isEnabled('beta')).toBe(false);
+  });
+
+  it('evaluates to false, not throw, when the handler name is unregistered', async () => {
+    const client = await connectWithCustomRule();
+
+    await expect(client.isEnabled('beta')).resolves.toBe(false);
+  });
+
+  it('evaluates to false, not throw, when the handler throws synchronously', async () => {
+    const client = await connectWithCustomRule();
+    client.registerCustomRule('isVip', () => {
+      throw new Error('boom');
+    });
+
+    await expect(client.isEnabled('beta')).resolves.toBe(false);
+  });
+
+  it('evaluates to false, not throw, when the handler returns a rejected promise', async () => {
+    const client = await connectWithCustomRule();
+    client.registerCustomRule('isVip', async () => {
+      throw new Error('boom');
+    });
+
+    await expect(client.isEnabled('beta')).resolves.toBe(false);
+  });
+
+  it('re-registering a handler under the same name uses the latest one', async () => {
+    const client = await connectWithCustomRule();
+    client.registerCustomRule('isVip', () => false);
+    client.registerCustomRule('isVip', () => true);
+
+    expect(await client.isEnabled('beta')).toBe(true);
+  });
+
+  it('short-circuits and never invokes a CUSTOM handler after an earlier rule already failed', async () => {
+    const client = makeClient();
+    const cp = client.connect();
+    await Promise.resolve();
+    mockES.current!.fireEvent(
+      'snapshot',
+      makeSnapshot([
+        {
+          key: 'beta',
+          enabled: true,
+          type: 'targeted',
+          rollout: 0,
+          rules: [
+            { attribute: 'plan', operator: 'EQ', value: ['pro'] },
+            { attribute: '', operator: 'CUSTOM', value: ['isVip'] },
+          ],
+        },
+      ]),
+    );
+    await cp;
+
+    const handler = vi.fn().mockReturnValue(true);
+    client.registerCustomRule('isVip', handler);
+
+    expect(await client.isEnabled('beta', { plan: 'free' })).toBe(false);
+    expect(handler).not.toHaveBeenCalled();
   });
 });
