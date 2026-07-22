@@ -197,12 +197,6 @@ export const ApiKeysPanel = ({
                 : 'Create an API key to authenticate SDK clients.'}
             </EmptyDescription>
           </EmptyHeader>
-          {!debouncedQuery && canManage && (
-            <CreateApiKeyDialog
-              projectId={projectId}
-              onCreated={setRevealedKey}
-            />
-          )}
         </Empty>
       ) : (
         <>
