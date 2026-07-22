@@ -115,7 +115,7 @@ export const ProjectDetail = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {flagsPending ? (
+          {projectPending || flagsPending ? (
             <Skeleton className="h-5 w-16 rounded-full" />
           ) : (
             <Badge variant="secondary">{flagsTotal} flags</Badge>
