@@ -35,7 +35,10 @@ export const usePaginatedQuery = <T>(
     setPage(1);
   }, [queryKeyStr]);
 
-  const { data, isPending, error } = useQuery({
+  // `isLoading` (isPending && isFetching), not `isPending`: when `enabled` is
+  // false, `isPending` stays true forever since the query never fetches,
+  // which would make callers show a loading state indefinitely.
+  const { data, isLoading, error } = useQuery({
     queryKey: [...options.queryKey, page],
     queryFn: () => options.queryFn(page),
     enabled: options.enabled,
@@ -52,7 +55,7 @@ export const usePaginatedQuery = <T>(
     data: data?.items,
     page,
     setPage,
-    isPending,
+    isPending: isLoading,
     error: error as Error | null,
     totalPages,
     total: data?.total ?? 0,
