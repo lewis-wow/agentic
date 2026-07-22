@@ -19,6 +19,12 @@ import {
   FormMessage,
 } from '@repo/ui/components/ui/form';
 import { Input } from '@repo/ui/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@repo/ui/components/ui/tooltip';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -38,9 +44,15 @@ const slugify = (value: string): string =>
 
 type Props = {
   projectId: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
-export const CreateFlagDialog = ({ projectId }: Props): React.ReactNode => {
+export const CreateFlagDialog = ({
+  projectId,
+  disabled = false,
+  disabledReason,
+}: Props): React.ReactNode => {
   const [open, setOpen] = useState(false);
   const [keyTouched, setKeyTouched] = useState(false);
 
@@ -65,13 +77,39 @@ export const CreateFlagDialog = ({ projectId }: Props): React.ReactNode => {
     });
   };
 
+  const buttonContent = (
+    <>
+      <Plus />
+      Create flag
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="inline-flex">
+              <Button
+                size="sm"
+                tabIndex={-1}
+                aria-disabled="true"
+                className="pointer-events-none opacity-50"
+              >
+                {buttonContent}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{disabledReason}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus />
-          Create flag
-        </Button>
+        <Button size="sm">{buttonContent}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

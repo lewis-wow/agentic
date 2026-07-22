@@ -2,12 +2,20 @@
 
 import { FlagTable, type FlagTableRow } from '@repo/ui/components/FlagTable';
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@repo/ui/components/ui/empty';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/ui/select';
+import { Layers } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -122,7 +130,18 @@ export const FlagsClient = ({
           Feature flags for this project, scoped to the selected environment.
         </p>
       </div>
-      {canManage && currentEnvId && <CreateFlagDialog projectId={projectId} />}
+      {canManage &&
+        (currentEnvId ? (
+          <CreateFlagDialog projectId={projectId} />
+        ) : (
+          !envsLoading && (
+            <CreateFlagDialog
+              projectId={projectId}
+              disabled
+              disabledReason="Create an environment first."
+            />
+          )
+        ))}
     </div>
   );
 
@@ -154,9 +173,17 @@ export const FlagsClient = ({
     return (
       <div className="flex flex-col gap-4">
         {header}
-        <p className="text-sm text-muted-foreground">
-          No environments found. Create one in the Environments tab first.
-        </p>
+        <Empty className="rounded-lg border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Layers />
+            </EmptyMedia>
+            <EmptyTitle>No environments yet</EmptyTitle>
+            <EmptyDescription>
+              Create one in the Environments tab first.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }
