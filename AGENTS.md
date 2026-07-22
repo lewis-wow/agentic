@@ -10,6 +10,7 @@
 - All GitHub activity performed by Claude Code must be prefixed with `CLAUDE: ` — this includes issue titles, issue comments, close descriptions, PR titles/descriptions, and any other content posted to GitHub. The same `CLAUDE: ` prefix applies to git commit messages.
 - **No "Source Layout" sections in any `AGENTS.md`.** A file tree with per-file/per-directory descriptions goes stale the moment a file is added, renamed, or moved, and duplicates what belongs next to the code. Document a file's purpose as a short comment at the top of that file (or, for a directory, its barrel/index file) instead.
 - **[`CONTEXT.md`](CONTEXT.md) (root) is the living glossary and domain model for this project.** It defines precise domain terms — services, entities, auth/role vocabulary, flag-evaluation concepts, contract/schema terminology — each cross-linked to the ADR or spec doc that's the source of truth for it, so AI coding agents don't drift on project jargon. Read it before working on unfamiliar domain code. Whenever a term is coined, renamed, or redefined, update its entry there in the same change.
+- **Never write into the `skills/` folder under `.agents/` (or its `.claude/skills` symlinks).** Those skills are installed from an external source — hand edits get silently lost on the next install/sync and don't reflect anywhere the source manages them. If a skill's behavior needs to change, raise it with the user instead of editing the file directly.
 
 ## Required Context Loading
 
@@ -42,6 +43,7 @@ Repo-wide conventions live in `docs/specification/`. Read the relevant file befo
 - [App-Scoped Packages for Domain Schemas](docs/specification/app-scoped-packages.md)
 - [Enums and Constants](docs/specification/enums-and-constants.md)
 - [Error Handling with Exception Classes](docs/specification/error-handling.md)
+- [Skill Extensions](docs/specification/skill-extensions.md)
 
 Decision history lives in [`docs/adr/`](docs/adr/); domain vocabulary and architecture live in [CONTEXT.md](CONTEXT.md).
 
