@@ -11,6 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@repo/ui/components/ui/dropdown-menu';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@repo/ui/components/ui/empty';
 import { Input } from '@repo/ui/components/ui/input';
 import { Skeleton } from '@repo/ui/components/ui/skeleton';
 import { Switch } from '@repo/ui/components/ui/switch';
@@ -22,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@repo/ui/components/ui/table';
-import { MoreHorizontal, Search } from 'lucide-react';
+import { Flag, MoreHorizontal, Search } from 'lucide-react';
 
 export type FlagTableStatus = 'active' | 'inactive' | 'archived';
 
@@ -130,122 +137,147 @@ export const FlagTable = ({
         {filters}
       </div>
 
-      <Card className="py-0">
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Flag</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Rollout</TableHead>
-                <TableHead className="text-center">Toggle</TableHead>
-                <TableHead className="w-12 text-right sr-only">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading &&
-                Array.from({ length: FLAG_ROW_SKELETON_COUNT }).map((_, i) => (
+      {loading ? (
+        <Card className="py-0">
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Flag</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Rollout</TableHead>
+                  <TableHead className="text-center">Toggle</TableHead>
+                  <TableHead className="w-12 text-right sr-only">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: FLAG_ROW_SKELETON_COUNT }).map((_, i) => (
                   <FlagRowSkeleton key={i} />
                 ))}
-              {!loading &&
-                flags.map((flag) => (
-                  <TableRow key={flag.id}>
-                    <TableCell>
-                      <span className="font-medium">{flag.name}</span>
-                    </TableCell>
-                    <TableCell>
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
-                        {flag.key}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[flag.status]}>
-                        {flag.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {flag.rollout}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center">
-                        <Switch
-                          checked={flag.status === 'active'}
-                          onCheckedChange={() => onToggle(flag)}
-                          disabled={
-                            !canManage ||
-                            flag.status === 'archived' ||
-                            (isToggling?.(flag) ?? false)
-                          }
-                          aria-label={`Toggle ${flag.name}`}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal />
-                            <span className="sr-only">Open menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => onEdit(flag)}>
-                              Edit flag
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onViewHistory(flag)}
-                            >
-                              View history
-                            </DropdownMenuItem>
-                            {canManage && (
-                              <DropdownMenuItem
-                                onClick={() => onArchiveToggle(flag)}
-                              >
-                                {flag.status === 'archived'
-                                  ? 'Unarchive'
-                                  : 'Archive'}
-                              </DropdownMenuItem>
-                            )}
-                            {canManage && (
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => onDelete(flag)}
-                              >
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : flags.length === 0 ? (
+        <Empty className="rounded-lg border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Flag />
+            </EmptyMedia>
+            <EmptyTitle>{search ? 'No flags found' : 'No flags'}</EmptyTitle>
+            <EmptyDescription>
+              {search
+                ? 'No flags match your search.'
+                : 'Create a flag to start rolling out features.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <Card className="py-0">
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Flag</TableHead>
+                    <TableHead>Key</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Rollout</TableHead>
+                    <TableHead className="text-center">Toggle</TableHead>
+                    <TableHead className="w-12 text-right sr-only">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ))}
-              {!loading && flags.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    No flags match your search.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {flags.map((flag) => (
+                    <TableRow key={flag.id}>
+                      <TableCell>
+                        <span className="font-medium">{flag.name}</span>
+                      </TableCell>
+                      <TableCell>
+                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+                          {flag.key}
+                        </code>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[flag.status]}>
+                          {flag.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {flag.rollout}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center">
+                          <Switch
+                            checked={flag.status === 'active'}
+                            onCheckedChange={() => onToggle(flag)}
+                            disabled={
+                              !canManage ||
+                              flag.status === 'archived' ||
+                              (isToggling?.(flag) ?? false)
+                            }
+                            aria-label={`Toggle ${flag.name}`}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem onClick={() => onEdit(flag)}>
+                                Edit flag
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => onViewHistory(flag)}
+                              >
+                                View history
+                              </DropdownMenuItem>
+                              {canManage && (
+                                <DropdownMenuItem
+                                  onClick={() => onArchiveToggle(flag)}
+                                >
+                                  {flag.status === 'archived'
+                                    ? 'Unarchive'
+                                    : 'Archive'}
+                                </DropdownMenuItem>
+                              )}
+                              {canManage && (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => onDelete(flag)}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-      {!loading && (
-        <TablePagination
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          onPageChange={onPageChange}
-        />
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={onPageChange}
+          />
+        </>
       )}
     </div>
   );
