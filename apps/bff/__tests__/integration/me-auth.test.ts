@@ -1,18 +1,42 @@
 import { verifyRs256 } from '@repo/auth/jwt';
 import type { SystemRole } from '@repo/auth/roles';
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   type AuthVariables,
   createTrustedProxyMeAuthMiddleware,
 } from '../../src/auth/middleware.js';
-import { generateTestKeys, makeUser } from '../helpers/factories.js';
+import {
+  createTestTrustedProxyJwtVerifier,
+  generateTestJwksKeypair,
+  generateTestKeys,
+  makeUser,
+  signTestProxyJwt,
+} from '../helpers/factories.js';
 
-const { privateKey, publicKey } = generateTestKeys();
+const { privateKey: rsaPrivateKey, publicKey: rsaPublicKey } =
+  generateTestKeys();
 
-const EXPECTED_SECRET = 'trusted-proxy-secret';
 const OWNER_EMAIL = 'owner@example.com';
+const ISSUER = 'https://authenticate.proxy.example';
+const AUDIENCE = 'featureflags';
+const JWT_HEADER = 'X-Pomerium-Jwt-Assertion';
+
+let jwksPrivateKey: Awaited<
+  ReturnType<typeof generateTestJwksKeypair>
+>['privateKey'];
+let verify: ReturnType<typeof createTestTrustedProxyJwtVerifier>;
+
+beforeAll(async () => {
+  const keypair = await generateTestJwksKeypair();
+  jwksPrivateKey = keypair.privateKey;
+  verify = createTestTrustedProxyJwtVerifier({
+    jwks: keypair.jwks,
+    issuer: ISSUER,
+    audience: AUDIENCE,
+  });
+});
 
 const buildApp = (
   upsertUser: ReturnType<typeof vi.fn>,
@@ -22,20 +46,24 @@ const buildApp = (
     '/me',
     createTrustedProxyMeAuthMiddleware({
       upsertUser,
-      privateKeyPem: privateKey,
-      expectedSecret: EXPECTED_SECRET,
+      privateKeyPem: rsaPrivateKey,
       designatedOwnerEmail: OWNER_EMAIL,
-      identityHeaderName: 'X-Forwarded-Email',
+      jwtHeaderName: JWT_HEADER,
+      verify,
+      emailClaimPath: 'claims.email',
     }),
   );
   app.get('/me', (c) => c.json({ jwt: c.get('jwt'), claims: c.get('claims') }));
   return app;
 };
 
-const trustedHeaders = (email: string): Record<string, string> => ({
-  'X-Trusted-Proxy-Secret': EXPECTED_SECRET,
-  'X-Forwarded-Email': email,
-});
+const signValidJwt = (email: string): Promise<string> =>
+  signTestProxyJwt({
+    privateKey: jwksPrivateKey,
+    issuer: ISSUER,
+    audience: AUDIENCE,
+    email,
+  });
 
 describe('trusted proxy me auth middleware', () => {
   it('mints a JWT carrying only userId and systemRole for an owner', async () => {
@@ -45,9 +73,10 @@ describe('trusted proxy me auth middleware', () => {
         makeUser({ id: 'owner-1', email: OWNER_EMAIL, role: 'OWNER' }),
       );
     const app = buildApp(upsertUser);
+    const jwt = await signValidJwt(OWNER_EMAIL);
 
     const res = await app.request('/me', {
-      headers: trustedHeaders(OWNER_EMAIL),
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(200);
@@ -58,7 +87,10 @@ describe('trusted proxy me auth middleware', () => {
       role: 'OWNER' satisfies SystemRole,
     });
 
-    const verified = verifyRs256({ token: body.jwt, publicKeyPem: publicKey });
+    const verified = verifyRs256({
+      token: body.jwt,
+      publicKeyPem: rsaPublicKey,
+    });
     expect(verified).toMatchObject({ userId: 'owner-1', systemRole: 'OWNER' });
   });
 
@@ -71,9 +103,10 @@ describe('trusted proxy me auth middleware', () => {
       }),
     );
     const app = buildApp(upsertUser);
+    const jwt = await signValidJwt('member@example.com');
 
     const res = await app.request('/me', {
-      headers: trustedHeaders('member@example.com'),
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(200);
@@ -81,24 +114,27 @@ describe('trusted proxy me auth middleware', () => {
     expect(body.claims).toEqual({ userId: 'member-1', systemRole: 'MEMBER' });
   });
 
-  it('returns 401 when the trusted proxy secret is missing', async () => {
+  it('returns 401 when the Proxy Identity JWT header is missing', async () => {
     const upsertUser = vi.fn();
     const app = buildApp(upsertUser);
 
-    const res = await app.request('/me', {
-      headers: { 'X-Forwarded-Email': 'member@example.com' },
-    });
+    const res = await app.request('/me');
 
     expect(res.status).toBe(401);
     expect(upsertUser).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when the identity header is missing', async () => {
+  it('returns 401 when the email claim cannot be resolved', async () => {
     const upsertUser = vi.fn();
     const app = buildApp(upsertUser);
+    const jwt = await signTestProxyJwt({
+      privateKey: jwksPrivateKey,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    });
 
     const res = await app.request('/me', {
-      headers: { 'X-Trusted-Proxy-Secret': EXPECTED_SECRET },
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(401);

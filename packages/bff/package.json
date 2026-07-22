@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
-    "@repo/prisma": "workspace:*"
+    "@repo/prisma": "workspace:*",
+    "jose": "^6.2.4"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

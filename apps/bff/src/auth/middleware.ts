@@ -3,13 +3,22 @@ import type { MeJwtClaims, ProjectJwtClaims, SdkJwtClaims } from '@repo/auth';
 import { verifyApiKey } from '@repo/auth/api-key';
 import { signRs256 } from '@repo/auth/jwt';
 import { PROJECT_ROLE, SYSTEM_ROLE, type SystemRole } from '@repo/auth/roles';
-import { resolveProjectRole, resolveTrustedProxyUser } from '@repo/bff';
+import {
+  resolveProjectRole,
+  resolveTrustedProxyUser,
+  type TrustedProxyJwtVerifier,
+} from '@repo/bff';
 import type { User } from '@repo/prisma';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { LRUCache } from 'lru-cache';
 
-import { JWT_TTL_SECONDS, TRUSTED_PROXY_SECRET_HEADER } from '../consts.js';
+import { JWT_TTL_SECONDS } from '../consts.js';
+import {
+  Forbidden,
+  MissingProjectId,
+  Unauthorized,
+} from '../exceptions/index.js';
 
 type UpsertUser = (args: { email: string; role: SystemRole }) => Promise<User>;
 
@@ -25,9 +34,13 @@ type ApiKeyLookup = (apiKeyId: string) => Promise<ApiKeyLookupResult | null>;
 type TrustedProxyOptions = {
   upsertUser: UpsertUser;
   privateKeyPem: string;
-  expectedSecret: string;
   designatedOwnerEmail: string;
-  identityHeaderName: string;
+  /** Header the reverse proxy sets with the signed Proxy Identity JWT. */
+  jwtHeaderName: string;
+  /** Verifies the Proxy Identity JWT's signature/algorithm/issuer/audience/expiry. Build once per process — see `createTrustedProxyJwtVerifier`. */
+  verify: TrustedProxyJwtVerifier;
+  /** Dot-separated path to the identity email claim inside the verified payload (e.g. `claims.email`). */
+  emailClaimPath: string;
 };
 
 type SdkMiddlewareOptions = {
@@ -49,12 +62,12 @@ type BuildClaims<TClaims> = (
 ) => Promise<TClaims | Response>;
 
 /**
- * Shared frame for both Trusted Proxy Authentication middlewares: validates
- * the Trusted Proxy Secret + Identity Header, upserts the `User`
- * (JIT-provisioning on first sight), then delegates to `buildClaims` for the
- * claims shape specific to this route (project-scoped vs. `/me`).
- * `buildClaims` may itself short-circuit with an error `Response` (e.g. a
- * missing `:projectId` or a failed `resolveProjectRole` check).
+ * Shared frame for both Trusted Proxy Authentication middlewares: verifies
+ * the Proxy Identity JWT and upserts the `User` (JIT-provisioning on first
+ * sight), then delegates to `buildClaims` for the claims shape specific to
+ * this route (project-scoped vs. `/me`). `buildClaims` may itself
+ * short-circuit with an error `Response` (e.g. a missing `:projectId` or a
+ * failed `resolveProjectRole` check).
  */
 const createTrustedProxyMiddleware = <
   TClaims extends ProjectJwtClaims | MeJwtClaims,
@@ -64,15 +77,15 @@ const createTrustedProxyMiddleware = <
 ) =>
   createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
     const user = await resolveTrustedProxyUser({
-      secret: c.req.header(TRUSTED_PROXY_SECRET_HEADER),
-      email: c.req.header(options.identityHeaderName),
-      expectedSecret: options.expectedSecret,
+      jwt: c.req.header(options.jwtHeaderName),
+      verify: options.verify,
+      emailClaimPath: options.emailClaimPath,
       designatedOwnerEmail: options.designatedOwnerEmail,
       upsertUser: options.upsertUser,
     });
 
     if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
+      return new Unauthorized().toResponse();
     }
 
     const claimsOrResponse = await buildClaims(c, user);
@@ -99,7 +112,7 @@ const createTrustedProxyMiddleware = <
  * `:projectId` and mints an RS256 project JWT.
  *
  * - Owner → `projectRole: 'owner'`. Project access is owner-only.
- * - Missing/invalid secret or identity header → 401. Non-owner → 403.
+ * - Missing/invalid Proxy Identity JWT → 401. Non-owner → 403.
  */
 export const createTrustedProxyProjectAuthMiddleware = (
   options: TrustedProxyOptions,
@@ -107,7 +120,7 @@ export const createTrustedProxyProjectAuthMiddleware = (
   createTrustedProxyMiddleware<ProjectJwtClaims>(options, (c, user) => {
     const projectId = c.req.param('projectId');
     if (!projectId) {
-      return Promise.resolve(c.json({ error: 'Missing project id' }, 400));
+      return Promise.resolve(new MissingProjectId().toResponse());
     }
 
     const projectRole = resolveProjectRole({
@@ -115,7 +128,7 @@ export const createTrustedProxyProjectAuthMiddleware = (
     });
 
     if (!projectRole) {
-      return Promise.resolve(c.json({ error: 'Forbidden' }, 403));
+      return Promise.resolve(new Forbidden().toResponse());
     }
 
     return Promise.resolve({

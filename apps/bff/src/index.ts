@@ -1,7 +1,12 @@
 // Hono app entry point (@hono/node-server).
 import { serve } from '@hono/node-server';
 import { decodeBase64Pem } from '@repo/auth/jwt';
-import { forwardWithJwt, type UpsertUserArgs, UserService } from '@repo/bff';
+import {
+  createTrustedProxyJwtVerifier,
+  forwardWithJwt,
+  type UpsertUserArgs,
+  UserService,
+} from '@repo/bff';
 import { prisma } from '@repo/prisma';
 import { Hono } from 'hono';
 
@@ -24,11 +29,20 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 
 const userService = new UserService({ prisma });
 
+// Built once per process — owns an in-memory JWKS key cache, never rebuild per request.
+const trustedProxyVerify = createTrustedProxyJwtVerifier({
+  jwksUrl: env.TRUSTED_PROXY_JWKS_URL,
+  issuer: env.TRUSTED_PROXY_JWT_ISSUER,
+  audience: env.TRUSTED_PROXY_JWT_AUDIENCE,
+  algorithms: env.TRUSTED_PROXY_JWT_ALGORITHM,
+});
+
 const trustedProxyOptions = {
   privateKeyPem,
-  expectedSecret: env.TRUSTED_PROXY_SECRET,
   designatedOwnerEmail: env.TRUSTED_PROXY_OWNER_EMAIL,
-  identityHeaderName: env.TRUSTED_PROXY_IDENTITY_HEADER,
+  jwtHeaderName: env.TRUSTED_PROXY_JWT_HEADER,
+  verify: trustedProxyVerify,
+  emailClaimPath: env.TRUSTED_PROXY_JWT_EMAIL_CLAIM,
   upsertUser: (args: UpsertUserArgs) => userService.upsert(args),
 };
 

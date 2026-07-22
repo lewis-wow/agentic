@@ -1,21 +1,48 @@
 import { verifyRs256 } from '@repo/auth/jwt';
 import type { SystemRole } from '@repo/auth/roles';
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   type AuthVariables,
   createTrustedProxyProjectAuthMiddleware,
 } from '../../src/auth/middleware.js';
-import { generateTestKeys, makeUser } from '../helpers/factories.js';
+import {
+  createTestTrustedProxyJwtVerifier,
+  generateTestJwksKeypair,
+  generateTestKeys,
+  makeUser,
+  signTestProxyJwt,
+} from '../helpers/factories.js';
 
-const { privateKey, publicKey } = generateTestKeys();
+const { privateKey: rsaPrivateKey, publicKey: rsaPublicKey } =
+  generateTestKeys();
 
-const EXPECTED_SECRET = 'trusted-proxy-secret';
 const OWNER_EMAIL = 'owner@example.com';
+const ISSUER = 'https://authenticate.proxy.example';
+const AUDIENCE = 'featureflags';
+const JWT_HEADER = 'X-Pomerium-Jwt-Assertion';
+
+let jwksPrivateKey: Awaited<
+  ReturnType<typeof generateTestJwksKeypair>
+>['privateKey'];
+let verify: ReturnType<typeof createTestTrustedProxyJwtVerifier>;
+
+beforeAll(async () => {
+  const keypair = await generateTestJwksKeypair();
+  jwksPrivateKey = keypair.privateKey;
+  verify = createTestTrustedProxyJwtVerifier({
+    jwks: keypair.jwks,
+    issuer: ISSUER,
+    audience: AUDIENCE,
+  });
+});
 
 type AppDeps = {
   upsertUser: ReturnType<typeof vi.fn>;
+  /** Overrides the module-level `verify` — used to test against a differently-configured JWKS/allow-list. */
+  verify?: ReturnType<typeof createTestTrustedProxyJwtVerifier>;
 };
 
 const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
@@ -24,10 +51,11 @@ const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
     '/projects/:projectId/*',
     createTrustedProxyProjectAuthMiddleware({
       upsertUser: deps.upsertUser,
-      privateKeyPem: privateKey,
-      expectedSecret: EXPECTED_SECRET,
+      privateKeyPem: rsaPrivateKey,
       designatedOwnerEmail: OWNER_EMAIL,
-      identityHeaderName: 'X-Forwarded-Email',
+      jwtHeaderName: JWT_HEADER,
+      verify: deps.verify ?? verify,
+      emailClaimPath: 'claims.email',
     }),
   );
   app.get('/projects/:projectId/flags', (c) =>
@@ -36,10 +64,13 @@ const buildApp = (deps: AppDeps): Hono<{ Variables: AuthVariables }> => {
   return app;
 };
 
-const trustedHeaders = (email: string): Record<string, string> => ({
-  'X-Trusted-Proxy-Secret': EXPECTED_SECRET,
-  'X-Forwarded-Email': email,
-});
+const signValidJwt = (email: string): Promise<string> =>
+  signTestProxyJwt({
+    privateKey: jwksPrivateKey,
+    issuer: ISSUER,
+    audience: AUDIENCE,
+    email,
+  });
 
 describe('trusted proxy project auth middleware', () => {
   it('mints an owner JWT', async () => {
@@ -49,9 +80,10 @@ describe('trusted proxy project auth middleware', () => {
         makeUser({ id: 'owner-1', email: OWNER_EMAIL, role: 'OWNER' }),
       );
     const app = buildApp({ upsertUser });
+    const jwt = await signValidJwt(OWNER_EMAIL);
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: trustedHeaders(OWNER_EMAIL),
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(200);
@@ -67,7 +99,10 @@ describe('trusted proxy project auth middleware', () => {
       role: 'OWNER' satisfies SystemRole,
     });
 
-    const verified = verifyRs256({ token: body.jwt, publicKeyPem: publicKey });
+    const verified = verifyRs256({
+      token: body.jwt,
+      publicKeyPem: rsaPublicKey,
+    });
     expect(verified.projectRole).toBe('owner');
   });
 
@@ -78,47 +113,142 @@ describe('trusted proxy project auth middleware', () => {
         makeUser({ email: 'member@example.com', role: 'MEMBER' }),
       );
     const app = buildApp({ upsertUser });
+    const jwt = await signValidJwt('member@example.com');
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: trustedHeaders('member@example.com'),
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(403);
   });
 
-  it('returns 401 when the trusted proxy secret is missing', async () => {
+  it('returns 401 when the Proxy Identity JWT header is missing', async () => {
     const upsertUser = vi.fn();
     const app = buildApp({ upsertUser });
 
+    const res = await app.request('/projects/project-1/flags');
+
+    expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for a malformed/tampered token', async () => {
+    const upsertUser = vi.fn();
+    const app = buildApp({ upsertUser });
+    const jwt = await signValidJwt('member@example.com');
+
     const res = await app.request('/projects/project-1/flags', {
-      headers: { 'X-Forwarded-Email': 'member@example.com' },
+      headers: { [JWT_HEADER]: `${jwt}tampered` },
     });
 
     expect(res.status).toBe(401);
     expect(upsertUser).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when the trusted proxy secret does not match', async () => {
+  it('returns 401 when the issuer does not match', async () => {
     const upsertUser = vi.fn();
     const app = buildApp({ upsertUser });
+    const jwt = await signTestProxyJwt({
+      privateKey: jwksPrivateKey,
+      issuer: 'https://a-different-proxy.example',
+      audience: AUDIENCE,
+      email: 'member@example.com',
+    });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: {
-        'X-Trusted-Proxy-Secret': 'wrong-secret',
-        'X-Forwarded-Email': 'member@example.com',
-      },
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(401);
     expect(upsertUser).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when the identity header is missing', async () => {
+  it('returns 401 when the audience does not match', async () => {
     const upsertUser = vi.fn();
     const app = buildApp({ upsertUser });
+    const jwt = await signTestProxyJwt({
+      privateKey: jwksPrivateKey,
+      issuer: ISSUER,
+      audience: 'a-different-application',
+      email: 'member@example.com',
+    });
 
     const res = await app.request('/projects/project-1/flags', {
-      headers: { 'X-Trusted-Proxy-Secret': EXPECTED_SECRET },
+      headers: { [JWT_HEADER]: jwt },
+    });
+
+    expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for an expired token', async () => {
+    const upsertUser = vi.fn();
+    const app = buildApp({ upsertUser });
+    const jwt = await signTestProxyJwt({
+      privateKey: jwksPrivateKey,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      email: 'member@example.com',
+      expiresAt: Math.floor(Date.now() / 1000) - 10,
+    });
+
+    const res = await app.request('/projects/project-1/flags', {
+      headers: { [JWT_HEADER]: jwt },
+    });
+
+    expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the token is signed with a kid the JWKS does not have', async () => {
+    const upsertUser = vi.fn();
+    const app = buildApp({ upsertUser });
+    // A different keypair entirely — its public key was never added to the JWKS `verify` resolves against.
+    const rogueKeypair = await generateTestJwksKeypair();
+    const jwt = await signTestProxyJwt({
+      privateKey: rogueKeypair.privateKey,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      email: 'member@example.com',
+      kid: 'rogue-key',
+    });
+
+    const res = await app.request('/projects/project-1/flags', {
+      headers: { [JWT_HEADER]: jwt },
+    });
+
+    expect(res.status).toBe(401);
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when the token is signed with an algorithm outside the allow-list', async () => {
+    // The RS256 key is present in the JWKS `verify` resolves against (with a
+    // matching kid), so rejection below is specifically because 'RS256' isn't
+    // in the ES256-only allow-list — not because the key can't be found.
+    const { privateKey: rsaPrivateKey2, publicKey: rsaPublicKey2 } =
+      await generateKeyPair('RS256', { extractable: true });
+    const rsaJwk = await exportJWK(rsaPublicKey2);
+    rsaJwk.kid = 'rsa-key';
+    rsaJwk.alg = 'RS256';
+    const verifyEs256Only = createTestTrustedProxyJwtVerifier({
+      jwks: createLocalJWKSet({ keys: [rsaJwk] }),
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    });
+    const upsertUser = vi.fn();
+    const app = buildApp({ upsertUser, verify: verifyEs256Only });
+
+    const jwt = await signTestProxyJwt({
+      privateKey: rsaPrivateKey2,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      email: 'member@example.com',
+      alg: 'RS256',
+      kid: 'rsa-key',
+    });
+
+    const res = await app.request('/projects/project-1/flags', {
+      headers: { [JWT_HEADER]: jwt },
     });
 
     expect(res.status).toBe(401);

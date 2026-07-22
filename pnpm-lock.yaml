@@ -144,6 +144,9 @@ importers:
       '@repo/enums':
         specifier: workspace:*
         version: link:../../packages/enums
+      '@repo/exception':
+        specifier: workspace:*
+        version: link:../../packages/exception
       '@repo/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
@@ -184,6 +187,9 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
+      jose:
+        specifier: ^6.2.4
+        version: 6.2.4
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.4)(typescript@5.9.3)
@@ -379,6 +385,9 @@ importers:
       '@repo/prisma':
         specifier: workspace:*
         version: link:../prisma
+      jose:
+        specifier: ^6.2.4
+        version: 6.2.4
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -3981,6 +3990,9 @@ packages:
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
+
+  jose@6.2.4:
+    resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -8524,6 +8536,8 @@ snapshots:
   javascript-natural-sort@0.7.1: {}
 
   jiti@2.7.0: {}
+
+  jose@6.2.4: {}
 
   joycon@3.1.1: {}
 
