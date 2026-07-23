@@ -10,6 +10,8 @@ After the grilling session concludes and the resulting ADR/glossary doc changes 
 
 A spec is a parent issue, not something meant to be implemented directly — the whole spec is too large to land as one change. Apply the `spec` label to it (in addition to, not instead of, whatever the skill's own instructions already say). Do not apply `ready-for-agent` to a spec issue — that label means "grabbable and implementable as-is," which a spec is not until `/to-tickets` has broken it down.
 
+In addition to publishing the GitHub issue, write the same spec content to a file under `docs/specification/` (e.g. `docs/specification/<slug>.md`), committed via a PR per AGENTS.md's pull-request rule — never straight to `master`. Cross-link the two: the file's top should reference its GitHub issue number, and the issue body should reference the file path.
+
 ## `/to-tickets`
 
 Each ticket produced from a spec must be small enough to implement as one self-contained unit of work — that's the whole reason the spec gets broken down instead of implemented directly. Every ticket must be published to GitHub as its own issue, with the skill's own `## Parent` section filled in to link back to the spec issue — never omit that section for pipeline tickets, even though the skill's own template treats it as optional. Apply the `ticket` label to each one (in addition to, not instead of, whatever the skill's own instructions already say, e.g. `ready-for-agent`) — the `spec` label belongs only on the parent, never on its tickets.
