@@ -25,6 +25,7 @@ echo "=== BUILD TESTS ==="
 build repo-api        -f apps/api/Dockerfile
 build repo-migrator   -f packages/prisma/Dockerfile
 build repo-dashboard  -f apps/dashboard/Dockerfile --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000
+build repo-selfhosted -f Dockerfile.selfhosted --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 echo ""
 echo "=== COMPOSE TEST ==="
