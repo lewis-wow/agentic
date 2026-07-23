@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1
+#
+# PROTOTYPE — s6-overlay alternative to Dockerfile.selfhosted's hand-rolled
+# bash entrypoint (docker/selfhosted-entrypoint.sh). Not wired into any build
+# script; build/run it directly to compare against the bash version. See
+# docker/s6-prototype/rootfs/etc/s6-overlay/s6-rc.d/ for the service defs.
+FROM node:20-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+FROM base AS pruner
+WORKDIR /app
+RUN npm install -g turbo@^2
+COPY . .
+RUN turbo prune @repo/api-server @repo/sdk-bff @repo/dashboard --docker
+
+FROM base AS installer
+WORKDIR /app
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+# packages/prisma's postinstall runs `prisma generate`, which needs the schema
+# file present — out/json only has package.jsons, so copy the schema in too.
+COPY --from=pruner /app/out/full/packages/prisma/prisma ./packages/prisma/prisma
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+
+FROM installer AS builder
+COPY --from=pruner /app/out/full/ .
+# NEXT_PUBLIC_* vars are baked into the client bundle at build time — dotenvx at startup is too late
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+RUN SKIP_ENV_VALIDATION=true pnpm turbo build --filter=@repo/api-server --filter=@repo/sdk-bff --filter=@repo/dashboard
+RUN pnpm --filter=@repo/api-server deploy --prod --legacy /standalone/api
+RUN pnpm --filter=@repo/sdk-bff deploy --prod --legacy /standalone/bff
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ARG S6_OVERLAY_VERSION=3.2.0.2
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/s6-overlay-x86_64.tar.xz
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz && rm -rf /tmp/*.tar.xz
+
+# postgresql-client provides pg_isready, used by the migrate oneshot to wait
+# for Postgres readiness before attempting migration
+RUN apk add --no-cache postgresql-client
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+RUN npm install -g @dotenvx/dotenvx --quiet
+
+COPY --from=builder --chown=nodejs:nodejs /standalone/api ./api
+# dist/ is gitignored so pnpm deploy may skip it — copy explicitly
+COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./api/dist
+
+COPY --from=builder --chown=nodejs:nodejs /standalone/bff ./bff
+COPY --from=builder --chown=nodejs:nodejs /app/apps/bff/dist ./bff/dist
+
+# In a monorepo, Next's standalone output nests the server entrypoint at
+# apps/dashboard/server.js (mirroring the workspace layout) instead of at the
+# standalone root — copy the whole tree as-is rather than flattening it.
+COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/.next/standalone ./dashboard
+COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/.next/static ./dashboard/apps/dashboard/.next/static
+COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/public ./dashboard/apps/dashboard/public
+COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/.env.production ./dashboard/apps/dashboard/.env.production
+
+# same rationale as Dockerfile.selfhosted: the prisma CLI is already present
+# as a devDependency in the pruner's node_modules, reuse it rather than a
+# separate install
+COPY --from=pruner --chown=nodejs:nodejs /app/out/full/ ./migrate/
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./migrate/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/packages/prisma/node_modules ./migrate/packages/prisma/node_modules
+ENV PATH="/app/migrate/packages/prisma/node_modules/.bin:/app/migrate/node_modules/.bin:$PATH"
+
+COPY docker/s6-prototype/rootfs /
+
+# s6-overlay's PID 1 needs root to supervise the process tree, so (unlike the
+# bash version's container-wide `USER nodejs`) this image stays root at the
+# container level; each service's run/up script drops to nodejs itself via
+# `s6-setuidgid` before exec'ing its actual process.
+# S6_SERVICES_GRACETIME lets Next/Node finish in-flight requests on SIGTERM
+# before s6 escalates to SIGKILL. S6_BEHAVIOUR_IF_STAGE2_FAILS=2 makes the
+# container halt if the migrate oneshot fails, instead of s6-overlay's
+# default of continuing stage 2 regardless.
+ENV S6_SERVICES_GRACETIME=3000
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
+EXPOSE 3000 3002
+HEALTHCHECK --interval=5s --timeout=5s --retries=10 --start-period=15s \
+  CMD node -e "fetch('http://localhost:3002/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+ENTRYPOINT ["/init"]
