@@ -8,6 +8,7 @@
 - Always scope non-global .env into particular app as .env.production for production or .env.development for development
 - node_modules are stored in root node_modules/ folder
 - All GitHub activity performed by Claude Code must be prefixed with `CLAUDE: ` — this includes issue titles, issue comments, close descriptions, PR titles/descriptions, and any other content posted to GitHub. The same `CLAUDE: ` prefix applies to git commit messages.
+- **All finished work must land through a pull request — never commit directly to `master`.** Branch, commit, push, and open a PR (title/description prefixed `CLAUDE: `) for the user to review and merge; the agent never merges its own PR. This applies to every piece of done work, not just the issue-driven and spec/ticket pipeline flows below.
 - **No "Source Layout" sections in any `AGENTS.md`.** A file tree with per-file/per-directory descriptions goes stale the moment a file is added, renamed, or moved, and duplicates what belongs next to the code. Document a file's purpose as a short comment at the top of that file (or, for a directory, its barrel/index file) instead.
 - **[`CONTEXT.md`](CONTEXT.md) (root) is the living glossary and domain model for this project.** It defines precise domain terms — services, entities, auth/role vocabulary, flag-evaluation concepts, contract/schema terminology — each cross-linked to the ADR or spec doc that's the source of truth for it, so AI coding agents don't drift on project jargon. Read it before working on unfamiliar domain code. Whenever a term is coined, renamed, or redefined, update its entry there in the same change.
 - **Never write into the `skills/` folder under `.agents/` (or its `.claude/skills` symlinks).** Those skills are installed from an external source — hand edits get silently lost on the next install/sync and don't reflect anywhere the source manages them. If a skill's behavior needs to change, raise it with the user instead of editing the file directly.
@@ -69,7 +70,9 @@ Do not report a task as complete if any of these commands exit with a non-zero s
 - Every issue that gets solved — parent or subissue — must have its own dedicated commit; do not bundle fixes for multiple issues into one commit.
 - For a parent issue with subissues, solve and commit each subissue individually first, one commit per subissue immediately after it's solved.
 - Every commit produced by this workflow must use the `CLAUDE: ` prefix per the GitHub activity rule above.
-- After an issue's commit exists, push it to the remote, then post a `CLAUDE: ` comment on that issue linking to the commit (`https://github.com/<owner>/<repo>/commit/<sha>`) — do not close the issue. Once every subissue of a parent is done this way, post the same kind of comment on the parent linking to all of its subissues' commits.
+- Per the pull-request rule above, never commit an issue's fix straight to `master`. Branch off `master` named `issue/<issue-number>-<slug>` (e.g. `issue/5-fix-flag-cache-eviction`), commit the fix there, push the branch, and open a PR into `master` (title/description prefixed `CLAUDE: `).
+- Once the PR is open, post a `CLAUDE: ` comment on the issue linking to the PR — do not close the issue. Once every subissue of a parent is done this way, post the same kind of comment on the parent linking to all of its subissues' PRs.
+- The agent never merges a PR — every merge is the user's action, performed on GitHub.
 
 ## Commands
 
