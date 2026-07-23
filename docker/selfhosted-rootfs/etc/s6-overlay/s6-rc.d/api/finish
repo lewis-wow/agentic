@@ -1,0 +1,5 @@
+#!/command/execlineb -S0
+# any exit of this service (crash or clean) is a hard precondition failing at
+# runtime, same as the bash entrypoint's `wait -n` — bring the whole
+# container down rather than leaving bff/dashboard running against a dead api
+/run/s6/basedir/bin/halt
