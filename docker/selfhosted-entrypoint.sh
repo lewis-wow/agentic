@@ -1,24 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ADR-0026: migration is a hard precondition, run synchronously before any app
-# process starts. Retrying the migrate command itself (rather than a separate
-# raw DB-reachability probe) covers both "Postgres isn't up yet" (cold start)
-# and "migration genuinely failed" with one mechanism — bounded so a broken
-# DATABASE_URL or a broken migration fails loudly instead of hanging forever.
-migrate_max_retries=20
-migrate_retry_interval_seconds=2
+# ADR-0027: migration is a hard precondition, run synchronously before any app
+# process starts. Wait for Postgres to be reachable first, then attempt
+# `prisma migrate deploy` exactly once — keeping "Postgres isn't up yet"
+# (cold start) and "migration genuinely failed" as distinguishable log output,
+# each bounded so a broken DATABASE_URL or a broken migration fails loudly
+# instead of hanging forever.
+pg_wait_max_retries=20
+pg_wait_retry_interval_seconds=2
 
 retries=0
-until (cd /app/migrate/packages/prisma && prisma migrate deploy); do
+until pg_isready -d "$DATABASE_URL" > /dev/null 2>&1; do
   retries=$((retries + 1))
-  if [ "$retries" -ge "$migrate_max_retries" ]; then
-    echo "entrypoint: prisma migrate deploy did not succeed after ${migrate_max_retries} attempts — giving up" >&2
+  if [ "$retries" -ge "$pg_wait_max_retries" ]; then
+    echo "entrypoint: Postgres not reachable after ${pg_wait_max_retries} attempts — giving up" >&2
     exit 1
   fi
-  echo "entrypoint: migrate deploy failed (attempt ${retries}/${migrate_max_retries}), retrying in ${migrate_retry_interval_seconds}s..." >&2
-  sleep "$migrate_retry_interval_seconds"
+  echo "entrypoint: Postgres not reachable yet (attempt ${retries}/${pg_wait_max_retries}), retrying in ${pg_wait_retry_interval_seconds}s..." >&2
+  sleep "$pg_wait_retry_interval_seconds"
 done
+
+if ! (cd /app/migrate/packages/prisma && prisma migrate deploy); then
+  echo "entrypoint: prisma migrate deploy failed — giving up" >&2
+  exit 1
+fi
 
 declare -a child_pids=()
 

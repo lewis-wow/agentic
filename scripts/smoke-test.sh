@@ -74,7 +74,7 @@ else
 fi
 
 echo ""
-echo "=== SELF-HOSTED FAIL-FAST TEST (ADR-0026) ==="
+echo "=== SELF-HOSTED FAIL-FAST TEST (ADR-0027) ==="
 
 docker rm -f selfhosted-unreachable-db-test > /dev/null 2>&1 || true
 exit_code=0

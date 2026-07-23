@@ -30,7 +30,9 @@ RUN pnpm --filter=@repo/sdk-bff deploy --prod --legacy /standalone/bff
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-RUN apk add --no-cache tini bash
+# postgresql-client provides pg_isready, used by the entrypoint to wait for
+# Postgres readiness before attempting migration (ADR-0027)
+RUN apk add --no-cache tini bash postgresql-client
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
 RUN npm install -g @dotenvx/dotenvx --quiet
 
