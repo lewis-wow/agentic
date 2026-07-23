@@ -49,6 +49,16 @@ COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/.next/static ./das
 COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/public ./dashboard/apps/dashboard/public
 COPY --from=builder --chown=nodejs:nodejs /app/apps/dashboard/.env.production ./dashboard/apps/dashboard/.env.production
 
+# ADR-0026: the combined image runs its own migration step, so it needs the
+# prisma CLI + schema too. `packages/prisma` is already part of the pruned
+# scope (all three apps depend on @repo/prisma), so the CLI (a devDependency,
+# installed since `pnpm install` here has no --prod flag) already exists in
+# the builder's node_modules — reuse it rather than a separate install.
+COPY --from=pruner --chown=nodejs:nodejs /app/out/full/ ./migrate/
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./migrate/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/packages/prisma/node_modules ./migrate/packages/prisma/node_modules
+ENV PATH="/app/migrate/packages/prisma/node_modules/.bin:/app/migrate/node_modules/.bin:$PATH"
+
 COPY --chown=nodejs:nodejs docker/selfhosted-entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
