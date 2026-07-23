@@ -26,7 +26,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # .env.test files across the repo point DATABASE_URL at host "postgres"
       # (the same convention docker-compose-dev.sh uses locally) — map it to
@@ -34,7 +34,7 @@ jobs:
       - name: Map postgres hostname to the service container
         run: echo "127.0.0.1 postgres" | sudo tee -a /etc/hosts
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
@@ -67,9 +67,9 @@ jobs:
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Built once, loaded into the local daemon (not pushed yet) so the
       # smoke test below runs against the exact artifact that (if it passes)
@@ -80,7 +80,7 @@ jobs:
       # ADR-0017) and is inherently deployment-specific, so the published
       # image ships with it unset. See ADR-0029.
       - name: Build self-hosted image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.selfhosted
@@ -93,7 +93,7 @@ jobs:
         run: ./scripts/smoke-test-selfhosted.sh repo-selfhosted
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
