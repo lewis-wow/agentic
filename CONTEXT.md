@@ -125,3 +125,10 @@ _Avoid_: Using "exception" and "error" interchangeably in code — every thrown 
 
 **`FlagEventService`**: The durable counterpart to `flagEmitter` — reads/writes the `eventId`-ordered replay log (`FlagState.eventId` + `FlagDeletion.id`, sharing one Postgres sequence) so a reconnecting SDK client can catch up on everything it missed via `Last-Event-ID`, with no eviction or bounded buffer. See [ADR-0020](docs/adr/0020-durable-sse-replay-via-postgres.md).
 _Avoid_: Confusing this with `flagEmitter` — one is live broadcast to open connections, the other is durable history for reconnects. A change goes through both.
+
+## Deployment
+
+**Combined Self-Hosted Image** (`Dockerfile.selfhosted`): `apps/api`, `apps/bff`, and `apps/dashboard` built into one image, supervised by s6-overlay, with migration gating app startup. Postgres stays a separate container. See [ADR-0025](docs/adr/0025-combined-image-for-self-hosted-deployment.md) (the packaging decision) and [ADR-0028](docs/adr/0028-s6-overlay-supervises-the-combined-image.md) (the supervision mechanism).
+
+**Self-Hosted Release Image**: The versioned build of the Combined Self-Hosted Image published to `ghcr.io/lewis-wow/agentic-selfhosted` whenever a `v*.*.*` git tag is pushed, tagged with both the exact version and a floating `latest`. Ships with `NEXT_PUBLIC_APP_URL` unset — a self-hoster needing a different value still builds the Combined Self-Hosted Image locally rather than pulling this. See [ADR-0025](docs/adr/0025-combined-image-for-self-hosted-deployment.md) and [ADR-0028](docs/adr/0028-s6-overlay-supervises-the-combined-image.md) for what's being published, and [ADR-0029](docs/adr/0029-selfhosted-image-published-to-ghcr-on-tagged-releases.md) for the publishing decision itself.
+_Avoid_: Treating this as interchangeable with "the self-hosted image" generally — say "Combined Self-Hosted Image" for the packaging concept (buildable by anyone) and "Self-Hosted Release Image" specifically for the published, versioned GHCR artifact.
