@@ -1,0 +1,121 @@
+name: Release self-hosted image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  IMAGE_NAME: ghcr.io/lewis-wow/agentic-selfhosted
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: featureflags_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # .env.test files across the repo point DATABASE_URL at host "postgres"
+      # (the same convention docker-compose-dev.sh uses locally) — map it to
+      # the service container above rather than editing those files for CI.
+      - name: Map postgres hostname to the service container
+        run: echo "127.0.0.1 postgres" | sudo tee -a /etc/hosts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Migrate test database
+        run: pnpm --filter @repo/prisma db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags_test
+
+      - run: pnpm lint
+      - run: pnpm check-types
+      # `pnpm test` is plain `vitest run`, not routed through Turbo's task
+      # graph, so nothing builds workspace packages (e.g. @repo/vitest-config's
+      # dist/, which test files import via package.json `exports`) before it
+      # runs — build has to happen first on a fresh checkout, unlike the
+      # locally-documented checklist order where a dev's workspace is usually
+      # already built.
+      - run: pnpm build
+      - run: pnpm test
+
+  release:
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Built once, loaded into the local daemon (not pushed yet) so the
+      # smoke test below runs against the exact artifact that (if it passes)
+      # gets pushed — no rebuild in between.
+      #
+      # NEXT_PUBLIC_APP_URL is deliberately never passed as a build-arg here:
+      # it's baked into the dashboard's client bundle at build time (see
+      # ADR-0017) and is inherently deployment-specific, so the published
+      # image ships with it unset. See ADR-0029.
+      - name: Build self-hosted image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.selfhosted
+          platforms: linux/amd64
+          tags: repo-selfhosted
+          load: true
+          push: false
+
+      - name: Smoke test the built image
+        run: ./scripts/smoke-test-selfhosted.sh repo-selfhosted
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push
+        run: |
+          docker tag repo-selfhosted "${IMAGE_NAME}:${{ github.ref_name }}"
+          docker tag repo-selfhosted "${IMAGE_NAME}:latest"
+          docker push "${IMAGE_NAME}:${{ github.ref_name }}"
+          docker push "${IMAGE_NAME}:latest"
+
+      # GHCR packages default to private even under a public repo, and
+      # GITHUB_TOKEN cannot change a package's visibility (that needs a PAT
+      # with admin:packages, which this pipeline deliberately doesn't
+      # provision — see ADR-0029). On the first-ever release this package is
+      # still private after the push above: flip it to public once at
+      # https://github.com/users/lewis-wow/packages/container/agentic-selfhosted/settings
+      # — every release after that stays public automatically, so this
+      # reminder is only actionable the first time it's seen.
+      - name: Remind about first-release visibility
+        run: |
+          echo "::notice::Confirm ${IMAGE_NAME} is public at https://github.com/users/lewis-wow/packages/container/agentic-selfhosted/settings — GITHUB_TOKEN cannot set this automatically (see ADR-0029). Only needs checking once, on the first release."
+
+      - name: Create GitHub Release
+        run: gh release create "${{ github.ref_name }}" --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
