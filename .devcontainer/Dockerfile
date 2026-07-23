@@ -86,12 +86,17 @@ RUN npm install -g pnpm@latest
 # across pnpm versions, making a hardcoded path to install.cjs unreliable.
 RUN npm install -g @anthropic-ai/claude-code
 
+RUN npm install -g omniroute
+
+RUN npm i -g opencode-ai
+
+# Install UV
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH=/home/node/.local/bin:$PATH
+
+# Install crewai - https://crewai.com/open-source
+RUN uv tool install crewai
+
 # Install Oh My Zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     sed -i 's/ZSH_THEME=".*"/ZSH_THEME="robbyrussell"/g' ~/.zshrc
-
-# Install ralph claude code
-RUN git clone https://github.com/frankbria/ralph-claude-code.git /tmp/ralph \
-    && cd /tmp/ralph \
-    && ./install.sh \
-    && rm -rf /tmp/ralph
