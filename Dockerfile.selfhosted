@@ -30,9 +30,17 @@ RUN pnpm --filter=@repo/sdk-bff deploy --prod --legacy /standalone/bff
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-# postgresql-client provides pg_isready, used by the entrypoint to wait for
-# Postgres readiness before attempting migration (ADR-0027)
-RUN apk add --no-cache tini bash postgresql-client
+
+# ADR-0028: s6-overlay supervises the three app processes and gates them on
+# the migrate oneshot, replacing tini + a hand-rolled bash entrypoint.
+ARG S6_OVERLAY_VERSION=3.2.0.2
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/s6-overlay-x86_64.tar.xz
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz && rm -rf /tmp/*.tar.xz
+
+# postgresql-client provides pg_isready, used by the migrate oneshot to wait
+# for Postgres readiness before attempting migration
+RUN apk add --no-cache postgresql-client
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
 RUN npm install -g @dotenvx/dotenvx --quiet
 
@@ -61,12 +69,20 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./migrate/node_modul
 COPY --from=builder --chown=nodejs:nodejs /app/packages/prisma/node_modules ./migrate/packages/prisma/node_modules
 ENV PATH="/app/migrate/packages/prisma/node_modules/.bin:/app/migrate/node_modules/.bin:$PATH"
 
-COPY --chown=nodejs:nodejs docker/selfhosted-entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY docker/selfhosted-rootfs /
 
-USER nodejs
+# s6-overlay's PID 1 needs root to supervise the process tree, so (unlike the
+# old tini image's container-wide `USER nodejs`) this image stays root at the
+# container level; each service's run/up script drops to nodejs itself via
+# `s6-setuidgid` before exec'ing its actual process.
+# S6_SERVICES_GRACETIME lets Next/Node finish in-flight requests on SIGTERM
+# before s6 escalates to SIGKILL. S6_BEHAVIOUR_IF_STAGE2_FAILS=2 makes the
+# container halt if the migrate oneshot fails, instead of s6-overlay's
+# default of continuing stage 2 regardless.
+ENV S6_SERVICES_GRACETIME=3000
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
 EXPOSE 3000 3002
 HEALTHCHECK --interval=5s --timeout=5s --retries=10 --start-period=15s \
   CMD node -e "fetch('http://localhost:3002/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-ENTRYPOINT ["tini", "--"]
-CMD ["./entrypoint.sh"]
+ENTRYPOINT ["/init"]

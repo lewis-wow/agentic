@@ -1,0 +1,6 @@
+#!/command/with-contenv sh
+cd /app/dashboard/apps/dashboard
+export DOTENV_PRIVATE_KEY="${DOTENV_PRIVATE_KEY_DASHBOARD:-}"
+export BFF_URL="${BFF_URL:-http://localhost:3002}"
+export HOSTNAME=0.0.0.0
+exec s6-setuidgid nodejs dotenvx run --env-file=.env.production -- node server.js
