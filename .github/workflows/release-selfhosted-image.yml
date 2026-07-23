@@ -46,15 +46,18 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@postgres:5432/featureflags_test
 
+      # Workspace packages like @repo/vitest-config are consumed by other
+      # packages via package.json `exports` pointing at `dist/`, which is
+      # gitignored. On a fresh checkout `dist/` doesn't exist yet, so lint
+      # (eslint-plugin-import resolving those specifiers) and check-types
+      # (tsc's `bundler` moduleResolution doing the same against `dist/*.d.ts`)
+      # both fail unless `build` runs first — unlike the locally-documented
+      # checklist order, where a dev's workspace is usually already built.
+      # `pnpm test` (plain `vitest run`, not routed through Turbo's task
+      # graph) has the same requirement.
+      - run: pnpm build
       - run: pnpm lint
       - run: pnpm check-types
-      # `pnpm test` is plain `vitest run`, not routed through Turbo's task
-      # graph, so nothing builds workspace packages (e.g. @repo/vitest-config's
-      # dist/, which test files import via package.json `exports`) before it
-      # runs — build has to happen first on a fresh checkout, unlike the
-      # locally-documented checklist order where a dev's workspace is usually
-      # already built.
-      - run: pnpm build
       - run: pnpm test
 
   release:
